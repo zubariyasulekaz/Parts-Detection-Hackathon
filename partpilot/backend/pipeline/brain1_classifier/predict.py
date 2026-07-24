@@ -1,18 +1,18 @@
-"""Concrete `ClassifierInterface` implementation backed by EfficientNet.
+"""Concrete `ClassifierInterface` implementation backed by EfficientNet."""
 
-TODO: Implement actual inference. This class currently exists only to
-satisfy the interface contract and wire up dependency injection.
-"""
-
+import numpy as np
 from PIL.Image import Image
 
+from backend.core.exceptions import PredictionError
 from backend.core.logging import get_logger
 from backend.pipeline.brain1_classifier.config import Brain1Config
 from backend.pipeline.brain1_classifier.interfaces import (
     ClassificationResult,
     ClassifierInterface,
 )
+from backend.pipeline.brain1_classifier.labels import CATEGORY_LABELS
 from backend.pipeline.brain1_classifier.model_loader import ModelLoader
+from backend.pipeline.brain1_classifier.preprocess import preprocess_image
 
 logger = get_logger(__name__)
 
@@ -25,19 +25,46 @@ class Classifier(ClassifierInterface):
         self._model_loader = ModelLoader(self._config)
 
     def load(self) -> None:
-        """Load the EfficientNet model weights.
+        """Load the EfficientNet model weights into memory."""
+        self._model_loader.load()
 
-        TODO: Delegate to `self._model_loader.load()` once implemented.
-        """
-        raise NotImplementedError("Brain 1 Classifier.load is not implemented yet.")
+    def _resolve_label(self, index: int, num_classes: int) -> str:
+        """Map an output index to a class name (labels sidecar > constants > fallback)."""
+        labels = self._model_loader.labels or CATEGORY_LABELS
+        if 0 <= index < len(labels):
+            return labels[index]
+        logger.warning(
+            "Predicted index %d has no label (have %d labels, model has %d classes)",
+            index, len(labels), num_classes,
+        )
+        return f"class_{index}"
 
     def predict(self, image: Image) -> ClassificationResult:
-        """Classify a pre-processed part image.
+        """Classify a (background-removed) part image.
 
-        TODO:
-            1. Run `backend.pipeline.brain1_classifier.preprocess.preprocess_image`.
-            2. Run inference via `self._model_loader.get()`.
-            3. Decode the argmax index via
-               `backend.pipeline.brain1_classifier.labels.decode_label`.
+        Returns:
+            The predicted category label and its softmax confidence.
+
+        Raises:
+            backend.core.exceptions.ModelNotLoaded: If the model cannot be loaded.
+            backend.core.exceptions.PredictionError: If inference fails.
         """
-        raise NotImplementedError("Brain 1 Classifier.predict is not implemented yet.")
+        if not self._model_loader.is_loaded:
+            self.load()
+        model = self._model_loader.get()
+
+        processed = preprocess_image(image, self._config)
+        # The saved model bakes in efficientnet.preprocess_input, so feed
+        # raw 0-255 pixels with a batch dimension.
+        batch = np.asarray(processed, dtype=np.float32)[np.newaxis, ...]
+
+        try:
+            probabilities = np.asarray(model.predict(batch, verbose=0))[0]
+        except Exception as exc:  # noqa: BLE001
+            raise PredictionError(f"Classifier inference failed: {exc}") from exc
+
+        index = int(np.argmax(probabilities))
+        confidence = float(probabilities[index])
+        category = self._resolve_label(index, probabilities.shape[0])
+        logger.info("Brain 1 predicted '%s' (confidence %.3f)", category, confidence)
+        return ClassificationResult(category=category, confidence=confidence)

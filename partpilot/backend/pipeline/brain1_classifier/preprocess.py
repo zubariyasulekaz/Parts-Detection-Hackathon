@@ -1,28 +1,27 @@
 """Image pre-processing for the Brain 1 classifier.
 
-TODO: Implement the actual EfficientNet pre-processing pipeline
-(resize, center-crop, normalization, background removal via `rembg`
-if required, etc.).
+Background removal is applied once upstream (in the orchestrator) so the
+classifier and the similarity search see the same cleaned image, so this
+step only resizes to the model's input size. EfficientNet normalization
+(``efficientnet.preprocess_input``) is baked into the saved model graph
+by the training notebook, so it must NOT be re-applied here.
 """
 
+from PIL import Image as PILImage
 from PIL.Image import Image
 
 from backend.pipeline.brain1_classifier.config import Brain1Config
 
 
 def preprocess_image(image: Image, config: Brain1Config) -> Image:
-    """Prepare a raw uploaded image for classifier inference.
+    """Resize a (background-removed) image to the classifier's input size.
 
     Args:
-        image: Raw decoded PIL image, as received from the upload.
-        config: Brain 1 configuration (input size, etc.).
+        image: Decoded PIL image (already background-removed upstream).
+        config: Brain 1 configuration (``input_size``).
 
     Returns:
-        A pre-processed PIL image ready to be passed to the model.
-
-    TODO:
-        - Resize/center-crop to `config.input_size`.
-        - Apply EfficientNet-specific normalization.
-        - Optionally strip backgrounds with `rembg` before classification.
+        An RGB PIL image of size ``(input_size, input_size)``.
     """
-    raise NotImplementedError("Brain 1 preprocessing is not implemented yet.")
+    size = (config.input_size, config.input_size)
+    return image.convert("RGB").resize(size, PILImage.BILINEAR)

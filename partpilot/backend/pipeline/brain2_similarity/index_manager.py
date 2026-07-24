@@ -5,6 +5,7 @@ per-category; instead each category gets its own `FaissIndex`, looked up
 by the classifier's predicted category.
 """
 
+import re
 from pathlib import Path
 
 from backend.config.settings import get_settings
@@ -13,6 +14,18 @@ from backend.core.logging import get_logger
 from backend.pipeline.brain2_similarity.faiss_index import FaissIndex
 
 logger = get_logger(__name__)
+
+
+def category_slug(category: str) -> str:
+    """Normalize a category name to a filesystem-safe index slug.
+
+    Ensures the build side and the query side agree on index filenames
+    regardless of casing/spacing, e.g. both ``"Brake Pads"`` and the
+    classifier label ``"brake_pad"`` need to resolve consistently. Here
+    ``"Brake Pads"`` -> ``"brake_pads"``.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "_", category.strip().lower())
+    return slug.strip("_")
 
 
 class IndexManager:
@@ -33,7 +46,7 @@ class IndexManager:
                 for the given category.
         """
         if category not in self._indexes:
-            index_path = self._index_dir / f"{category}.faiss"
+            index_path = self._index_dir / f"{category_slug(category)}.faiss"
             if not index_path.exists():
                 # TODO: Once indexes are built, decide whether a missing
                 # category index should raise or fall back to a global index.

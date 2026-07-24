@@ -14,6 +14,7 @@ from PIL.Image import Image
 
 from backend.core.logging import get_logger
 from backend.pipeline.brain1_classifier.interfaces import ClassifierInterface
+from backend.pipeline.brain1_classifier.labels import resolve_catalog_category
 from backend.pipeline.brain2_similarity.interfaces import SimilaritySearchInterface
 from backend.pipeline.brain3_catalog.interfaces import (
     CatalogInterface,
@@ -61,13 +62,24 @@ class PipelineOrchestrator:
         # Brain 4 is optional/future — the pipeline must function without it.
         self._reasoning = reasoning
 
-    def run(self, image: Image, top_k: int = 10, explain: bool = False) -> OrchestratorResult:
+    def run(
+        self,
+        image: Image,
+        top_k: int = 10,
+        explain: bool = False,
+        remove_bg: bool = True,
+    ) -> OrchestratorResult:
         """Execute the full identification pipeline for a single image.
 
         Flow:
-            Image -> Brain 1 (classify) -> Brain 2 (similarity search)
+            Image -> (rembg background removal) -> Brain 1 (classify)
+                  -> Brain 2 (similarity search within the category)
                   -> Brain 3 (catalog lookup + recommendations)
                   -> Brain 4 (optional LLM explanation)
+
+        Background removal is applied once, up front, so both the classifier
+        and the similarity search operate on the same cleaned image (and so
+        it matches how the catalog embeddings were built).
 
         Args:
             image: Decoded part image to identify.
@@ -75,6 +87,8 @@ class PipelineOrchestrator:
             explain: Whether to additionally invoke Brain 4 for a
                 natural-language explanation. Ignored (no-op) until
                 Brain 4 is implemented.
+            remove_bg: Whether to strip the image background with rembg
+                before classification/search.
 
         Returns:
             An `OrchestratorResult` aggregating every stage's output.
@@ -85,12 +99,21 @@ class PipelineOrchestrator:
         """
         start = perf_counter()
 
+        # Stage 0: strip the background so the part stands alone.
+        if remove_bg:
+            from backend.utils.image_utils import remove_background  # lazy: heavy dep
+
+            image = remove_background(image)
+
         # Stage 1: classify the image into a category.
         classification = self._classifier.predict(image)
+        # Map the classifier label to the catalog category (e.g.
+        # "brake_pad" -> "Brake Pads") used for the FAISS index + catalog.
+        category = resolve_catalog_category(classification.category)
 
         # Stage 2: search for visually similar SKUs within that category.
         matches = self._similarity_search.search(
-            category=classification.category, image=image, top_k=top_k
+            category=category, image=image, top_k=top_k
         )
         search_results = [
             SearchResult(sku=m.sku, similarity_score=m.similarity_score) for m in matches
@@ -98,7 +121,7 @@ class PipelineOrchestrator:
 
         elapsed_ms = (perf_counter() - start) * 1000
         prediction = PredictionResponse(
-            predicted_category=classification.category,
+            predicted_category=category,
             confidence=classification.confidence,
             search_time_ms=elapsed_ms,
             results=search_results,

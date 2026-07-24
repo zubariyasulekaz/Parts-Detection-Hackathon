@@ -101,6 +101,12 @@ class MetadataLoader:
         except KeyError as exc:
             raise CatalogError(f"Unknown SKU: {sku}") from exc
 
+    def all_records(self) -> list[dict[str, Any]]:
+        """Return every catalog record (loads the catalog on first access)."""
+        self._ensure_loaded()
+        assert self._records_by_sku is not None
+        return list(self._records_by_sku.values())
+
     def get_records_by_category(self, category: str, limit: int | None = None) -> list[dict[str, Any]]:
         """Return raw records for a category (case-insensitive), up to `limit`."""
         self._ensure_loaded()

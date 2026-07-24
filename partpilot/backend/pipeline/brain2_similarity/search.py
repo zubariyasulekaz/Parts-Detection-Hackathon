@@ -38,11 +38,13 @@ class SimilaritySearchService(SimilaritySearchInterface):
     ) -> list[SimilarityMatch]:
         """Find the top-K most visually similar SKUs within a category.
 
-        TODO:
-            1. `embedding = self._embedding_generator.generate(image)`.
-            2. `index = self._index_manager.get_index(category)`.
-            3. `raw_matches = index.search(embedding, top_k)`.
-            4. Map raw matches to `SimilarityMatch` instances.
+        Raises:
+            backend.core.exceptions.EmbeddingError: If embedding fails.
+            backend.core.exceptions.SearchError: If no index exists for the
+                category or the search fails.
         """
         top_k = top_k or get_settings().FAISS_TOP_K
-        raise NotImplementedError("Brain 2 similarity search is not implemented yet.")
+        embedding = self._embedding_generator.generate(image)
+        index = self._index_manager.get_index(category)
+        raw_matches = index.search(embedding, top_k)
+        return [SimilarityMatch(sku=sku, similarity_score=score) for sku, score in raw_matches]

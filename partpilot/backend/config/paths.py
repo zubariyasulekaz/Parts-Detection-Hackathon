@@ -28,6 +28,7 @@ FAISS_MODEL_DIR: Path = MODELS_DIR / "faiss"
 
 # --- other top level dirs ---------------------------------------------------------------
 DATASETS_DIR: Path = ROOT_DIR / "datasets"
+CATALOG_CSV_PATH: Path = DATASETS_DIR / "catalog.csv"
 NOTEBOOKS_DIR: Path = ROOT_DIR / "notebooks"
 SCRIPTS_DIR: Path = ROOT_DIR / "scripts"
 DOCS_DIR: Path = ROOT_DIR / "docs"

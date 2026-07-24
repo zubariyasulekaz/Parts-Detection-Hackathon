@@ -1,0 +1,50 @@
+# --- Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# --- environment / secrets ---------------------------------------------------------------
+.env
+*.env.local
+
+# --- testing / tooling ---------------------------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- IDE ---------------------------------------------------------------
+.vscode/
+.idea/
+
+# --- OS ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- PartPilot runtime artifacts (models, indexes, uploads, generated data) ---------------------------------------------------------------
+backend/data/catalog/*
+!backend/data/catalog/.gitkeep
+backend/data/embeddings/*
+!backend/data/embeddings/.gitkeep
+backend/data/indexes/*
+!backend/data/indexes/.gitkeep
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
+
+backend/models/classifier/*
+!backend/models/classifier/.gitkeep
+backend/models/clip/*
+!backend/models/clip/.gitkeep
+backend/models/faiss/*
+!backend/models/faiss/.gitkeep
+
+datasets/*
+!datasets/.gitkeep
+notebooks/.ipynb_checkpoints/

@@ -7,12 +7,16 @@ approach from vector_1.py), then writes one ``<category_slug>.faiss`` index
 
 Requires: ``faiss-cpu``, ``open_clip_torch``, ``torch`` (run in Colab or an
 env where these are installed), and images already converted to a loadable
-format (JPG/PNG) via ``scripts/convert_images_to_jpg.py``.
+format (JPG/PNG) via ``scripts/convert_images_to_jpg.py``. With ``--remove-bg``
+each catalog image is background-removed (rembg) so the stored vectors match
+how the runtime cleans an uploaded query image.
 
 Run:
-    python scripts/build_faiss_indexes.py
+    python scripts/build_faiss_indexes.py                # embed images as-is
+    python scripts/build_faiss_indexes.py --remove-bg    # rembg first (recommended)
 """
 
+import argparse
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -28,18 +32,30 @@ from backend.pipeline.brain2_similarity.embedding_generator import EmbeddingGene
 from backend.pipeline.brain2_similarity.faiss_index import FaissIndex  # noqa: E402
 from backend.pipeline.brain2_similarity.index_manager import category_slug  # noqa: E402
 from backend.pipeline.brain3_catalog.metadata_loader import MetadataLoader  # noqa: E402
+from backend.utils.image_utils import remove_background  # noqa: E402
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 
-def product_embedding(sku_folder: Path, generator: EmbeddingGenerator) -> np.ndarray | None:
-    """Mean of per-image embeddings for one product, L2-normalized."""
+def product_embedding(
+    sku_folder: Path,
+    generator: EmbeddingGenerator,
+    remove_bg: bool = False,
+) -> np.ndarray | None:
+    """Mean of per-image embeddings for one product, L2-normalized.
+
+    If ``remove_bg`` is set, each image is background-removed before
+    embedding, matching the runtime query preprocessing.
+    """
     vectors: list[np.ndarray] = []
     for img_path in sorted(sku_folder.iterdir()):
         if img_path.suffix.lower() not in IMAGE_EXTS:
             continue
         try:
             with Image.open(img_path) as im:
+                im = im.convert("RGB")
+                if remove_bg:
+                    im = remove_background(im)
                 vectors.append(generator.generate(im))
         except Exception as exc:  # noqa: BLE001
             print(f"    [skip] {img_path.name}: {type(exc).__name__}: {exc}")
@@ -52,6 +68,14 @@ def product_embedding(sku_folder: Path, generator: EmbeddingGenerator) -> np.nda
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--remove-bg",
+        action="store_true",
+        help="Background-remove each catalog image (rembg) before embedding.",
+    )
+    cli_args = parser.parse_args()
+
     loader = MetadataLoader()
 
     # Group SKU records by category.
@@ -78,7 +102,7 @@ def main() -> None:
                 print(f"    [skip] {sku}: folder not found ({sku_folder})")
                 continue
 
-            vector = product_embedding(sku_folder, generator)
+            vector = product_embedding(sku_folder, generator, remove_bg=cli_args.remove_bg)
             if vector is None:
                 print(f"    [skip] {sku}: no loadable images")
                 continue

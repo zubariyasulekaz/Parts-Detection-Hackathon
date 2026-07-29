@@ -1,7 +1,8 @@
 """Abstract interfaces for Brain 3 (Catalog Intelligence).
 
 Downstream code should depend on `CatalogInterface`, not the concrete
-`CatalogService` implementation.
+`ProductService` implementation. Methods are `async` because the
+concrete implementation is backed by PostgreSQL via an `AsyncSession`.
 """
 
 from abc import ABC, abstractmethod
@@ -14,17 +15,18 @@ class CatalogInterface(ABC):
     """Contract for reading catalog metadata."""
 
     @abstractmethod
-    def get_product(self, sku: str) -> Product:
+    async def get_product(self, sku: str) -> Product:
         """Fetch full catalog metadata for a single SKU.
 
         Raises:
-            backend.core.exceptions.CatalogError: If the SKU is unknown
-                or the catalog cannot be read.
+            backend.core.exceptions.ProductNotFound: If the SKU is unknown.
+            backend.core.exceptions.CatalogError: If the catalog cannot
+                be read.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def search_by_category(self, category: str, limit: int = 50) -> list[Product]:
+    async def search_by_category(self, category: str, limit: int = 50) -> list[Product]:
         """List products belonging to a given category.
 
         Args:
@@ -38,10 +40,10 @@ class RecommendationInterface(ABC):
     """Contract for producing alternative/accessory recommendations."""
 
     @abstractmethod
-    def recommend(self, sku: str) -> Recommendation:
+    async def recommend(self, sku: str) -> Recommendation:
         """Return alternative and accessory products related to `sku`.
 
         Raises:
-            backend.core.exceptions.CatalogError: If the SKU is unknown.
+            backend.core.exceptions.ProductNotFound: If the SKU is unknown.
         """
         raise NotImplementedError

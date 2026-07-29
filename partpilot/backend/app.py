@@ -21,6 +21,8 @@ from backend.core.exceptions import (
     ModelNotLoaded,
     PartPilotError,
     PredictionError,
+    ProductAlreadyExists,
+    ProductNotFound,
     SearchError,
 )
 from backend.core.logging import get_logger
@@ -34,6 +36,8 @@ _EXCEPTION_STATUS_MAP: dict[type[PartPilotError], int] = {
     InvalidImage: status.HTTP_400_BAD_REQUEST,
     CategoryNotFound: status.HTTP_404_NOT_FOUND,
     CatalogError: status.HTTP_404_NOT_FOUND,
+    ProductNotFound: status.HTTP_404_NOT_FOUND,
+    ProductAlreadyExists: status.HTTP_409_CONFLICT,
     ModelNotLoaded: status.HTTP_503_SERVICE_UNAVAILABLE,
     EmbeddingError: status.HTTP_502_BAD_GATEWAY,
     SearchError: status.HTTP_502_BAD_GATEWAY,
@@ -46,7 +50,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifespan handler: runs startup routines, then shutdown on exit."""
     on_startup()
     yield
-    on_shutdown()
+    await on_shutdown()
 
 
 def _register_exception_handlers(app: FastAPI) -> None:

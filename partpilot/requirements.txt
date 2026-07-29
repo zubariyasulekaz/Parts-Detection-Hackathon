@@ -8,6 +8,13 @@ pydantic==2.10.4
 pydantic-settings==2.7.1
 python-dotenv==1.0.1
 
+# --- database ---------------------------------------------------------------
+SQLAlchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+# sync driver used by Alembic's migration runner only (the app itself uses asyncpg)
+psycopg2-binary==2.9.10
+
 # --- AI / ML (Brain 1-2 implementations to be added by the team) ---------------------------------------------------------------
 tensorflow==2.18.0
 open_clip_torch==2.29.0

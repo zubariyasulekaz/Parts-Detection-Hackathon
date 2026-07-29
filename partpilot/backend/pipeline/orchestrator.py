@@ -61,7 +61,7 @@ class PipelineOrchestrator:
         # Brain 4 is optional/future — the pipeline must function without it.
         self._reasoning = reasoning
 
-    def run(self, image: Image, top_k: int = 10, explain: bool = False) -> OrchestratorResult:
+    async def run(self, image: Image, top_k: int = 10, explain: bool = False) -> OrchestratorResult:
         """Execute the full identification pipeline for a single image.
 
         Flow:
@@ -111,8 +111,8 @@ class PipelineOrchestrator:
         recommendation: Recommendation | None = None
         if search_results:
             top_sku = search_results[0].sku
-            product = self._catalog.get_product(top_sku)
-            recommendation = self._recommendation_service.recommend(top_sku)
+            product = await self._catalog.get_product(top_sku)
+            recommendation = await self._recommendation_service.recommend(top_sku)
 
         # Stage 4 (optional, future): LLM-generated explanation.
         explanation: str | None = None

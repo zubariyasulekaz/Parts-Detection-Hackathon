@@ -41,6 +41,18 @@ class CatalogError(PartPilotError):
     error_code = "CATALOG_ERROR"
 
 
+class ProductNotFound(CatalogError):
+    """Raised when a requested product SKU does not exist in the catalog."""
+
+    error_code = "PRODUCT_NOT_FOUND"
+
+
+class ProductAlreadyExists(CatalogError):
+    """Raised when creating a product whose SKU is already in use."""
+
+    error_code = "PRODUCT_ALREADY_EXISTS"
+
+
 class EmbeddingError(PartPilotError):
     """Raised when embedding generation fails."""
 

@@ -25,7 +25,7 @@ async def predict_part(
     TODO: Replace the dummy response below with a real call once Brain
     1-3 are implemented, e.g.:
         image = load_image_from_bytes(await file.read())
-        result = orchestrator.run(image)
+        result = await orchestrator.run(image)
         return StandardResponse(data=result.prediction)
 
     Args:

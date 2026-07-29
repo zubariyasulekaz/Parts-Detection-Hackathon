@@ -6,7 +6,9 @@ All routes are gated behind `verify_api_key`.
 
 from fastapi import APIRouter, Depends
 
+from backend.api.dependencies import get_product_service
 from backend.core.security import verify_api_key
+from backend.pipeline.brain3_catalog.product_service import ProductService
 from backend.schemas.response import StandardResponse
 
 router = APIRouter(
@@ -42,11 +44,16 @@ async def rebuild_faiss_index(category: str | None = None) -> StandardResponse[d
     )
 
 
-@router.post("/reload-catalog", response_model=StandardResponse[dict])
-async def reload_catalog() -> StandardResponse[dict]:
-    """Reload catalog metadata from `Settings.CATALOG_PATH`.
+@router.get("/catalog-stats", response_model=StandardResponse[dict])
+async def catalog_stats(
+    service: ProductService = Depends(get_product_service),
+) -> StandardResponse[dict]:
+    """Report basic product catalog statistics.
 
-    TODO: Implement by calling `MetadataLoader.load()` on the shared
-    `CatalogService` singleton.
+    Unlike the old flat-file design, the catalog is now PostgreSQL-backed
+    and always live — there is no in-memory cache to reload, so this
+    replaces the previous `reload-catalog` placeholder with a real
+    (if minimal) admin action.
     """
-    return StandardResponse(message="Dummy response: catalog reload is not yet implemented", data={})
+    total = await service.count()
+    return StandardResponse(data={"total_products": total})

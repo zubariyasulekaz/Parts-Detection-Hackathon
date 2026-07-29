@@ -10,7 +10,6 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from backend.config.paths import (
-    CATALOG_DATA_DIR,
     CLASSIFIER_MODEL_DIR,
     FAISS_MODEL_DIR,
     UPLOADS_DIR,
@@ -50,8 +49,13 @@ class Settings(BaseSettings):
     MODEL_PATH: str = str(CLASSIFIER_MODEL_DIR)
     CLIP_MODEL_PATH: str = ""
     FAISS_PATH: str = str(FAISS_MODEL_DIR)
-    CATALOG_PATH: str = str(CATALOG_DATA_DIR)
     UPLOAD_PATH: str = str(UPLOADS_DIR)
+
+    # --- database (Brain 3 product catalog) ---------------------------------------------------------------
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/partpilot"
+    DB_ECHO: bool = False
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
 
     # --- Brain 1: classifier ---------------------------------------------------------------
     CLASSIFIER_INPUT_SIZE: int = 224

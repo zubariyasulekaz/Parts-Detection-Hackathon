@@ -27,6 +27,7 @@ Run:
 """
 
 import argparse
+import csv
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -38,10 +39,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.config.paths import DATASETS_DIR  # noqa: E402
 from backend.pipeline.brain2_similarity.embedding_generator import EmbeddingGenerator  # noqa: E402
-from backend.pipeline.brain3_catalog.metadata_loader import MetadataLoader  # noqa: E402
 from backend.utils.image_utils import remove_background  # noqa: E402
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def load_catalog() -> list[dict[str, str]]:
+    """Read catalog.csv directly.
+
+    Brain 3 reads products from the database, but evaluating Brain 2 only
+    needs sku/category/image_folder, so we go straight to the CSV and avoid
+    requiring a database connection just to score the index.
+    """
+    path = DATASETS_DIR / "catalog.csv"
+    if not path.is_file():
+        raise SystemExit(f"catalog.csv not found: {path}")
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        return [row for row in csv.DictReader(f) if (row.get("sku") or "").strip()]
 
 
 def unit(v: np.ndarray) -> np.ndarray:
@@ -59,7 +73,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    loader = MetadataLoader()
+    records = load_catalog()
     generator = EmbeddingGenerator()
 
     # --- 1. embed every catalog image once -------------------------------
@@ -68,7 +82,7 @@ def main() -> None:
     total_imgs = 0
 
     print("Embedding catalog images...")
-    for record in loader.all_records():
+    for record in records:
         category = (record.get("category") or "").strip()
         sku = record["sku"]
         if not category:

@@ -1,0 +1,10 @@
+sku,product_name,brand,category,manufacturer_part_number,compatible_vehicles,replacement_sku,alternative_sku,accessory_skus,description,image_folder,image_count
+DE1439,Disc Brake Pad Set,,Brake Pads,DE1439,,,DG184,,,images/DE1439,4
+DG184,Disc Brake Pad Set,,Brake Pads,DG184,,,DG2102,,,images/DG184,6
+DG2102,Disc Brake Pad Set,,Brake Pads,DG2102,,,MKD605,,,images/DG2102,6
+MKD605,Disc Brake Pad Set,,Brake Pads,MKD605,,,MKD629,,,images/MKD605,6
+MKD629,Disc Brake Pad Set,,Brake Pads,MKD629,,,MKD643,,,images/MKD629,3
+MKD643,Disc Brake Pad Set,,Brake Pads,MKD643,,,DE1439,,,images/MKD643,6
+3978,Engine Oil Filter,,Oil Filter,3978,,,S45011,,,images/3978,9
+S45011,Engine Oil Filter,,Oil Filter,S45011,,,S45023,,,images/S45011,7
+S45023,Engine Oil Filter,,Oil Filter,S45023,,,3978,,,images/S45023,8

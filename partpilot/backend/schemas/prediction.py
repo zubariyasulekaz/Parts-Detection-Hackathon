@@ -1,7 +1,9 @@
 """Schemas for the classification + similarity-search prediction flow
 (Brain 1 and Brain 2 outputs)."""
 
+from backend.schemas.catalog import Product
 from backend.schemas.common import APIModel
+from backend.schemas.recommendation import Recommendation
 
 
 class PredictionRequest(APIModel):
@@ -25,9 +27,18 @@ class SearchResult(APIModel):
 
 
 class PredictionResponse(APIModel):
-    """Result of the end-to-end prediction pipeline."""
+    """Result of the Brain 1 + Brain 2 stages: category + top-K SKU matches."""
 
     predicted_category: str
     confidence: float
     search_time_ms: float
     results: list[SearchResult] = []
+
+
+class PredictionResult(APIModel):
+    """Full end-to-end pipeline result (Brain 1-4), as returned by `/predict`."""
+
+    prediction: PredictionResponse
+    product: Product | None = None
+    recommendation: Recommendation | None = None
+    explanation: str | None = None

@@ -1,0 +1,99 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading OpenCLIP ViT-B-32-quickgelu/openai on cpu...
+
+[train/air_filter] 153 images
+  -> flagged 0/153
+
+[train/brake_pads] 206 images
+  -> flagged 1/206
+
+[train/exhaust_manifold] 244 images
+  -> flagged 0/244
+
+[train/fuel_injector] 210 images
+  -> flagged 2/210
+
+[train/oil_filter] 195 images
+  -> flagged 0/195
+
+[train/power_steering_pump] 190 images
+  -> flagged 0/190
+
+[train/shock_absorber] 196 images
+  -> flagged 0/196
+
+[train/suspension_bushing] 243 images
+  -> flagged 0/243
+
+[train/throttle_body] 219 images
+  -> flagged 0/219
+
+[train/wheel_hub_assembly] 186 images
+  -> flagged 0/186
+
+[val/air_filter] 32 images
+  -> flagged 0/32
+
+[val/brake_pads] 44 images
+  -> flagged 0/44
+
+[val/exhaust_manifold] 52 images
+  -> flagged 0/52
+
+[val/fuel_injector] 45 images
+  -> flagged 2/45
+
+[val/oil_filter] 41 images
+  -> flagged 0/41
+
+[val/power_steering_pump] 40 images
+  -> flagged 0/40
+
+[val/shock_absorber] 42 images
+  -> flagged 0/42
+
+[val/suspension_bushing] 52 images
+  -> flagged 0/52
+
+[val/throttle_body] 47 images
+  -> flagged 0/47
+
+[val/wheel_hub_assembly] 39 images
+  -> flagged 0/39
+
+[test/air_filter] 34 images
+  -> flagged 1/34
+
+[test/brake_pads] 45 images
+  -> flagged 1/45
+
+[test/exhaust_manifold] 53 images
+  -> flagged 0/53
+
+[test/fuel_injector] 45 images
+  -> flagged 2/45
+
+[test/oil_filter] 43 images
+  -> flagged 0/43
+
+[test/power_steering_pump] 42 images
+  -> flagged 0/42
+
+[test/shock_absorber] 42 images
+  -> flagged 0/42
+
+[test/suspension_bushing] 53 images
+  -> flagged 0/53
+
+[test/throttle_body] 48 images
+  -> flagged 0/48
+
+[test/wheel_hub_assembly] 41 images
+  -> flagged 0/41
+
+=== Summary ===
+Kept:       2913
+Flagged:    9
+Unreadable: 0
+Manifest written to dataset_flagged\manifest.csv

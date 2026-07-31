@@ -1,0 +1,302 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Surfaces — slightly wider range than the base spec so cards actually
+     separate from the page instead of reading as one black slab. */
+  --color-background: #0b0f14;
+  --color-surface: #161d26;
+  --color-surface-2: #1e2833;
+  --color-surface-3: #2a3542;
+  --color-surface-4: #364354;
+
+  /* Text */
+  --color-foreground: #f5f7fa;
+  --color-muted: #9aa4af;
+  --color-subtle: #5f6b78;
+
+  /* Brand accent */
+  --color-accent: #2f80ed;
+  --color-accent-soft: #5fa4f7;
+  --color-accent-hover: #4c94f2;
+  --color-accent-muted: #1c3a5e;
+
+  /* Status */
+  --color-success: #34c77a;
+  --color-success-soft: #6fdba0;
+  --color-success-muted: #1c3a2c;
+  --color-warning: #d9a441;
+  --color-warning-soft: #f0c46e;
+  --color-warning-muted: #3a2f1a;
+  --color-danger: #e5594f;
+  --color-danger-muted: #3a1f1d;
+
+  /* Structure */
+  --color-border: rgba(245, 247, 250, 0.09);
+  --color-border-strong: rgba(245, 247, 250, 0.18);
+
+  --animate-scan-line: scan-line 2.4s ease-in-out infinite;
+  --animate-fade-in: fade-in 0.5s ease-out both;
+  --animate-fade-slide-up: fade-slide-up 0.5s ease-out both;
+  --animate-pulse-soft: pulse-soft 1.8s ease-in-out infinite;
+  --animate-glow-pulse: glow-pulse 3s ease-in-out infinite;
+  --animate-scan-lock: scan-lock 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pop-in: pop-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-float: float 5s ease-in-out infinite;
+
+  @keyframes scan-line {
+    0% {
+      transform: translateY(-6%);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    88% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(106%);
+      opacity: 0;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+
+  @keyframes glow-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.04);
+    }
+  }
+
+  @keyframes scan-lock {
+    0% {
+      opacity: 0;
+      transform: scale(1.7);
+    }
+    60% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes pop-in {
+    0% {
+      opacity: 0;
+      transform: translateY(6px) scale(0.96);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--color-accent-muted);
+    color: var(--color-foreground);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-background);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-3);
+    border-radius: 999px;
+    border: 2px solid var(--color-background);
+  }
+}
+
+/* Fine line grid — reserved for small product-illustration tiles. */
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(245, 247, 250, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(245, 247, 250, 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Dot grid — the page-level background texture. Reads as engineering
+   blueprint / precision instrumentation rather than a spreadsheet grid. */
+@utility bg-dot-grid {
+  background-image: radial-gradient(rgba(245, 247, 250, 0.16) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+@utility bg-dot-grid-fine {
+  background-image: radial-gradient(rgba(245, 247, 250, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Perspective "floor" grid — a real 3D CSS transform, not a flat pattern.
+   Apply to a bottom-anchored element with a fade mask; gives the hero its
+   dimensional, precision-instrument depth without any particle/canvas lib. */
+@utility bg-perspective-grid {
+  background-image:
+    linear-gradient(rgba(95, 164, 247, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(95, 164, 247, 0.5) 1px, transparent 1px);
+  background-size: 64px 64px;
+  transform: perspective(600px) rotateX(62deg);
+  transform-origin: bottom center;
+}
+
+/* Ambient radial glow — used behind hero content and other "hero moments".
+   Position with a wrapping absolutely-positioned element, not this utility. */
+@utility bg-spotlight-accent {
+  background: radial-gradient(closest-side, rgba(47, 128, 237, 0.32), transparent 70%);
+  filter: blur(60px);
+}
+
+@utility bg-spotlight-success {
+  background: radial-gradient(closest-side, rgba(52, 199, 122, 0.28), transparent 70%);
+  filter: blur(60px);
+}
+
+/* Colored elevation shadows — the primary lever for "premium" depth on a
+   near-monochrome dark theme. Use in place of plain black shadows on
+   interactive or emphasized surfaces. */
+@utility shadow-glow-accent {
+  box-shadow:
+    0 0 0 1px rgba(47, 128, 237, 0.18),
+    0 12px 32px -12px rgba(47, 128, 237, 0.45),
+    0 4px 12px -4px rgba(0, 0, 0, 0.4);
+}
+
+@utility shadow-glow-accent-lg {
+  box-shadow:
+    0 0 0 1px rgba(47, 128, 237, 0.22),
+    0 24px 60px -16px rgba(47, 128, 237, 0.5),
+    0 8px 24px -8px rgba(0, 0, 0, 0.5);
+}
+
+@utility shadow-glow-success {
+  box-shadow:
+    0 0 0 1px rgba(52, 199, 122, 0.2),
+    0 8px 28px -10px rgba(52, 199, 122, 0.4);
+}
+
+@utility shadow-glow-warning {
+  box-shadow:
+    0 0 0 1px rgba(217, 164, 65, 0.22),
+    0 8px 28px -10px rgba(217, 164, 65, 0.35);
+}
+
+@utility shadow-card {
+  box-shadow:
+    inset 0 1px 0 0 rgba(245, 247, 250, 0.05),
+    0 1px 2px 0 rgba(0, 0, 0, 0.3),
+    0 12px 24px -12px rgba(0, 0, 0, 0.5);
+}
+
+@utility shadow-card-lg {
+  box-shadow:
+    inset 0 1px 0 0 rgba(245, 247, 250, 0.06),
+    0 20px 48px -20px rgba(0, 0, 0, 0.65);
+}
+
+/* Gradient text for the one or two words per page that should carry
+   emphasis — never the whole headline. */
+@utility text-gradient-accent {
+  background-image: linear-gradient(100deg, var(--color-accent-soft), var(--color-accent));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,30 +1,96 @@
 """Tests for the /predict endpoint.
 
-Only exercises the dummy placeholder response — once Brain 1-3 are
-implemented, extend this with real fixture images and assertions
-against actual predictions.
+The orchestrator is replaced with a fake via dependency override so these
+tests exercise the HTTP/router wiring without pulling in the heavy AI
+dependencies (tensorflow, rembg, faiss, open_clip) or a trained model.
 """
 
 import io
 
+import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
+
+from backend.api.dependencies import get_orchestrator
+from backend.app import create_app
+from backend.pipeline.orchestrator import OrchestratorResult
+from backend.schemas.prediction import PredictionResponse, SearchResult
 
 
-def test_predict_returns_dummy_response(client: TestClient) -> None:
-    fake_image = io.BytesIO(b"not-a-real-image-just-bytes-for-the-dummy-endpoint")
+class _FakeOrchestrator:
+    """Returns a canned prediction, ignoring the actual image."""
 
+    async def run(self, image, top_k=10, explain=False, remove_bg=True):  # noqa: ANN001, D102
+        return OrchestratorResult(
+            prediction=PredictionResponse(
+                predicted_category="Oil Filter",
+                confidence=0.93,
+                search_time_ms=12.3,
+                results=[
+                    SearchResult(sku="3978", similarity_score=0.88),
+                    SearchResult(sku="S45011", similarity_score=0.71),
+                ][:top_k],
+            ),
+            explanation="This looks like a spin-on oil filter." if explain else None,
+        )
+
+
+@pytest.fixture
+def client() -> TestClient:
+    app = create_app()
+    app.dependency_overrides[get_orchestrator] = _FakeOrchestrator
+    return TestClient(app)
+
+
+def _png_bytes(color: tuple[int, int, int] = (120, 120, 120)) -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (32, 32), color).save(buf, "PNG")
+    return buf.getvalue()
+
+
+def test_predict_returns_top_matches(client: TestClient) -> None:
     response = client.post(
         "/api/v1/predict",
-        files={"file": ("part.jpg", fake_image, "image/jpeg")},
+        files={"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")},
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["success"] is True
-    assert "predicted_category" in body["data"]
+    prediction = body["data"]["prediction"]
+    assert prediction["predicted_category"] == "Oil Filter"
+    assert prediction["confidence"] == pytest.approx(0.93)
+    assert [r["sku"] for r in prediction["results"]] == ["3978", "S45011"]
+    assert prediction["results"][0]["similarity_score"] == pytest.approx(0.88)
+    assert "Best match: 3978" in body["message"]
+    assert body["data"]["explanation"] == "This looks like a spin-on oil filter."
 
 
-# TODO: Once Brain 1-3 are implemented, add tests covering:
-#   - Rejecting invalid/corrupt image uploads (400).
-#   - Rejecting oversized uploads (400).
-#   - Real classification + similarity search results for known fixtures.
+def test_predict_respects_top_k(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/predict?top_k=1",
+        files={"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["data"]["prediction"]["results"]) == 1
+
+
+def test_predict_skips_explanation_when_disabled(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/predict?explain=false",
+        files={"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["explanation"] is None
+
+
+def test_predict_rejects_invalid_image(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/predict",
+        files={"file": ("bad.jpg", io.BytesIO(b"not-a-real-image"), "image/jpeg")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "INVALID_IMAGE"

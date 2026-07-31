@@ -1,0 +1,97 @@
+Loading OpenCLIP ViT-B-32-quickgelu/openai on cpu...
+
+[train/air_filter] 153 images
+  -> flagged 1/153
+
+[train/brake_pads] 205 images
+  -> flagged 1/205
+
+[train/exhaust_manifold] 244 images
+  -> flagged 2/244
+
+[train/fuel_injector] 208 images
+  -> flagged 1/208
+
+[train/oil_filter] 195 images
+  -> flagged 1/195
+
+[train/power_steering_pump] 190 images
+  -> flagged 0/190
+
+[train/shock_absorber] 196 images
+  -> flagged 1/196
+
+[train/suspension_bushing] 243 images
+  -> flagged 0/243
+
+[train/throttle_body] 219 images
+  -> flagged 1/219
+
+[train/wheel_hub_assembly] 186 images
+  -> flagged 0/186
+
+[val/air_filter] 32 images
+  -> flagged 1/32
+
+[val/brake_pads] 44 images
+  -> flagged 0/44
+
+[val/exhaust_manifold] 52 images
+  -> flagged 0/52
+
+[val/fuel_injector] 43 images
+  -> flagged 1/43
+
+[val/oil_filter] 41 images
+  -> flagged 0/41
+
+[val/power_steering_pump] 40 images
+  -> flagged 0/40
+
+[val/shock_absorber] 42 images
+  -> flagged 0/42
+
+[val/suspension_bushing] 52 images
+  -> flagged 0/52
+
+[val/throttle_body] 47 images
+  -> flagged 0/47
+
+[val/wheel_hub_assembly] 39 images
+  -> flagged 0/39
+
+[test/air_filter] 33 images
+  -> flagged 0/33
+
+[test/brake_pads] 44 images
+  -> flagged 0/44
+
+[test/exhaust_manifold] 53 images
+  -> flagged 0/53
+
+[test/fuel_injector] 43 images
+  -> flagged 1/43
+
+[test/oil_filter] 43 images
+  -> flagged 0/43
+
+[test/power_steering_pump] 42 images
+  -> flagged 0/42
+
+[test/shock_absorber] 42 images
+  -> flagged 0/42
+
+[test/suspension_bushing] 53 images
+  -> flagged 1/53
+
+[test/throttle_body] 48 images
+  -> flagged 0/48
+
+[test/wheel_hub_assembly] 41 images
+  -> flagged 0/41
+
+=== Summary ===
+Kept:       2901
+Flagged:    12
+Unreadable: 0
+Manifest written to dataset_flagged\manifest.csv

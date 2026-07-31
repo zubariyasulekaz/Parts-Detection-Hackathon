@@ -69,3 +69,9 @@ class PredictionError(PartPilotError):
     """Raised when the end-to-end prediction pipeline fails."""
 
     error_code = "PREDICTION_ERROR"
+
+
+class ReasoningError(PartPilotError):
+    """Raised when the Brain 4 LLM cannot be loaded or generation fails."""
+
+    error_code = "REASONING_ERROR"

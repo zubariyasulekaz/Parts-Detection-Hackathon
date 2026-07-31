@@ -22,19 +22,46 @@ class CLIPModel:
         self._pretrained = pretrained or settings.OPENCLIP_PRETRAINED
         self._model: Any | None = None
         self._preprocess: Any | None = None
+        self._device: str = "cpu"
 
     @property
     def is_loaded(self) -> bool:
         """Whether the OpenCLIP model has been loaded into memory."""
         return self._model is not None
 
+    @property
+    def device(self) -> str:
+        """The torch device the model is loaded on (``"cpu"`` or ``"cuda"``)."""
+        return self._device
+
     def load(self) -> None:
         """Load the OpenCLIP model and preprocessing transform.
 
-        TODO: Implement via `open_clip.create_model_and_transforms(
-        self._model_name, pretrained=self._pretrained)`.
+        ``open_clip``/``torch`` are imported lazily so this module can be
+        imported in environments where they are not installed.
         """
-        raise NotImplementedError("OpenCLIP model loading is not implemented yet.")
+        try:
+            import open_clip  # noqa: PLC0415
+            import torch  # noqa: PLC0415
+        except ImportError as exc:  # pragma: no cover - env-dependent
+            raise ModelNotLoaded(
+                "open_clip_torch / torch are not installed; cannot load the OpenCLIP model."
+            ) from exc
+
+        self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        model, _, preprocess = open_clip.create_model_and_transforms(
+            self._model_name, pretrained=self._pretrained
+        )
+        model = model.to(self._device)
+        model.eval()
+        self._model = model
+        self._preprocess = preprocess
+        logger.info(
+            "Loaded OpenCLIP model %s/%s on %s",
+            self._model_name,
+            self._pretrained,
+            self._device,
+        )
 
     def get(self) -> tuple[Any, Any]:
         """Return the `(model, preprocess)` pair, once loaded.

@@ -10,6 +10,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from backend.config.paths import (
+    CATALOG_CSV_PATH,
     CLASSIFIER_MODEL_DIR,
     FAISS_MODEL_DIR,
     UPLOADS_DIR,
@@ -49,6 +50,7 @@ class Settings(BaseSettings):
     MODEL_PATH: str = str(CLASSIFIER_MODEL_DIR)
     CLIP_MODEL_PATH: str = ""
     FAISS_PATH: str = str(FAISS_MODEL_DIR)
+    CATALOG_PATH: str = str(CATALOG_CSV_PATH)
     UPLOAD_PATH: str = str(UPLOADS_DIR)
 
     # --- database (Brain 3 product catalog) ---------------------------------------------------------------
@@ -66,9 +68,10 @@ class Settings(BaseSettings):
     OPENCLIP_PRETRAINED: str = "openai"
     FAISS_TOP_K: int = 10
 
-    # --- Brain 4: reasoning (future) ---------------------------------------------------------------
+    # --- Brain 4: reasoning ---------------------------------------------------------------
     HF_TOKEN: str | None = None
-    LLM_MODEL_NAME: str | None = None
+    LLM_MODEL_NAME: str = "Qwen/Qwen2.5-1.5B-Instruct"
+    LLM_MAX_NEW_TOKENS: int = 256
 
     # --- uploads ---------------------------------------------------------------
     MAX_UPLOAD_SIZE_MB: int = 10

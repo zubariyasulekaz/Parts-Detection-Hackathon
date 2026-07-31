@@ -1,9 +1,7 @@
 """Abstract interfaces for Brain 4 (Reasoning).
 
-This module intentionally contains ONLY interfaces/value objects. No
-implementation exists yet — Brain 4 is a future module that will wrap a
-Hugging Face LLM to generate natural-language explanations of the
-Brain 1-3 results.
+Downstream code should depend on `ReasoningInterface`, not the concrete
+`LLMService` (Qwen, via Hugging Face `transformers`) implementation.
 """
 
 from abc import ABC, abstractmethod
@@ -14,11 +12,7 @@ from backend.schemas.recommendation import Recommendation
 
 
 class ReasoningInterface(ABC):
-    """Contract for LLM-based explanation generation.
-
-    TODO (future): Define the concrete implementation in `llm_service.py`
-    once a Hugging Face model/endpoint is selected.
-    """
+    """Contract for LLM-based explanation generation."""
 
     @abstractmethod
     def explain(
@@ -37,9 +31,11 @@ class ReasoningInterface(ABC):
                 (`RecommendationInterface.recommend`), if available.
 
         Returns:
-            A human-readable explanation string.
+            A human-readable explanation, plus clarifying questions when
+            the match is ambiguous.
 
         Raises:
-            NotImplementedError: Always, until Brain 4 is implemented.
+            backend.core.exceptions.ReasoningError: If the model cannot
+                be loaded or generation fails.
         """
         raise NotImplementedError

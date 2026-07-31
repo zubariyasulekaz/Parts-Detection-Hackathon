@@ -27,6 +27,8 @@ from backend.pipeline.brain3_catalog.interfaces import RecommendationInterface
 from backend.pipeline.brain3_catalog.product_service import ProductService
 from backend.pipeline.brain3_catalog.recommendation_service import RecommendationService
 from backend.pipeline.brain3_catalog.repository import ProductRepository
+from backend.pipeline.brain4_reasoning.interfaces import ReasoningInterface
+from backend.pipeline.brain4_reasoning.llm_service import LLMService
 from backend.pipeline.orchestrator import PipelineOrchestrator
 
 
@@ -66,21 +68,24 @@ def get_recommendation_service(
     return RecommendationService(catalog=product_service)
 
 
+@lru_cache
+def get_reasoning_service() -> ReasoningInterface:
+    """Dependency provider for the Brain 4 (Qwen) reasoning service."""
+    return LLMService()
+
+
 def get_orchestrator(
     classifier: ClassifierInterface = Depends(get_classifier),
     similarity_search: SimilaritySearchInterface = Depends(get_similarity_search),
     catalog: ProductService = Depends(get_product_service),
     recommendation_service: RecommendationInterface = Depends(get_recommendation_service),
+    reasoning: ReasoningInterface = Depends(get_reasoning_service),
 ) -> PipelineOrchestrator:
-    """Dependency provider for the full pipeline orchestrator.
-
-    TODO: Once Brain 4 is implemented, wire a `ReasoningInterface`
-    instance through here as well.
-    """
+    """Dependency provider for the full pipeline orchestrator."""
     return PipelineOrchestrator(
         classifier=classifier,
         similarity_search=similarity_search,
         catalog=catalog,
         recommendation_service=recommendation_service,
-        reasoning=None,
+        reasoning=reasoning,
     )

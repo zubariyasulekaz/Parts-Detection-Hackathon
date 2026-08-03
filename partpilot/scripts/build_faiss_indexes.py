@@ -85,6 +85,13 @@ def main() -> None:
         action="store_true",
         help="Background-remove each catalog image (rembg) before embedding.",
     )
+    parser.add_argument(
+        "--backend",
+        default=None,
+        help="Embedding model to build with, e.g. dinov2, siglip, 'dinov2+siglip'. "
+             "Default: whatever EMBEDDING_BACKEND is set to. Indexes built with "
+             "one backend cannot be queried with another.",
+    )
     cli_args = parser.parse_args()
 
     # Group SKU records by category.
@@ -94,7 +101,8 @@ def main() -> None:
         if category:
             by_category[category].append(record)
 
-    generator = EmbeddingGenerator()
+    generator = EmbeddingGenerator(backend_spec=cli_args.backend)
+    print(f"Embedding backend: {generator.backend_name}")
     FAISS_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
     for category, records in by_category.items():

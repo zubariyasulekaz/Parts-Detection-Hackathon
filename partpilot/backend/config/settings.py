@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     CLASSIFIER_CONFIDENCE_THRESHOLD: float = 0.5
 
     # --- Brain 2: similarity search ---------------------------------------------------------------
+    # Which model turns an image into a vector. One of: openclip, siglip,
+    # siglip-large, siglip-so400m, dinov2, dinov2-large, a HuggingFace model id,
+    # or several joined with "+" to average their scores (e.g. "dinov2+siglip").
+    # Changing this invalidates the FAISS indexes - rebuild after switching.
+    EMBEDDING_BACKEND: str = "openclip"
     OPENCLIP_MODEL_NAME: str = "ViT-B-32"
     OPENCLIP_PRETRAINED: str = "openai"
     FAISS_TOP_K: int = 10

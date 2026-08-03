@@ -71,10 +71,17 @@ def main() -> None:
         action="store_true",
         help="Background-remove each image first (use this if the index was built with --remove-bg).",
     )
+    parser.add_argument(
+        "--backend",
+        default=None,
+        help="Embedding model to score, e.g. dinov2, siglip, 'dinov2+siglip'. "
+             "Default: whatever EMBEDDING_BACKEND is set to.",
+    )
     args = parser.parse_args()
 
     records = load_catalog()
-    generator = EmbeddingGenerator()
+    generator = EmbeddingGenerator(backend_spec=args.backend)
+    print(f"Embedding backend: {generator.backend_name}\n")
 
     # --- 1. embed every catalog image once -------------------------------
     # category -> sku -> [embedding per image]

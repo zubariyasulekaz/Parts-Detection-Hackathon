@@ -47,9 +47,19 @@ class FaissIndex:
     def __init__(self, index_path: Path) -> None:
         self._index_path = Path(index_path)
         self._ids_path = self._index_path.parent / f"{self._index_path.stem}.ids.json"
+        # Records which embedding model produced these vectors. A query
+        # embedded by a different model is not comparable to them, so the
+        # search side reads this rather than assuming the configured default.
+        self._meta_path = self._index_path.parent / f"{self._index_path.stem}.meta.json"
         self._index: Any | None = None
         # Maps FAISS internal vector position -> catalog SKU.
         self._id_to_sku: list[str] = []
+        self._backend: str | None = None
+
+    @property
+    def backend(self) -> str | None:
+        """Embedding backend that built this index, if recorded."""
+        return self._backend
 
     @property
     def is_loaded(self) -> bool:
@@ -71,7 +81,14 @@ class FaissIndex:
 
         self._index = faiss.read_index(str(self._index_path))
         self._id_to_sku = json.loads(self._ids_path.read_text(encoding="utf-8"))
-        logger.info("Loaded FAISS index %s (%d vectors)", self._index_path.name, self.size)
+        if self._meta_path.exists():
+            self._backend = json.loads(self._meta_path.read_text(encoding="utf-8")).get("backend")
+        logger.info(
+            "Loaded FAISS index %s (%d vectors%s)",
+            self._index_path.name,
+            self.size,
+            f", backend={self._backend}" if self._backend else "",
+        )
 
     def search(self, query_vector: np.ndarray, top_k: int) -> list[tuple[str, float]]:
         """Search the index for the top-K nearest neighbors.
@@ -111,12 +128,26 @@ class FaissIndex:
         self._index.add(matrix)
         self._id_to_sku.append(sku)
 
-    def save(self) -> None:
-        """Persist the index and its id map to disk."""
+    def save(self, backend: str | None = None) -> None:
+        """Persist the index, its id map, and which backend built it.
+
+        Args:
+            backend: Name of the embedding backend used to build these
+                vectors. Stored alongside the index so the query side can
+                embed with the same model.
+        """
         faiss = _import_faiss()
         if self._index is None:
             raise SearchError("Cannot save an empty FAISS index (nothing added).")
         self._index_path.parent.mkdir(parents=True, exist_ok=True)
         faiss.write_index(self._index, str(self._index_path))
         self._ids_path.write_text(json.dumps(self._id_to_sku), encoding="utf-8")
-        logger.info("Saved FAISS index %s (%d vectors)", self._index_path.name, self.size)
+        if backend:
+            self._backend = backend
+            self._meta_path.write_text(json.dumps({"backend": backend}), encoding="utf-8")
+        logger.info(
+            "Saved FAISS index %s (%d vectors%s)",
+            self._index_path.name,
+            self.size,
+            f", backend={backend}" if backend else "",
+        )

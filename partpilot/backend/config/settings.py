@@ -68,7 +68,15 @@ class Settings(BaseSettings):
     # siglip-large, siglip-so400m, dinov2, dinov2-large, a HuggingFace model id,
     # or several joined with "+" to average their scores (e.g. "dinov2+siglip").
     # Changing this invalidates the FAISS indexes - rebuild after switching.
-    EMBEDDING_BACKEND: str = "openclip"
+    EMBEDDING_BACKEND: str = "dinov2"
+    # Categories that score better on a different model than the default.
+    # Measured with scripts/evaluate_brain2.py: DINOv2 wins overall but loses
+    # badly on these, so they keep OpenCLIP. Keyed by catalog category.
+    CATEGORY_BACKENDS: dict[str, str] = {
+        "Air Filter": "openclip",           # 95.2% vs 66.7% on dinov2
+        "Wheel Hub Assembly": "openclip",   # 33.3% vs 16.7%
+        "Shock Absorber": "openclip",       # 100% vs 95.8%
+    }
     OPENCLIP_MODEL_NAME: str = "ViT-B-32"
     OPENCLIP_PRETRAINED: str = "openai"
     FAISS_TOP_K: int = 10

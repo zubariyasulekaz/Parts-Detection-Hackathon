@@ -223,3 +223,36 @@ def build_backend(spec: str | None = None) -> EmbeddingBackend:
     if len(names) == 1:
         return _build_one(names[0])
     return CompositeBackend([_build_one(n) for n in names])
+
+
+def backend_for_category(category: str) -> str:
+    """Which backend spec a category should use.
+
+    No single model wins everywhere - DINOv2 is much stronger on parts that
+    differ structurally (brake pads, manifolds) while OpenCLIP holds up better
+    where every product shares the same texture (air filters, wheel hubs). So
+    ``CATEGORY_BACKENDS`` overrides the default for those categories, matched
+    case-insensitively.
+    """
+    settings = get_settings()
+    wanted = category.strip().lower()
+    for name, spec in settings.CATEGORY_BACKENDS.items():
+        if name.strip().lower() == wanted:
+            return spec
+    return settings.EMBEDDING_BACKEND
+
+
+class BackendCache:
+    """Builds each backend once and reuses it.
+
+    With per-category backends a single request may touch more than one model,
+    and loading a vision transformer is slow, so keep them around.
+    """
+
+    def __init__(self) -> None:
+        self._backends: dict[str, EmbeddingBackend] = {}
+
+    def get(self, spec: str) -> EmbeddingBackend:
+        if spec not in self._backends:
+            self._backends[spec] = build_backend(spec)
+        return self._backends[spec]

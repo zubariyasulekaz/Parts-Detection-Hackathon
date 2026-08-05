@@ -29,6 +29,10 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.config.paths import CATALOG_CSV_PATH, DATASETS_DIR, FAISS_MODEL_DIR  # noqa: E402
+from backend.pipeline.brain2_similarity.embedding_backends import (  # noqa: E402
+    BackendCache,
+    backend_for_category,
+)
 from backend.pipeline.brain2_similarity.embedding_generator import EmbeddingGenerator  # noqa: E402
 from backend.pipeline.brain2_similarity.faiss_index import FaissIndex  # noqa: E402
 from backend.pipeline.brain2_similarity.index_manager import category_slug  # noqa: E402
@@ -101,14 +105,25 @@ def main() -> None:
         if category:
             by_category[category].append(record)
 
-    generator = EmbeddingGenerator(backend_spec=cli_args.backend)
-    print(f"Embedding backend: {generator.backend_name}")
+    # Each category may use a different model (see CATEGORY_BACKENDS), so build
+    # generators lazily and reuse them - loading a vision transformer is slow.
+    backends = BackendCache()
+    generators: dict[str, EmbeddingGenerator] = {}
+
+    def generator_for(spec: str) -> EmbeddingGenerator:
+        if spec not in generators:
+            generators[spec] = EmbeddingGenerator(backend=backends.get(spec))
+        return generators[spec]
+
     FAISS_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
     for category, records in by_category.items():
         slug = category_slug(category)
+        # --backend forces one model for everything; otherwise per-category.
+        spec = cli_args.backend or backend_for_category(category)
+        generator = generator_for(spec)
         index = FaissIndex(FAISS_MODEL_DIR / f"{slug}.faiss")
-        print(f"\n[{category}] -> {slug}.faiss")
+        print(f"\n[{category}] -> {slug}.faiss  (backend: {generator.backend_name})")
 
         added = 0
         for record in records:
@@ -128,7 +143,8 @@ def main() -> None:
             print(f"    [ok] {sku}")
 
         if added:
-            index.save()
+            # Record the backend so the query side embeds with the same model.
+            index.save(backend=generator.backend_name)
             print(f"  Saved {added} product vectors -> {index._index_path}")
         else:
             print(f"  [warn] no vectors added for '{category}', index not written")

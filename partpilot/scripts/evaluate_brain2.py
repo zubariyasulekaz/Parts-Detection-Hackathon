@@ -38,6 +38,10 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.config.paths import DATASETS_DIR  # noqa: E402
+from backend.pipeline.brain2_similarity.embedding_backends import (  # noqa: E402
+    BackendCache,
+    backend_for_category,
+)
 from backend.pipeline.brain2_similarity.embedding_generator import EmbeddingGenerator  # noqa: E402
 from backend.utils.image_utils import remove_background  # noqa: E402
 
@@ -80,8 +84,18 @@ def main() -> None:
     args = parser.parse_args()
 
     records = load_catalog()
-    generator = EmbeddingGenerator(backend_spec=args.backend)
-    print(f"Embedding backend: {generator.backend_name}\n")
+    # Without --backend, score each category with the model it is configured to
+    # use, which is what the running app will actually do.
+    backends = BackendCache()
+    generators: dict[str, EmbeddingGenerator] = {}
+
+    def generator_for(category: str) -> EmbeddingGenerator:
+        spec = args.backend or backend_for_category(category)
+        if spec not in generators:
+            generators[spec] = EmbeddingGenerator(backend=backends.get(spec))
+        return generators[spec]
+
+    print(f"Embedding backend: {args.backend or 'per-category (see CATEGORY_BACKENDS)'}\n")
 
     # --- 1. embed every catalog image once -------------------------------
     # category -> sku -> [embedding per image]
@@ -99,6 +113,7 @@ def main() -> None:
             print(f"  [skip] {sku}: folder not found")
             continue
 
+        generator = generator_for(category)
         vectors: list[np.ndarray] = []
         for img_path in sorted(folder.iterdir()):
             if img_path.suffix.lower() not in IMAGE_EXTS:

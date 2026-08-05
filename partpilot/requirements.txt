@@ -15,13 +15,17 @@ alembic==1.14.0
 # sync driver used by Alembic's migration runner only (the app itself uses asyncpg)
 psycopg2-binary==2.9.10
 
-# --- AI / ML (Brain 1-2 implementations to be added by the team) ---------------------------------------------------------------
+# --- Brain 1: classifier ---------------------------------------------------------------
 tensorflow==2.18.0
-open_clip_torch==2.29.0
-faiss-cpu==1.9.0.post1
 numpy==2.1.3
 
-# --- Brain 4: reasoning (Qwen, via Hugging Face) ---------------------------------------------------------------
+# --- Brain 2: similarity search ---------------------------------------------------------------
+# Embedding backends are swappable (see EMBEDDING_BACKEND): open_clip_torch
+# provides OpenCLIP, and transformers below provides DINOv2 and SigLIP.
+open_clip_torch==2.29.0
+faiss-cpu==1.9.0.post1
+
+# --- Brain 4: reasoning (Qwen) + Brain 2 backends (DINOv2, SigLIP) ---------------------------------------------------------------
 transformers==4.46.3
 accelerate==1.1.1
 
@@ -29,6 +33,10 @@ accelerate==1.1.1
 Pillow==11.0.0
 opencv-python==4.10.0.84
 rembg==2.0.60
+# rembg runs its segmentation model through ONNX but does not pull the runtime
+# in itself; without this it fails at import with a misleading "rembg is not
+# installed" error.
+onnxruntime==1.20.1
 
 # --- testing ---------------------------------------------------------------
 pytest==8.3.4

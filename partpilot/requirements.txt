@@ -17,7 +17,9 @@ psycopg2-binary==2.9.10
 
 # --- Brain 1: classifier ---------------------------------------------------------------
 tensorflow==2.18.0
-numpy==2.1.3
+# TensorFlow 2.18 caps numpy below 2.1 (tensorflow-intel does so explicitly on
+# Windows), so 2.1.x cannot resolve alongside it.
+numpy==2.0.2
 
 # --- Brain 2: similarity search ---------------------------------------------------------------
 # Embedding backends are swappable (see EMBEDDING_BACKEND): open_clip_torch

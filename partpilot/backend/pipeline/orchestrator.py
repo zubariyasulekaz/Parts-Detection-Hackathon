@@ -136,10 +136,16 @@ class PipelineOrchestrator:
             product = await self._catalog.get_product(top_sku)
             recommendation = await self._recommendation_service.recommend(top_sku)
 
-        # Stage 4 (optional, future): LLM-generated explanation.
+        # Stage 4 (optional): LLM-generated explanation. Brain 4 is a
+        # nice-to-have on top of an already-complete answer, so a failure
+        # here (model weights unreachable, generation error) must not cost
+        # the caller the Brain 1-3 result. Degrade to no explanation.
         explanation: str | None = None
         if explain and self._reasoning is not None:
-            explanation = self._reasoning.explain(prediction, product, recommendation)
+            try:
+                explanation = self._reasoning.explain(prediction, product, recommendation)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Brain 4 unavailable; returning result without an explanation: %s", exc)
 
         return OrchestratorResult(
             prediction=prediction,

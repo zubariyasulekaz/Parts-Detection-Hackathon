@@ -11,6 +11,8 @@ import type { IdentificationCandidate, IdentificationResult, ProcessingStageKey 
 
 const API_MODE = import.meta.env.VITE_API_MODE
 const TOP_K = Number(import.meta.env.VITE_PREDICTION_TOP_K) || 5
+/** Opt out of Brain 4 when its weights are unavailable — the LLM load otherwise stalls the request. */
+const EXPLAIN = import.meta.env.VITE_PREDICTION_EXPLAIN !== 'false'
 
 /**
  * Confirmation + confidence rules live here, not in a component, so the
@@ -120,7 +122,7 @@ async function runLivePipeline(
   options.onStage?.('validate')
   options.onStage?.('normalize')
 
-  const prediction = adaptPredictionResult(await predictPart(file, TOP_K))
+  const prediction = adaptPredictionResult(await predictPart(file, TOP_K, EXPLAIN))
   options.onStage?.('classify')
   options.onStage?.('embed')
   options.onStage?.('search')

@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_API_PREFIX: string
   /** How many candidate matches to request from the /predict endpoint. */
   readonly VITE_PREDICTION_TOP_K: string
+  /** "false" skips Brain 4, so /predict never waits on the LLM. Anything else requests an explanation. */
+  readonly VITE_PREDICTION_EXPLAIN: string
 }
 
 interface ImportMeta {

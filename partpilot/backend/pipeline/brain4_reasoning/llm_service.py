@@ -38,26 +38,45 @@ class LLMService(ReasoningInterface):
         self._max_new_tokens = max_new_tokens or settings.LLM_MAX_NEW_TOKENS
         self._prompt_builder = prompt_builder or PromptBuilder()
         self._pipeline: Any | None = None
+        self._load_error: str | None = None
 
     def _load(self) -> Any:
-        """Load (and cache) the Qwen text-generation pipeline."""
+        """Load (and cache) the Qwen text-generation pipeline.
+
+        A failed load is remembered: downloading the weights can stall for
+        minutes behind HTTP retries when the Hugging Face CDN is
+        unreachable, and this instance is a process-wide singleton (see
+        `backend.api.dependencies.get_reasoning_service`), so retrying on
+        every request would stall every prediction. Restart the process to
+        try again once connectivity is restored.
+        """
         if self._pipeline is not None:
             return self._pipeline
+        if self._load_error is not None:
+            raise ReasoningError(self._load_error)
+
         try:
             from transformers import pipeline  # noqa: PLC0415
         except ImportError as exc:  # pragma: no cover - env-dependent
-            raise ReasoningError(
-                "transformers/torch are not installed; cannot load the Brain 4 LLM."
-            ) from exc
+            self._load_error = "transformers/torch are not installed; cannot load the Brain 4 LLM."
+            raise ReasoningError(self._load_error) from exc
 
         logger.info("Loading Brain 4 LLM: %s", self._model_name)
-        self._pipeline = pipeline(
-            task="text-generation",
-            model=self._model_name,
-            token=self._hf_token,
-            torch_dtype="auto",
-            device_map="auto",
-        )
+        try:
+            self._pipeline = pipeline(
+                task="text-generation",
+                model=self._model_name,
+                token=self._hf_token,
+                torch_dtype="auto",
+                device_map="auto",
+            )
+        except Exception as exc:  # noqa: BLE001
+            self._load_error = (
+                f"Could not load the Brain 4 LLM ({self._model_name}): {exc}. "
+                "Explanations are disabled until the backend is restarted."
+            )
+            logger.warning(self._load_error)
+            raise ReasoningError(self._load_error) from exc
         return self._pipeline
 
     def explain(

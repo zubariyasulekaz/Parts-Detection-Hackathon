@@ -108,10 +108,21 @@ rewrite the same rows.
 ```bash
 cd frontend
 npm install
+cp .env.example .env    # copy .env.example on Windows
 npm run dev
 ```
 
-Run it alongside the backend.
+Run it alongside the backend. `.env` decides what it talks to:
+
+| | |
+|---|---|
+| `VITE_API_MODE` | `live` calls the backend; `mock` runs off `src/mocks` with no backend |
+| `VITE_API_BASE_URL` | backend origin, must match `HOST`/`PORT` |
+| `VITE_API_PREFIX` | must match `API_PREFIX` in `backend/config/settings.py` |
+| `VITE_PREDICTION_EXPLAIN` | `false` skips Brain 4 (see below) |
+
+The backend allows all CORS origins by default, so whichever port Vite picks
+works without extra configuration.
 
 ---
 
@@ -141,6 +152,35 @@ table already exists.
 **A prediction returns a SKU but no product details**
 The FAISS indexes and the database have drifted apart. Check that a SKU in
 `backend/models/faiss/*.ids.json` also exists in the `products` table.
+
+**`Could not load the 'dinov2' embedding model` / no AI explanation**
+Two of the models are downloaded from Hugging Face on first use rather than
+committed: `facebook/dinov2-base` (Brain 2) and `Qwen/Qwen2.5-1.5B-Instruct`
+(Brain 4). Both are served from `us.aws.cdn.hf.co`, which some corporate
+networks block - DNS resolves but the connection times out. Check with:
+
+```bash
+curl -so /dev/null -w "%{http_code}\n" --max-time 15 https://us.aws.cdn.hf.co/
+```
+
+`000` means it is blocked. Either get that host allowed, or download the two
+models on a network that can reach it and copy `~/.cache/huggingface/hub`
+across. Do not install `hf_xet` hoping to route around it - it discards any
+partial download and then stalls without reporting an error.
+
+Until then the app still runs, and degrades rather than failing:
+
+- The three categories whose indexes were built with OpenCLIP - **Air Filter**,
+  **Shock Absorber**, **Wheel Hub Assembly** - work fully, because those
+  weights are already cached.
+- The other seven need DINOv2 and return a 503 explaining why.
+- Brain 4 explanations are skipped and `explanation` comes back `null`;
+  everything else in the response is unaffected. Set
+  `VITE_PREDICTION_EXPLAIN=false` in `frontend/.env` so the UI does not wait on
+  the failed model load on the first request.
+
+A failed model load is remembered for the life of the process, so only the
+first request pays the download timeout. Restart the backend to retry.
 
 ---
 

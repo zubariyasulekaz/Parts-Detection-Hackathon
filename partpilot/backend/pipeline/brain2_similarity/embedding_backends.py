@@ -60,6 +60,7 @@ class EmbeddingBackend:
         self._model: Any | None = None
         self._preprocess: Any | None = None
         self._device: str = "cpu"
+        self._load_error: str | None = None
 
     @property
     def is_loaded(self) -> bool:
@@ -67,6 +68,29 @@ class EmbeddingBackend:
 
     def load(self) -> None:  # pragma: no cover - subclass responsibility
         raise NotImplementedError
+
+    def ensure_loaded(self) -> None:
+        """Load once, and remember a failure instead of retrying it.
+
+        Weights are fetched from Hugging Face on first use, and that fetch
+        stalls for minutes behind HTTP retries when the CDN is unreachable.
+        Backends are cached for the life of the process (see `BackendCache`),
+        so without this every request would pay that stall again. Restart the
+        backend to retry once the download works.
+        """
+        if self.is_loaded:
+            return
+        if self._load_error is not None:
+            raise ModelNotLoaded(self._load_error)
+        try:
+            self.load()
+        except Exception as exc:  # noqa: BLE001
+            self._load_error = (
+                f"Could not load the '{self.name}' embedding model: {exc}. "
+                "Restart the backend to retry."
+            )
+            logger.warning(self._load_error)
+            raise ModelNotLoaded(self._load_error) from exc
 
     def encode(self, image: Image) -> np.ndarray:  # pragma: no cover
         raise NotImplementedError
@@ -102,8 +126,7 @@ class OpenClipBackend(EmbeddingBackend):
 
     def encode(self, image: Image) -> np.ndarray:
         torch = _torch()
-        if not self.is_loaded:
-            self.load()
+        self.ensure_loaded()
         tensor = self._preprocess(image.convert("RGB")).unsqueeze(0).to(self._device)
         with torch.no_grad():
             out = self._model.encode_image(tensor)
@@ -134,8 +157,7 @@ class HuggingFaceVisionBackend(EmbeddingBackend):
 
     def encode(self, image: Image) -> np.ndarray:
         torch = _torch()
-        if not self.is_loaded:
-            self.load()
+        self.ensure_loaded()
         inputs = self._preprocess(images=image.convert("RGB"), return_tensors="pt")
         inputs = {k: v.to(self._device) for k, v in inputs.items()}
 
@@ -165,7 +187,7 @@ class CompositeBackend(EmbeddingBackend):
 
     def load(self) -> None:
         for backend in self._backends:
-            backend.load()
+            backend.ensure_loaded()
 
     def encode(self, image: Image) -> np.ndarray:
         parts = [backend.encode(image) for backend in self._backends]

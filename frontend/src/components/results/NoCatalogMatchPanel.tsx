@@ -21,8 +21,17 @@ interface NoCatalogMatchPanelProps {
  * question and its answer stands — but the SKU is deliberately not presented as
  * a match, because recommending the wrong part is the expensive failure here.
  */
+/**
+ * Below this classifier confidence, a no-match result reports no category at
+ * all. When neither model stood behind the image, naming a category is just
+ * the least-wrong of ten options — for an out-of-catalog photo it reads as
+ * "we think your living room is a suspension bushing".
+ */
+const CATEGORY_TRUST_THRESHOLD = 0.75
+
 export function NoCatalogMatchPanel({ category, closestCandidate, threshold, onNewSearch }: NoCatalogMatchPanelProps) {
   const effectiveThreshold = threshold ?? NO_CATALOG_MATCH_THRESHOLD
+  const categoryTrusted = category.confidence >= CATEGORY_TRUST_THRESHOLD
   return (
     <div className="shadow-card flex h-full flex-col gap-5 rounded-xl border border-warning/40 bg-surface p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -35,7 +44,11 @@ export function NoCatalogMatchPanel({ category, closestCandidate, threshold, onN
           <PackageX className="h-5 w-5" aria-hidden="true" />
         </span>
         <div>
-          <p className="text-base font-semibold text-foreground">This part is not available in our catalog</p>
+          <p className="text-base font-semibold text-foreground">
+            {categoryTrusted
+              ? 'This part is not available in our catalog'
+              : "We couldn't recognize a catalog part in this image"}
+          </p>
           <p className="mt-1.5 text-sm text-muted">
             {closestCandidate ? (
               <>
@@ -57,13 +70,19 @@ export function NoCatalogMatchPanel({ category, closestCandidate, threshold, onN
 
       <dl className="grid grid-cols-1 gap-4 rounded-lg border border-border-strong bg-surface-2 p-4 sm:grid-cols-2">
         <div>
-          <dt className="text-xs font-semibold tracking-wide text-muted uppercase">Predicted Category</dt>
-          <dd className="mt-1 text-sm font-semibold text-foreground">
-            {category.name}{' '}
-            <span className="font-mono text-xs font-normal text-subtle">
-              ({formatPercent(category.confidence)} confidence)
-            </span>
-          </dd>
+          <dt className="text-xs font-semibold tracking-wide text-muted uppercase">Category Signal</dt>
+          {categoryTrusted ? (
+            <dd className="mt-1 text-sm font-semibold text-foreground">
+              {category.name}{' '}
+              <span className="font-mono text-xs font-normal text-subtle">
+                (unconfirmed · {formatPercent(category.confidence)})
+              </span>
+            </dd>
+          ) : (
+            <dd className="mt-1 text-sm text-muted">
+              Not recognized — no category claim at {formatPercent(category.confidence)} classifier confidence
+            </dd>
+          )}
         </div>
         <div>
           <dt className="text-xs font-semibold tracking-wide text-muted uppercase">Closest Catalog Entry</dt>

@@ -1,5 +1,5 @@
 import { CircleCheck, TriangleAlert } from 'lucide-react'
-import { hasNoCatalogMatch, NO_CATALOG_MATCH_THRESHOLD, STRONG_SEPARATION_GAP } from '@/services/identificationService'
+import { NO_CATALOG_MATCH_THRESHOLD, STRONG_SEPARATION_GAP } from '@/services/identificationService'
 import { formatPercent } from '@/utils/format'
 import type { IdentificationResult } from '@/types/identification'
 
@@ -14,21 +14,26 @@ interface SummaryLine {
  * physical features the model doesn't inspect.
  */
 function buildSummaryLines(result: IdentificationResult): SummaryLine[] {
-  const lines: SummaryLine[] = [{ tone: 'positive', text: `Predicted category: ${result.category.name}` }]
   const [top, runnerUp] = result.candidates
 
-  // A weak top score says the opposite of what the usual lines claim, so it
-  // replaces them rather than sitting alongside them.
-  if (hasNoCatalogMatch(result.candidates)) {
-    lines.push({
-      tone: 'caution',
-      text: top
-        ? `No catalog entry cleared the ${formatPercent(NO_CATALOG_MATCH_THRESHOLD)} match threshold — the closest scored ${formatPercent(top.similarity)}`
-        : 'The visual search returned no catalog entries for this part',
-    })
-    lines.push({ tone: 'caution', text: 'This part appears not to be stocked in the catalog' })
+  // On a no-match verdict the guard silences Brain 1 too: an image nothing
+  // matched gets no category claim, because "Suspension Bushing · 55%" over
+  // a photo of a living room is a statement the system cannot stand behind.
+  if (result.noMatch) {
+    const threshold = result.noMatchThreshold ?? NO_CATALOG_MATCH_THRESHOLD
+    const lines: SummaryLine[] = [
+      { tone: 'caution', text: 'The image was not recognized as a catalog part' },
+      {
+        tone: 'caution',
+        text: top
+          ? `No catalog entry cleared the ${formatPercent(threshold)} match threshold — the closest scored ${formatPercent(top.similarity)}`
+          : 'The visual search returned no catalog entries for this part',
+      },
+    ]
     return lines
   }
+
+  const lines: SummaryLine[] = [{ tone: 'positive', text: `Predicted category: ${result.category.name}` }]
 
   if (top) {
     lines.push({

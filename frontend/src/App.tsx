@@ -28,7 +28,9 @@ export default function App() {
   return (
     <IdentificationProvider>
       <ScrollToTop />
-      <div className="flex min-h-screen flex-col bg-background">
+      {/* Transparent shell: the page atmosphere (aurora + star-field) is
+          painted once on `body` and shows through on every route. */}
+      <div className="flex min-h-screen flex-col">
         <AppHeader />
         <main className="flex-1">
           <Routes>

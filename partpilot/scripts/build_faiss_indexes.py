@@ -106,6 +106,13 @@ def main() -> None:
         help="Legacy mode: one mean-of-images vector per SKU instead of one "
              "vector per image.",
     )
+    parser.add_argument(
+        "--category",
+        default=None,
+        help="Rebuild only this catalog category (e.g. 'Air Filter'), "
+             "matched case-insensitively. Other categories' index files are "
+             "left untouched.",
+    )
     cli_args = parser.parse_args()
 
     # Group SKU records by category.
@@ -128,6 +135,8 @@ def main() -> None:
     FAISS_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
     for category, records in by_category.items():
+        if cli_args.category and category.strip().lower() != cli_args.category.strip().lower():
+            continue
         slug = category_slug(category)
         # --backend forces one model for everything; otherwise per-category.
         spec = cli_args.backend or backend_for_category(category)

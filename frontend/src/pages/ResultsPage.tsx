@@ -168,11 +168,16 @@ export function ResultsPage() {
                 square ratio. */}
             <div className="relative aspect-square min-h-0 overflow-hidden rounded-xl border border-border-strong bg-surface-2">
               <img src={uploadedImageUrl} alt="Uploaded part" className="h-full w-full object-contain p-5" />
+              {/* On no-match the guard silences the category chip too — the
+                  system refused the match, so it must not caption the photo
+                  with a category it couldn't stand behind. */}
               <ScanFrame
                 label={
-                  awaitingConfirmation
-                    ? undefined
-                    : `${result.category.name.toUpperCase()} · ${formatPercent(result.category.confidence)}`
+                  noCatalogMatch
+                    ? 'NOT RECOGNIZED'
+                    : awaitingConfirmation
+                      ? undefined
+                      : `${result.category.name.toUpperCase()} · ${formatPercent(result.category.confidence)}`
                 }
                 labelTone={
                   isHighConfidence ? 'success' : awaitingConfirmation || noCatalogMatch ? 'warning' : 'accent'

@@ -53,6 +53,12 @@ class ProductAlreadyExists(CatalogError):
     error_code = "PRODUCT_ALREADY_EXISTS"
 
 
+class AuditEntryNotFound(PartPilotError):
+    """Raised when a requested prediction-history entry does not exist."""
+
+    error_code = "AUDIT_ENTRY_NOT_FOUND"
+
+
 class EmbeddingError(PartPilotError):
     """Raised when embedding generation fails."""
 

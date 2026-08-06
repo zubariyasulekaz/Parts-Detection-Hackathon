@@ -1,7 +1,7 @@
 import { CircleCheck } from 'lucide-react'
 import type { KeyboardEvent } from 'react'
 import { ConfidenceGauge } from '@/components/common/ConfidenceGauge'
-import { PartIllustration } from '@/components/common/PartIllustration'
+import { ProductThumbnail } from '@/components/common/ProductThumbnail'
 import { formatPercent } from '@/utils/format'
 import type { IdentificationCandidate } from '@/types/identification'
 
@@ -33,7 +33,11 @@ export function CandidateCard({ candidate, isSelected, isPrimaryAction, onSelect
       }`}
     >
       <div className="relative aspect-4/3">
-        <PartIllustration category={candidate.category} className="h-full w-full" />
+        <ProductThumbnail
+          category={candidate.category}
+          images={candidate.imageUrl ? [candidate.imageUrl] : []}
+          className="h-full w-full"
+        />
         <div className="absolute top-2.5 left-2.5 flex gap-1.5">
           {candidate.rank === 1 && (
             <span className="shadow-glow-accent rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold tracking-wide text-white uppercase">

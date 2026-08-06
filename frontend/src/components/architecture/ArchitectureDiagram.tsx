@@ -37,8 +37,9 @@ const NODES: NodeDefinition[] = [
   { icon: Tag, title: 'Predicted Part Category', description: 'e.g. Exhaust Manifold, Brake Pads, Oil Filter.' },
   {
     icon: Network,
-    title: 'Brain 2: OpenCLIP Image Embedding',
-    description: 'Generates a visual embedding of the image for similarity search.',
+    title: 'Brain 2: DINOv2 / OpenCLIP Image Embedding',
+    description:
+      'Generates a visual embedding of the image for similarity search. DINOv2 by default, with OpenCLIP kept for the categories it scores better on.',
     emphasis: true,
   },
   {

@@ -141,6 +141,7 @@ async function runLivePipeline(
           category: product.category,
           similarity: result.similarity,
           rank: result.rank,
+          imageUrl: product.images[0],
         }
       }
       try {
@@ -152,6 +153,7 @@ async function runLivePipeline(
           category: product.category,
           similarity: result.similarity,
           rank: result.rank,
+          imageUrl: product.images[0],
         }
       } catch {
         return {

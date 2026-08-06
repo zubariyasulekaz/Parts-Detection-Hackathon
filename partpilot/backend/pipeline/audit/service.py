@@ -8,6 +8,7 @@ never cost the caller that prediction. Contains no direct database
 access — see `PredictionAuditRepository` for that.
 """
 
+from backend.core.exceptions import AuditEntryNotFound
 from backend.core.logging import get_logger
 from backend.pipeline.audit.repository import PredictionAuditRepository
 from backend.schemas.audit import AuditEntryCreate, AuditEntryResponse
@@ -58,6 +59,20 @@ class PredictionAuditService:
         """List recorded predictions, newest first, with pagination."""
         entries = await self._repository.get_all(limit=limit, offset=offset)
         return [AuditEntryResponse.model_validate(e) for e in entries]
+
+    async def delete_entry(self, entry_id: int) -> None:
+        """Delete one recorded prediction.
+
+        Unlike `record`, a failure here must not be swallowed: the caller
+        asked for the deletion and has to know whether it happened.
+
+        Raises:
+            backend.core.exceptions.AuditEntryNotFound: If `entry_id` is
+                unknown (already deleted, or never existed).
+        """
+        if not await self._repository.delete(entry_id):
+            raise AuditEntryNotFound(f"Prediction history entry {entry_id} was not found.")
+        logger.info("Prediction history entry deleted: id=%s", entry_id)
 
     async def count(self) -> int:
         """Return the total number of recorded predictions."""

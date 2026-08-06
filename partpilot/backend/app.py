@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from backend.api.router import api_router
 from backend.config.settings import get_settings
 from backend.core.exceptions import (
+    AuditEntryNotFound,
     CatalogError,
     CategoryNotFound,
     EmbeddingError,
@@ -37,6 +38,7 @@ _EXCEPTION_STATUS_MAP: dict[type[PartPilotError], int] = {
     CategoryNotFound: status.HTTP_404_NOT_FOUND,
     CatalogError: status.HTTP_404_NOT_FOUND,
     ProductNotFound: status.HTTP_404_NOT_FOUND,
+    AuditEntryNotFound: status.HTTP_404_NOT_FOUND,
     ProductAlreadyExists: status.HTTP_409_CONFLICT,
     ModelNotLoaded: status.HTTP_503_SERVICE_UNAVAILABLE,
     EmbeddingError: status.HTTP_502_BAD_GATEWAY,

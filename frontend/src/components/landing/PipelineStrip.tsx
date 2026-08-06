@@ -14,7 +14,7 @@ const STEPS: PipelineStep[] = [
   { icon: PackageSearch, label: 'Product Intelligence' },
 ]
 
-const STACK_BADGES = ['Fine-tuned Vision Model', 'OpenCLIP', 'FAISS', 'PostgreSQL']
+const STACK_BADGES = ['Fine-tuned Vision Model', 'DINOv2', 'OpenCLIP', 'FAISS', 'PostgreSQL']
 
 export function PipelineStrip() {
   return (

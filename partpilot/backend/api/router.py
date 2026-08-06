@@ -6,11 +6,12 @@ Mounted onto the FastAPI app (under `Settings.API_PREFIX`) in
 
 from fastapi import APIRouter
 
-from backend.api.routers import admin, catalog, health, prediction
+from backend.api.routers import admin, catalog, health, history, prediction
 
 api_router = APIRouter()
 
 api_router.include_router(health.router)
 api_router.include_router(prediction.router)
+api_router.include_router(history.router)
 api_router.include_router(catalog.router)
 api_router.include_router(admin.router)

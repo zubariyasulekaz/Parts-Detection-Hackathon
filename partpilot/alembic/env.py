@@ -16,7 +16,9 @@ from backend.config.settings import get_settings
 from backend.core.database import Base
 
 # Import ORM models so they register their tables on `Base.metadata`
-# before `target_metadata` is read below.
+# before `target_metadata` is read below. A model missing here is invisible
+# to `--autogenerate`, which would then propose dropping its table.
+from backend.pipeline.audit import models as audit_models  # noqa: F401
 from backend.pipeline.brain3_catalog import models  # noqa: F401
 
 config = context.config

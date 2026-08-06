@@ -8,6 +8,7 @@ where TF is not installed.
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,11 @@ class ModelLoader:
 
     def load(self) -> Any:
         """Load the model (and labels sidecar) from `self._config.model_path`."""
+        # TensorFlow prints oneDNN and CPU-instruction banners to stderr the first
+        # time it is imported, which buries the server's own startup log. These are
+        # informational only, and must be set before the import to take effect.
+        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+        os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
         try:
             import tensorflow as tf  # noqa: PLC0415
         except ImportError as exc:  # pragma: no cover - env-dependent

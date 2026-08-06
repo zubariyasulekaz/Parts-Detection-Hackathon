@@ -7,9 +7,9 @@ classes themselves.
 Brain 1/2 providers are cached process-wide singletons (`@lru_cache`):
 construction is cheap today (placeholder objects) but will become
 expensive once real models are loaded, which is exactly why we want a
-single shared instance. Brain 3 providers are deliberately NOT cached —
-they wrap a request-scoped `AsyncSession` (see `backend.core.database.get_db`)
-and must be rebuilt on every request.
+single shared instance. Brain 3 and audit-trail providers are deliberately
+NOT cached — they wrap a request-scoped `AsyncSession` (see
+`backend.core.database.get_db`) and must be rebuilt on every request.
 """
 
 from functools import lru_cache
@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.settings import Settings, get_settings
 from backend.core.database import get_db
+from backend.pipeline.audit.repository import PredictionAuditRepository
+from backend.pipeline.audit.service import PredictionAuditService
 from backend.pipeline.brain1_classifier.interfaces import ClassifierInterface
 from backend.pipeline.brain1_classifier.predict import Classifier
 from backend.pipeline.brain2_similarity.interfaces import SimilaritySearchInterface
@@ -81,6 +83,26 @@ def get_recommendation_service(
 ) -> RecommendationInterface:
     """Dependency provider for the Brain 3 recommendation service."""
     return RecommendationService(catalog=product_service)
+
+
+def get_prediction_audit_repository(
+    session: AsyncSession = Depends(get_db),
+) -> PredictionAuditRepository:
+    """Dependency provider for the request-scoped prediction audit repository."""
+    return PredictionAuditRepository(session)
+
+
+def get_prediction_audit_service(
+    repository: PredictionAuditRepository = Depends(get_prediction_audit_repository),
+) -> PredictionAuditService:
+    """Dependency provider for the prediction audit service.
+
+    On `/predict` this resolves to the same `AsyncSession` Brain 3 already
+    holds — FastAPI caches `get_db` per request — which is why the service
+    rolls back a failed audit INSERT instead of leaving it for `get_db` to
+    trip over at commit time.
+    """
+    return PredictionAuditService(repository)
 
 
 @lru_cache

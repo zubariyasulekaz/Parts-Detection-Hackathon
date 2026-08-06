@@ -21,8 +21,8 @@ export function AppHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center justify-between px-6 lg:px-10">
+    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6 lg:px-10">
         <Link to="/" className="flex items-center gap-2.5" aria-label="PartPilot home">
           <LogoMark />
           <span className="text-[17px] font-bold tracking-tight text-foreground">PartPilot</span>
@@ -34,6 +34,9 @@ export function AppHeader() {
           </a>
           <NavLink to="/catalog" className={NAV_LINK_CLASS} data-active={location.pathname === '/catalog'}>
             Catalog
+          </NavLink>
+          <NavLink to="/history" className={NAV_LINK_CLASS} data-active={location.pathname === '/history'}>
+            History
           </NavLink>
           <NavLink to="/architecture" className={NAV_LINK_CLASS} data-active={location.pathname === '/architecture'}>
             Architecture

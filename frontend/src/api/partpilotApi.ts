@@ -1,5 +1,12 @@
 import { apiGet, apiPostForm } from './client'
-import type { PredictionResultDTO, ProductListQuery, ProductResponseDTO, RecommendationDTO } from '@/types/api'
+import type {
+  AuditEntryResponseDTO,
+  HistoryListQuery,
+  PredictionResultDTO,
+  ProductListQuery,
+  ProductResponseDTO,
+  RecommendationDTO,
+} from '@/types/api'
 
 /** Raw calls against the FastAPI backend. Returns wire-format DTOs — see src/adapters for domain mapping. */
 
@@ -7,6 +14,13 @@ export async function predictPart(file: File, topK: number, explain = true): Pro
   const formData = new FormData()
   formData.append('file', file)
   return apiPostForm<PredictionResultDTO>('/predict', formData, { top_k: topK, explain })
+}
+
+export async function fetchHistory(query: HistoryListQuery = {}): Promise<AuditEntryResponseDTO[]> {
+  return apiGet<AuditEntryResponseDTO[]>('/history', {
+    limit: query.limit,
+    offset: query.offset,
+  })
 }
 
 export async function fetchProduct(sku: string): Promise<ProductResponseDTO> {

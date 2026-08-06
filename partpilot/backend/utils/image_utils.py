@@ -9,7 +9,7 @@ pipeline instead, since that logic is model-dependent.
 import base64
 import io
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from backend.core.exceptions import InvalidImage
 from backend.core.logging import get_logger
@@ -102,6 +102,10 @@ def load_image_from_bytes(content: bytes) -> Image.Image:
     try:
         image = Image.open(io.BytesIO(content))
         image.load()
+        # Phone cameras store rotation as EXIF metadata rather than rotating
+        # pixels. Without honoring it, a portrait phone photo reaches every
+        # model (and the audit thumbnail) lying on its side.
+        image = ImageOps.exif_transpose(image)
     except (UnidentifiedImageError, OSError) as exc:
         raise InvalidImage("Uploaded file is not a valid image.") from exc
     return image.convert("RGB")

@@ -185,6 +185,8 @@ export function resolveScenarioCandidates(scenario: IdentificationScenario): Ide
       // Drives the guided questions on the results page; without it the flow
       // can only ask about brand.
       compatibleVehicles: product?.compatibleVehicles ?? [],
+      manufacturerPartNumber: product?.manufacturerPartNumber ?? null,
+      attributes: product?.attributes ?? {},
     }
   })
 }

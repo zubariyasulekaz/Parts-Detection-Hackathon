@@ -183,6 +183,8 @@ async function runLivePipeline(
           rank: result.rank,
           imageUrl: product.images[0],
           compatibleVehicles: product.compatibleVehicles,
+          manufacturerPartNumber: product.manufacturerPartNumber,
+          attributes: product.attributes,
         }
       }
       try {
@@ -196,6 +198,8 @@ async function runLivePipeline(
           rank: result.rank,
           imageUrl: product.images[0],
           compatibleVehicles: product.compatibleVehicles,
+          manufacturerPartNumber: product.manufacturerPartNumber,
+          attributes: product.attributes,
         }
       } catch {
         // No catalog metadata for this SKU, so no fitment to ask about. The
@@ -208,6 +212,8 @@ async function runLivePipeline(
           similarity: result.similarity,
           rank: result.rank,
           compatibleVehicles: [],
+          manufacturerPartNumber: null,
+          attributes: {},
         }
       }
     }),

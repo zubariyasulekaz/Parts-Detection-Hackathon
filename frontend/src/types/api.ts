@@ -44,6 +44,9 @@ export interface ProductResponseDTO {
   brand: string
   category: string
   description: string | null
+  manufacturer_part_number: string | null
+  /** Free-form per-category visual facts; keys differ by category. */
+  attributes: Record<string, string>
   image_paths: string[]
   replacement_sku: string | null
   alternative_skus: string[]

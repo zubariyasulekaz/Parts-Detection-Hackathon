@@ -1,3 +1,4 @@
+import { formatAttributeLabel, formatAttributeValue } from '@/utils/attributes'
 import type { IdentificationCandidate } from '@/types/identification'
 
 /**
@@ -15,7 +16,11 @@ import type { IdentificationCandidate } from '@/types/identification'
  * narrows the set, and it works with the LLM switched off.
  */
 
-export type FacetKey = 'make' | 'model' | 'year' | 'brand'
+/**
+ * `attr:<key>` facets come from the product's `attributes` bag, whose keys vary
+ * by category — a filter has `filter_style`, a pad has `friction_material`.
+ */
+export type FacetKey = 'make' | 'model' | 'year' | 'brand' | 'mpn' | `attr:${string}`
 
 /**
  * The fitment rows an answer keeps in play.
@@ -64,14 +69,52 @@ interface FitmentRow {
   yearEnd: number
 }
 
-const PROMPTS: Record<FacetKey, { prompt: string; hint: string }> = {
+const PROMPTS: Record<string, { prompt: string; hint: string }> = {
   make: { prompt: 'Which vehicle is this part for?', hint: 'These candidates fit different makes.' },
   model: { prompt: 'Which model?', hint: 'Narrowing further by model.' },
   year: { prompt: 'Which model year?', hint: 'The remaining candidates cover different year ranges.' },
+  mpn: {
+    prompt: 'Is one of these numbers on the part?',
+    hint: 'Usually stamped into the metal or printed on the old box.',
+  },
   brand: {
     prompt: 'Do you know the part brand?',
     hint: 'Often stamped on the part or printed on the old packaging.',
   },
+}
+
+/**
+ * Prompts for `attributes` keys. Anything not listed falls back to a humanized
+ * key, so a new attribute added to the catalog asks a sensible question without
+ * a frontend change.
+ */
+const ATTRIBUTE_PROMPTS: Record<string, { prompt: string; hint: string }> = {
+  primary_colour: { prompt: 'What colour is it, mainly?', hint: 'The body, not the fittings.' },
+  filter_style: { prompt: 'Is it a spin-on canister or a cartridge insert?', hint: 'Look at the shape.' },
+  filter_shape: { prompt: 'What shape is the filter?', hint: '' },
+  position: { prompt: 'Where does it fit on the vehicle?', hint: 'Front or rear axle.' },
+  material: { prompt: 'What is it made of?', hint: '' },
+  friction_material: { prompt: 'What is the friction material?', hint: 'Usually printed on the pad edge or box.' },
+  damper_style: { prompt: 'Which of these does it look like?', hint: '' },
+  manifold_style: { prompt: 'Which of these does it look like?', hint: '' },
+  injector_type: { prompt: 'Which type of injector is it?', hint: '' },
+  pump_style: { prompt: 'Which type of pump is it?', hint: '' },
+  throttle_control: { prompt: 'Is it cable-operated or electronic?', hint: 'Look for a cable pulley or a plug.' },
+  sold_as: { prompt: 'How many are in the set?', hint: '' },
+  lug_count: { prompt: 'How many wheel studs does it have?', hint: 'Count the bolts on the flange.' },
+  abs_sensor: { prompt: 'Does it have an ABS sensor?', hint: 'A wire running off the hub.' },
+  wear_sensor: { prompt: 'Does it have a wear sensor?', hint: 'A small wire clipped to one pad.' },
+  pulley_fitted: { prompt: 'Is the pulley already fitted?', hint: '' },
+  integrated_reservoir: { prompt: 'Does it have a fluid reservoir on top?', hint: '' },
+  catalytic_converter: { prompt: 'Does it include a catalytic converter?', hint: '' },
+}
+
+
+
+function promptFor(facet: FacetKey): { prompt: string; hint: string } {
+  if (!facet.startsWith('attr:')) return PROMPTS[facet]
+  const key = facet.slice('attr:'.length)
+  return ATTRIBUTE_PROMPTS[key] ?? { prompt: `${formatAttributeLabel(key)}?`, hint: '' }
 }
 
 function fitmentRows(candidates: IdentificationCandidate[]): FitmentRow[] {
@@ -158,6 +201,34 @@ function brandOptions(candidates: IdentificationCandidate[]): DisambiguationOpti
   }))
 }
 
+function partNumberOptions(candidates: IdentificationCandidate[]): DisambiguationOption[] {
+  const numbered = candidates.filter((candidate) => candidate.manufacturerPartNumber)
+  return uniqueSorted(numbered.map((candidate) => candidate.manufacturerPartNumber!)).map((label) => ({
+    label,
+    skus: uniqueSorted(
+      numbered.filter((c) => c.manufacturerPartNumber === label).map((c) => c.sku),
+    ),
+  }))
+}
+
+/**
+ * One option per distinct value of an attribute key.
+ *
+ * Only offered when every candidate carries the key: a product whose attribute
+ * was never derived would otherwise be silently ruled out for having no value,
+ * which is a data gap rather than a mismatch.
+ */
+function attributeOptions(
+  candidates: IdentificationCandidate[],
+  key: string,
+): DisambiguationOption[] {
+  if (!candidates.every((candidate) => candidate.attributes?.[key])) return []
+  return uniqueSorted(candidates.map((candidate) => candidate.attributes[key])).map((value) => ({
+    label: formatAttributeValue(value),
+    skus: uniqueSorted(candidates.filter((c) => c.attributes[key] === value).map((c) => c.sku)),
+  }))
+}
+
 function worstCaseRemaining(options: DisambiguationOption[]): number {
   return Math.max(...options.map((option) => option.skus.length))
 }
@@ -178,11 +249,20 @@ function isUseful(options: DisambiguationOption[], candidateCount: number): bool
  *
  * Ranking purely by elimination power puts brand first, because brand usually
  * splits the candidates perfectly — but someone photographing a part to find out
- * what it is is exactly the person who does not know its brand. Facts about
- * their own car they do know. Elimination power only orders facets within a
- * tier; "Not sure" skips to the next one.
+ * what it is is exactly the person who does not know its brand.
+ *
+ * The ordering follows what the user has in front of them. Visual attributes
+ * come first: they are answered by looking at the part already in their hand
+ * ("spin-on or cartridge?", "what colour is it?"), which needs no knowledge at
+ * all. Then facts about their own car. Then the part number, which is decisive
+ * but means hunting for stamped text. Brand last.
+ *
+ * Elimination power only orders facets within a tier; "Not sure" skips one.
  */
-const ANSWERABILITY: Record<FacetKey, number> = { make: 0, model: 1, year: 2, brand: 3 }
+function answerability(facet: FacetKey): number {
+  if (facet.startsWith('attr:')) return 0
+  return { make: 1, model: 2, year: 3, mpn: 4, brand: 5 }[facet as 'make'] ?? 9
+}
 
 /**
  * The next question to ask, or null when the candidates are already resolved (or
@@ -214,11 +294,22 @@ function questionFor(
   const everyCandidateHasFitment = candidates.every((c) => c.compatibleVehicles.length > 0)
 
   const built: { facet: FacetKey; options: DisambiguationOption[] }[] = []
+
+  // Every attribute key any candidate carries is a candidate question.
+  // `?? {}` guards a candidate built before `attributes` existed (a cached API
+  // response, say). Crashing the whole results page over a missing enrichment
+  // would be a poor trade.
+  const attributeKeys = uniqueSorted(candidates.flatMap((c) => Object.keys(c.attributes ?? {})))
+  for (const key of attributeKeys) {
+    built.push({ facet: `attr:${key}`, options: attributeOptions(candidates, key) })
+  }
+
   if (everyCandidateHasFitment) {
     built.push({ facet: 'make', options: optionsFromRows(rows, 'make') })
     built.push({ facet: 'model', options: optionsFromRows(rows, 'model') })
     built.push({ facet: 'year', options: yearOptions(rows) })
   }
+  built.push({ facet: 'mpn', options: partNumberOptions(candidates) })
   built.push({ facet: 'brand', options: brandOptions(candidates) })
 
   const usable = built
@@ -230,13 +321,13 @@ function questionFor(
   // Easiest to answer first, then strongest elimination, then fewest chips.
   usable.sort(
     (a, b) =>
-      ANSWERABILITY[a.facet] - ANSWERABILITY[b.facet] ||
+      answerability(a.facet) - answerability(b.facet) ||
       worstCaseRemaining(a.options) - worstCaseRemaining(b.options) ||
       a.options.length - b.options.length,
   )
 
   const best = usable[0]
-  return { facet: best.facet, ...PROMPTS[best.facet], options: best.options }
+  return { facet: best.facet, ...promptFor(best.facet), options: best.options }
 }
 
 /** Candidates still possible after every answer so far. */

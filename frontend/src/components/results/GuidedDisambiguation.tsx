@@ -17,11 +17,19 @@ interface GuidedDisambiguationProps {
   onResolved: (sku: string) => void
 }
 
-const FACET_LABEL: Record<FacetKey, string> = {
+const FACET_LABEL: Record<string, string> = {
   make: 'Vehicle',
   model: 'Model',
   year: 'Year',
+  mpn: 'Part number',
   brand: 'Brand',
+}
+
+/** `attr:filter_style` -> "Filter style"; anything else falls back to the map. */
+function facetLabel(facet: FacetKey): string {
+  if (!facet.startsWith('attr:')) return FACET_LABEL[facet] ?? facet
+  const key = facet.slice('attr:'.length).replace(/[_-]+/g, ' ')
+  return key.charAt(0).toUpperCase() + key.slice(1)
 }
 
 /**
@@ -94,7 +102,7 @@ export function GuidedDisambiguation({
           {answers.map((entry, index) => (
             <li key={`${entry.facet}-${entry.label}`} className="flex items-center gap-2 text-sm">
               <Check className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
-              <span className="text-muted">{FACET_LABEL[entry.facet]}:</span>
+              <span className="text-muted">{facetLabel(entry.facet)}:</span>
               <span className="font-semibold text-foreground">{entry.label}</span>
               <button
                 type="button"
@@ -103,7 +111,7 @@ export function GuidedDisambiguation({
               >
                 <RotateCcw className="h-3 w-3" aria-hidden="true" />
                 Change
-                <span className="sr-only"> your {FACET_LABEL[entry.facet]} answer</span>
+                <span className="sr-only"> your {facetLabel(entry.facet)} answer</span>
               </button>
             </li>
           ))}

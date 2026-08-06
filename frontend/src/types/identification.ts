@@ -23,6 +23,10 @@ export interface IdentificationCandidate {
    * not ask a vehicle question it cannot answer for every candidate.
    */
   compatibleVehicles: VehicleCompatibility[]
+  /** The number stamped on the part, when the catalog records one. */
+  manufacturerPartNumber: string | null
+  /** Visual facts from Brain 3 — what the user can answer by looking at the part. */
+  attributes: Record<string, string>
 }
 
 /** The full outcome of an identification run, ready for the Results page. */

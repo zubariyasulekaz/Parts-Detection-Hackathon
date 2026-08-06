@@ -28,6 +28,7 @@ class Product(Base):
     __table_args__ = (
         Index("ix_products_brand", "brand"),
         Index("ix_products_category", "category"),
+        Index("ix_products_manufacturer_part_number", "manufacturer_part_number"),
     )
 
     sku: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -35,6 +36,16 @@ class Product(Base):
     brand: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: The number stamped on the part / printed on the box, e.g. "DE1439".
+    manufacturer_part_number: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    #: Visual facts that separate look-alike SKUs — filter_style, position,
+    #: primary_colour, and so on. Keys vary by category, hence JSONB rather
+    #: than a column each. Derived from the name/description by
+    #: `scripts/extract_product_attributes.py`.
+    attributes: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
 
     image_paths: Mapped[list[str]] = mapped_column(
         ARRAY(Text), nullable=False, default=list, server_default="{}"

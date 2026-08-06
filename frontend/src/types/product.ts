@@ -19,6 +19,14 @@ export interface Product {
   brand: string
   category: string
   description: string
+  /** The number stamped on the part / printed on the box. Null when unrecorded. */
+  manufacturerPartNumber: string | null
+  /**
+   * Visual facts that separate look-alike SKUs — `filter_style`, `position`,
+   * `primary_colour`, and so on. Keys vary by category, so treat this as an
+   * open bag: read what is there, never assume a key exists.
+   */
+  attributes: Record<string, string>
   /** Resolved, ready-to-render image URLs. Empty when no photography exists yet. */
   images: string[]
   replacementSku: string | null

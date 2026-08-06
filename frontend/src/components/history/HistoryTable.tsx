@@ -122,7 +122,17 @@ export function HistoryTable({
                           images={skuImages.get(entry.topSku) ? [skuImages.get(entry.topSku)!] : []}
                           className="h-12 w-12 shrink-0 rounded-lg border border-border-strong"
                         />
-                        <span className="font-mono whitespace-nowrap text-muted">{entry.topSku}</span>
+                        <div className="flex flex-col gap-1">
+                          <span className="font-mono whitespace-nowrap text-muted">{entry.topSku}</span>
+                          {/* The feedback loop, visible: what the user settled on. A
+                              correction names the SKU the pipeline should have picked. */}
+                          {entry.confirmedSku &&
+                            (entry.confirmedSku === entry.topSku ? (
+                              <StatusBadge variant="success">Confirmed</StatusBadge>
+                            ) : (
+                              <StatusBadge variant="warning">Corrected → {entry.confirmedSku}</StatusBadge>
+                            ))}
+                        </div>
                       </div>
                     ) : (
                       <StatusBadge variant="warning">No match</StatusBadge>
@@ -130,7 +140,7 @@ export function HistoryTable({
                   </td>
                   <td className="px-4 py-3">
                     {entry.embeddingBackend ? (
-                      <span className="rounded-full border border-border-strong bg-surface-2 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-subtle uppercase">
+                      <span className="rounded-full border border-border-strong bg-surface-2 px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-subtle uppercase">
                         {entry.embeddingBackend}
                       </span>
                     ) : (

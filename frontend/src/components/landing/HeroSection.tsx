@@ -22,11 +22,11 @@ export function HeroSection({ onUploadClick, onTrySample, isSampleLoading, sampl
 
       <h1
         style={{ animationDelay: '90ms' }}
-        className="animate-fade-slide-up text-4xl leading-[1.1] font-extrabold tracking-tight text-foreground sm:text-5xl"
+        className="animate-fade-slide-up text-[2.75rem] leading-[1.04] font-bold tracking-tight text-foreground sm:text-6xl"
       >
-        Identify the <span className="text-gradient-accent">Right Part.</span>
+        The <span className="text-gradient-accent whitespace-nowrap">right part</span>,
         <br />
-        From a Single Image.
+        from one photo.
       </h1>
 
       <p style={{ animationDelay: '180ms' }} className="animate-fade-slide-up max-w-md text-base leading-relaxed text-muted">
@@ -38,7 +38,7 @@ export function HeroSection({ onUploadClick, onTrySample, isSampleLoading, sampl
         <button
           type="button"
           onClick={onUploadClick}
-          className="shadow-glow-accent rounded-lg bg-linear-to-b from-accent-hover to-accent px-6 py-3.5 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 active:translate-y-0"
+          className="shadow-glow-accent rounded-lg bg-linear-to-r from-accent to-[#1fa2a2] px-7 py-3.5 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 active:translate-y-0"
         >
           Upload Part Image
         </button>

@@ -26,6 +26,8 @@ export interface PredictionHistoryEntry {
    * rejects `data:` URLs, so test truthiness instead and fall back to `PartIllustration`.
    */
   thumbnail: string | null
+  /** SKU the user settled on, when they told us. Differing from `topSku` marks a correction. */
+  confirmedSku?: string | null
 }
 
 export interface PredictionHistoryParams {

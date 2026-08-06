@@ -64,7 +64,7 @@ export function AIMatchSummary({ result }: AIMatchSummaryProps) {
 
   return (
     <div className="shadow-card rounded-xl border border-border bg-surface p-5">
-      <h2 className="text-sm font-bold text-foreground">AI Match Summary</h2>
+      <h2 className="heading-eyebrow text-sm font-bold text-foreground">AI Match Summary</h2>
       <ul className="mt-3 flex flex-col gap-2.5">
         {lines.map((line) => (
           <li key={line.text} className="flex items-start gap-2 text-sm text-muted">

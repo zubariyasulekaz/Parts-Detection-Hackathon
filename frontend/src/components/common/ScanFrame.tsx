@@ -54,7 +54,7 @@ export function ScanFrame({ active = false, label, labelTone = 'accent', classNa
           style={{ animationDelay: '260ms' }}
           // whitespace-nowrap: a long readout like "SHOCK ABSORBER · 40%" was
           // wrapping to three lines in a narrow frame and covering the part.
-          className={`animate-pop-in absolute bottom-3 left-1/2 max-w-[calc(100%-1.5rem)] -translate-x-1/2 overflow-hidden rounded-md border px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide text-ellipsis whitespace-nowrap backdrop-blur ${LABEL_TONE_CLASS[labelTone]}`}
+          className={`animate-pop-in absolute bottom-3 left-1/2 max-w-[calc(100%-1.5rem)] -translate-x-1/2 overflow-hidden rounded-md border px-2.5 py-1 font-mono text-xs font-semibold tracking-wide text-ellipsis whitespace-nowrap backdrop-blur ${LABEL_TONE_CLASS[labelTone]}`}
         >
           {label}
         </span>

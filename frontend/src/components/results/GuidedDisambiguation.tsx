@@ -14,7 +14,9 @@ interface GuidedDisambiguationProps {
   /** Called as the set narrows, so the candidate grid can rule cards out in step. */
   onRemainingChange: (skus: string[]) => void
   /** Called when exactly one candidate is left — the answer to the whole flow. */
-  onResolved: (sku: string) => void
+  onResolved: (sku: string, answers: DisambiguationAnswer[]) => void
+  /** Kept in sync with the answer trail, so a later "Confirm Match" can report how the pick was reached. */
+  onAnswersChange?: (answers: DisambiguationAnswer[]) => void
 }
 
 const FACET_LABEL: Record<string, string> = {
@@ -44,6 +46,7 @@ export function GuidedDisambiguation({
   candidates,
   onRemainingChange,
   onResolved,
+  onAnswersChange,
 }: GuidedDisambiguationProps) {
   const [answers, setAnswers] = useState<DisambiguationAnswer[]>([])
   const [skipped, setSkipped] = useState<FacetKey[]>([])
@@ -60,20 +63,23 @@ export function GuidedDisambiguation({
   function answer(option: DisambiguationAnswer) {
     const next = [...answers, option]
     setAnswers(next)
+    onAnswersChange?.(next)
     const left = applyAnswers(candidates, next)
     onRemainingChange(left.map((candidate) => candidate.sku))
-    if (left.length === 1) onResolved(left[0].sku)
+    if (left.length === 1) onResolved(left[0].sku, next)
   }
 
   function undo(index: number) {
     const next = answers.slice(0, index)
     setAnswers(next)
+    onAnswersChange?.(next)
     setSkipped([])
     onRemainingChange(applyAnswers(candidates, next).map((candidate) => candidate.sku))
   }
 
   function restart() {
     setAnswers([])
+    onAnswersChange?.([])
     setSkipped([])
     onRemainingChange(candidates.map((candidate) => candidate.sku))
   }
@@ -152,7 +158,7 @@ export function GuidedDisambiguation({
                 className="rounded-full border border-border-strong bg-surface-2 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-accent hover:bg-accent/10 hover:text-accent-soft"
               >
                 {option.label}
-                <span className="ml-1.5 font-mono text-[11px] font-normal text-subtle">
+                <span className="ml-1.5 font-mono text-xs font-normal text-subtle">
                   {option.skus.length}
                 </span>
               </button>

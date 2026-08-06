@@ -26,5 +26,6 @@ export function adaptPredictionHistoryEntry(dto: AuditEntryResponseDTO): Predict
     embeddingBackend: dto.embedding_backend,
     explanation: dto.explanation,
     thumbnail: dto.thumbnail,
+    confirmedSku: dto.confirmed_sku ?? null,
   }
 }

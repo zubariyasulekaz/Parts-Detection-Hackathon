@@ -12,6 +12,11 @@ export function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`
 }
 
+/** 240 -> "240 ms", 1400 -> "1.4 s". */
+export function formatSearchTime(ms: number): string {
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`
+}
+
 export function formatYearRange(yearStart: number, yearEnd: number): string {
   return yearStart === yearEnd ? String(yearStart) : `${yearStart}–${yearEnd}`
 }

@@ -57,13 +57,19 @@ export function HistoryEntryCard({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground">{entry.category}</p>
           {entry.topSku ? (
-            <span className="mt-1 flex items-center gap-2">
+            <span className="mt-1 flex flex-wrap items-center gap-2">
               <ProductThumbnail
                 category={entry.category}
                 images={matchedSkuImage ? [matchedSkuImage] : []}
                 className="h-8 w-8 shrink-0 rounded-md border border-border-strong"
               />
               <span className="font-mono text-xs text-subtle">{entry.topSku}</span>
+              {entry.confirmedSku &&
+                (entry.confirmedSku === entry.topSku ? (
+                  <StatusBadge variant="success">Confirmed</StatusBadge>
+                ) : (
+                  <StatusBadge variant="warning">Corrected → {entry.confirmedSku}</StatusBadge>
+                ))}
             </span>
           ) : (
             <StatusBadge variant="warning" className="mt-1">
@@ -83,11 +89,11 @@ export function HistoryEntryCard({
 
       <dl className="grid grid-cols-2 gap-2 border-t border-border pt-3">
         <div>
-          <dt className="text-[11px] font-semibold tracking-wide text-subtle uppercase">Search</dt>
+          <dt className="text-xs font-semibold tracking-wide text-subtle uppercase">Search</dt>
           <dd className="mt-0.5 font-mono text-xs text-muted">{formatSearchTime(entry.searchTimeMs)}</dd>
         </div>
         <div>
-          <dt className="text-[11px] font-semibold tracking-wide text-subtle uppercase">Model</dt>
+          <dt className="text-xs font-semibold tracking-wide text-subtle uppercase">Model</dt>
           <dd className="mt-0.5 font-mono text-xs text-muted uppercase">{entry.embeddingBackend ?? '—'}</dd>
         </div>
       </dl>

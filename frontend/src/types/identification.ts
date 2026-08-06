@@ -41,6 +41,15 @@ export interface IdentificationResult {
   selectedSku: string | null
   searchTimeMs: number
   /**
+   * Server-side verdict that nothing in the catalog scored high enough to
+   * present as a match (mock mode derives it from the local threshold).
+   */
+  noMatch: boolean
+  /** The similarity threshold that verdict was made against, when known. */
+  noMatchThreshold: number | null
+  /** Audit-trail row id — needed to post the user's confirmation back. Null in mock mode. */
+  auditId: number | null
+  /**
    * Brain 4's (Qwen LLM) free-form explanation, verbatim — displayed as-is,
    * never parsed into structured UI. Null in mock mode's non-demo scenarios
    * and whenever live mode ran without `explain` or the model didn't load.

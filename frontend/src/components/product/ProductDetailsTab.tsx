@@ -56,7 +56,7 @@ export function ProductDetailsTab({ product }: ProductDetailsTabProps) {
                   key={key}
                   className="rounded-lg border border-border-strong bg-surface-2 px-3 py-2"
                 >
-                  <dt className="text-[11px] tracking-wide text-subtle uppercase">
+                  <dt className="text-xs tracking-wide text-subtle uppercase">
                     {formatAttributeLabel(key)}
                   </dt>
                   <dd className="mt-0.5 text-sm font-semibold text-foreground">

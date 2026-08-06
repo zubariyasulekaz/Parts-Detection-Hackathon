@@ -1,5 +1,4 @@
 import { CircleCheck } from 'lucide-react'
-import type { KeyboardEvent } from 'react'
 import { ConfidenceGauge } from '@/components/common/ConfidenceGauge'
 import { ProductThumbnail } from '@/components/common/ProductThumbnail'
 import { formatPercent } from '@/utils/format'
@@ -16,6 +15,12 @@ interface CandidateCardProps {
   onSelect: () => void
 }
 
+/** `"friction_material"` -> `"Friction material"`. */
+function attributeLabel(key: string): string {
+  const spaced = key.replace(/[_-]+/g, ' ')
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
 export function CandidateCard({
   candidate,
   isSelected,
@@ -24,22 +29,19 @@ export function CandidateCard({
   isRuledOut = false,
   onSelect,
 }: CandidateCardProps) {
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      onSelect()
-    }
-  }
+  // The facts that tell look-alike candidates apart — the same data the
+  // guided questions ask about. Shown on the card so "what's actually
+  // different?" has a visible answer instead of a hidden one.
+  const attributeChips = Object.entries(candidate.attributes ?? {}).slice(0, 3)
 
   return (
+    // The inner button is the single interactive control (keyboard +
+    // screen readers); this wrapper only widens the mouse click target.
+    // A role="button" here would nest interactive controls, which
+    // assistive tech announces as one broken widget.
     <div
-      role="button"
-      tabIndex={0}
-      aria-pressed={isSelected}
-      aria-label={`${candidate.productName}, SKU ${candidate.sku}, rank ${candidate.rank}, ${formatPercent(candidate.similarity)} visual similarity`}
       onClick={onSelect}
-      onKeyDown={handleKeyDown}
-      className={`shadow-card group flex flex-col overflow-hidden rounded-xl border bg-surface transition-all hover:-translate-y-0.5 ${
+      className={`shadow-card group flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-surface transition-all hover:-translate-y-0.5 ${
         isSelected ? 'shadow-glow-accent border-accent' : 'border-border-strong hover:shadow-glow-accent'
       }`}
     >
@@ -52,15 +54,15 @@ export function CandidateCard({
         />
         <div className="absolute top-2.5 left-2.5 flex gap-1.5">
           {showBestMatch && candidate.rank === 1 && (
-            <span className="shadow-glow-accent rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold tracking-wide text-white uppercase">
+            <span className="shadow-glow-accent rounded-full bg-accent px-2 py-0.5 text-xs font-bold tracking-wide text-white uppercase">
               Best Match
             </span>
           )}
-          <span className="rounded-full bg-surface/90 px-2 py-0.5 font-mono text-[11px] font-semibold text-muted backdrop-blur">
+          <span className="rounded-full bg-surface/90 px-2 py-0.5 font-mono text-xs font-semibold text-muted backdrop-blur">
             RANK #{candidate.rank}
           </span>
           {isRuledOut && (
-            <span className="rounded-full bg-surface/90 px-2 py-0.5 text-[11px] font-bold tracking-wide text-warning-soft uppercase backdrop-blur">
+            <span className="rounded-full bg-surface/90 px-2 py-0.5 text-xs font-bold tracking-wide text-warning-soft uppercase backdrop-blur">
               Ruled out
             </span>
           )}
@@ -79,16 +81,37 @@ export function CandidateCard({
           {candidate.sku} · {candidate.category}
         </span>
 
+        {(candidate.manufacturerPartNumber || attributeChips.length > 0) && (
+          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+            {candidate.manufacturerPartNumber && (
+              <li className="rounded-md border border-border-strong bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-muted">
+                MPN {candidate.manufacturerPartNumber}
+              </li>
+            )}
+            {attributeChips.map(([key, value]) => (
+              <li
+                key={key}
+                className="rounded-md border border-border-strong bg-surface-2 px-1.5 py-0.5 text-xs text-muted"
+                title={attributeLabel(key)}
+              >
+                {value}
+              </li>
+            ))}
+          </ul>
+        )}
+
         <div className="mt-2 flex items-center gap-3">
           <ConfidenceGauge value={candidate.similarity} size={40} tone={isSelected ? 'success' : 'accent'} label="Visual similarity" />
           <div>
             <p className="font-mono text-sm font-bold text-foreground">{formatPercent(candidate.similarity)}</p>
-            <p className="text-[11px] text-subtle">Visual similarity</p>
+            <p className="text-xs text-subtle">Visual similarity</p>
           </div>
         </div>
 
         <button
           type="button"
+          aria-pressed={isSelected}
+          aria-label={`Select ${candidate.productName}, SKU ${candidate.sku}, rank ${candidate.rank}, ${formatPercent(candidate.similarity)} visual similarity`}
           onClick={(event) => {
             event.stopPropagation()
             onSelect()

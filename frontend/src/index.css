@@ -3,6 +3,9 @@
 @theme {
   --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  /* Display face for headings and hero moments — geometric and slightly
+     technical, which is the product's whole personality. Body stays Inter. */
+  --font-display: "Space Grotesk Variable", "Space Grotesk", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 
   /* Surfaces — slightly wider range than the base spec so cards actually
      separate from the page instead of reading as one black slab. */
@@ -12,16 +15,20 @@
   --color-surface-3: #2a3542;
   --color-surface-4: #364354;
 
-  /* Text */
+  /* Text. `subtle` must stay dimmer than `muted` but still clear 4.5:1 on
+     surface-2, where it labels chips and secondary lines at small sizes —
+     the old #5f6b78 sat near 2.6:1 and washed out. */
   --color-foreground: #f5f7fa;
   --color-muted: #9aa4af;
-  --color-subtle: #5f6b78;
+  --color-subtle: #8792a0;
 
-  /* Brand accent */
+  /* Brand accent. `accent-2` is the cyan end of the brand gradient —
+     always paired with the blue, never used alone as a UI control color. */
   --color-accent: #2f80ed;
   --color-accent-soft: #5fa4f7;
   --color-accent-hover: #4c94f2;
   --color-accent-muted: #1c3a5e;
+  --color-accent-2: #2dd4bf;
 
   /* Status */
   --color-success: #34c77a;
@@ -164,8 +171,9 @@
   h2,
   h3,
   h4 {
+    font-family: var(--font-display);
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
   }
 
   :focus-visible {
@@ -282,12 +290,30 @@
 }
 
 /* Gradient text for the one or two words per page that should carry
-   emphasis — never the whole headline. */
+   emphasis — never the whole headline. Blue -> cyan is the brand gradient;
+   it appears here, in eyebrow ticks, and in the primary CTA, nowhere else. */
 @utility text-gradient-accent {
-  background-image: linear-gradient(100deg, var(--color-accent-soft), var(--color-accent));
+  background-image: linear-gradient(100deg, var(--color-accent-soft) 10%, var(--color-accent-2) 90%);
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
+}
+
+/* Section-heading eyebrow: a short brand-gradient tick before the label.
+   Gives every panel a consistent, scannable anchor point. */
+@utility heading-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+
+  &::before {
+    content: "";
+    width: 1.1rem;
+    height: 2px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    background: linear-gradient(90deg, var(--color-accent), var(--color-accent-2));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

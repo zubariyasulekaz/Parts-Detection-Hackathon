@@ -1,7 +1,8 @@
-import { predictPart } from '@/api/partpilotApi'
+import { confirmPrediction, predictPart } from '@/api/partpilotApi'
 import { adaptPredictionResult } from '@/adapters/identificationAdapter'
 import { getSampleScenario, pickScenarioForFile, resolveScenarioCandidates } from '@/mocks/identificationResults'
 import { getProduct } from './catalogService'
+import { assessImageQuality } from './imageQuality'
 import type { IdentificationCandidate, IdentificationResult, ProcessingStageKey } from '@/types/identification'
 
 const API_MODE = import.meta.env.VITE_API_MODE
@@ -26,35 +27,34 @@ export const STRONG_SEPARATION_GAP = 0.08
 /**
  * Below this visual similarity, the top-ranked SKU is not a plausible match.
  *
- * Brain 2 always returns the nearest neighbours inside the predicted category —
- * it has no way to answer "nothing in here looks like this". So a photo of a part
- * we don't stock still comes back with a ranked list, just at a much lower cosine
- * similarity. Treating that as a catalog match is worse than saying nothing:
- * it recommends the wrong part with a confident-looking UI.
- *
- * Calibrated against all 225 catalog images rather than guessed. Scores here are
- * DINOv2/OpenCLIP cosine against a product centroid (the mean of that product's
- * photos), which sits far lower than intuition suggests — a correct match has a
- * median of 0.90 but a floor of 0.55, and even an exact catalog photo scores ~0.70
- * because it is compared against the average of its product's other photos, not
- * against itself. Measured trade-off:
- *
- *     threshold   correct matches rejected   out-of-catalog caught
- *       0.45              0.0%                      84.5%
- *       0.50              0.0%                      85.8%   <- chosen
- *       0.55              0.4%                      86.5%
- *       0.65              2.7%                      87.3%
- *
- * 0.50 is the highest value that rejects no correct match in the catalog; going
- * higher buys almost no extra detection and starts calling stocked parts missing,
- * which costs a sale where a low-confidence match merely costs a second look.
+ * MOCK MODE ONLY. In live mode the verdict is made server-side (per
+ * embedding backend, calibrated with scripts/calibrate_no_match.py against
+ * the per-image max-over-images scoring) and arrives as
+ * `prediction.no_match` — the UI must not second-guess it, or any other API
+ * consumer would see a different answer than the app shows.
  */
 export const NO_CATALOG_MATCH_THRESHOLD = 0.5
 
-/** True when even the closest catalog entry is too far off to present as a match. */
+/** Mock-mode fallback for the server-side no-match verdict. */
 export function hasNoCatalogMatch(candidates: IdentificationCandidate[]): boolean {
   const top = candidates[0]
   return !top || top.similarity < NO_CATALOG_MATCH_THRESHOLD
+}
+
+/**
+ * Reports the user's final answer to the backend audit trail. Fire-and-forget
+ * by design: confirmation failing (backend restarting, row already gone) must
+ * never block the user's navigation to the product they just picked.
+ */
+export function reportConfirmation(
+  auditId: number | null,
+  sku: string,
+  disambiguation?: Record<string, string>,
+): void {
+  if (auditId === null || API_MODE !== 'live') return
+  confirmPrediction(auditId, sku, disambiguation).catch((error) => {
+    console.warn('Could not record the confirmation:', error)
+  })
 }
 
 export interface ProcessingStageDefinition {
@@ -104,13 +104,19 @@ function delay(ms: number): Promise<void> {
  * "no catalog match" verdict outranks the ambiguity one: when nothing matched
  * closely enough, asking the user to pick between three bad candidates — or
  * quietly pre-selecting the least bad — would both be misleading.
+ *
+ * `noMatch` is the server's verdict in live mode; mock mode derives it from
+ * the local threshold.
  */
-function computeOutcome(candidates: IdentificationCandidate[]): {
+function computeOutcome(
+  candidates: IdentificationCandidate[],
+  noMatch: boolean,
+): {
   requiresConfirmation: boolean
   confirmationReason?: string
   selectedSku: string | null
 } {
-  if (hasNoCatalogMatch(candidates)) {
+  if (noMatch) {
     return { requiresConfirmation: false, selectedSku: null }
   }
   const topSku = candidates[0].sku
@@ -139,7 +145,8 @@ async function runMockPipeline(
   }
 
   const candidates = resolveScenarioCandidates(scenario)
-  const { requiresConfirmation, confirmationReason, selectedSku } = computeOutcome(candidates)
+  const noMatch = hasNoCatalogMatch(candidates)
+  const { requiresConfirmation, confirmationReason, selectedSku } = computeOutcome(candidates, noMatch)
 
   return {
     uploadedImageUrl,
@@ -150,6 +157,9 @@ async function runMockPipeline(
     confirmationReason,
     selectedSku,
     searchTimeMs: scenario.searchTimeMs,
+    noMatch,
+    noMatchThreshold: NO_CATALOG_MATCH_THRESHOLD,
+    auditId: null,
     aiExplanation: scenario.explanation,
   }
 }
@@ -159,6 +169,8 @@ async function runLivePipeline(
   uploadedImageUrl: string,
   options: IdentifyOptions,
 ): Promise<IdentificationResult> {
+  // Real, local work: measure sharpness/exposure while the request is prepared.
+  const qualityPromise = assessImageQuality(file)
   options.onStage?.('validate')
   options.onStage?.('normalize')
 
@@ -220,19 +232,27 @@ async function runLivePipeline(
   )
   options.onStage?.('retrieve')
 
-  const { requiresConfirmation, confirmationReason, selectedSku } = computeOutcome(candidates)
+  // Prefer the server's calibrated verdict; an older backend that never
+  // sends one falls back to the local threshold. Falling back to "match"
+  // here is what would let a photo of a living room ship as a bushing.
+  const noMatch = prediction.noMatch ?? hasNoCatalogMatch(candidates)
+  const { requiresConfirmation, confirmationReason, selectedSku } = computeOutcome(
+    candidates,
+    noMatch,
+  )
 
   return {
     uploadedImageUrl,
-    // The backend validates the image before running the pipeline; reaching
-    // this point means it passed that check. No separate quality score exists.
-    imageQuality: 'good',
+    imageQuality: await qualityPromise,
     category: { name: prediction.categoryName, confidence: prediction.confidence },
     candidates,
     requiresConfirmation,
     confirmationReason,
     selectedSku,
     searchTimeMs: prediction.searchTimeMs,
+    noMatch,
+    noMatchThreshold: prediction.noMatchThreshold,
+    auditId: prediction.auditId,
     aiExplanation: prediction.explanation,
   }
 }

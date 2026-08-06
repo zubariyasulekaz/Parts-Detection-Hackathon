@@ -8,22 +8,25 @@ interface NoCatalogMatchPanelProps {
   category: CategoryPrediction
   /** Rank-1 result, i.e. the closest thing Brain 2 found — absent when the search returned nothing at all. */
   closestCandidate: IdentificationCandidate | null
+  /** The server-side threshold the verdict was made against; falls back to the mock-mode constant. */
+  threshold?: number | null
   onNewSearch: () => void
 }
 
 /**
  * Shown in place of the best-match summary when Brain 3 has nothing worth
- * resolving: the nearest catalog entry scored below NO_CATALOG_MATCH_THRESHOLD.
+ * resolving: the nearest catalog entry scored below the no-match threshold.
  *
  * The category prediction is still reported — Brain 1 answered a different
  * question and its answer stands — but the SKU is deliberately not presented as
  * a match, because recommending the wrong part is the expensive failure here.
  */
-export function NoCatalogMatchPanel({ category, closestCandidate, onNewSearch }: NoCatalogMatchPanelProps) {
+export function NoCatalogMatchPanel({ category, closestCandidate, threshold, onNewSearch }: NoCatalogMatchPanelProps) {
+  const effectiveThreshold = threshold ?? NO_CATALOG_MATCH_THRESHOLD
   return (
     <div className="shadow-card flex h-full flex-col gap-5 rounded-xl border border-warning/40 bg-surface p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-bold tracking-wide text-muted uppercase">Catalog Match</h2>
+        <h2 className="heading-eyebrow text-sm font-bold tracking-wide text-muted uppercase">Catalog Match</h2>
         <StatusBadge variant="warning">No catalog match</StatusBadge>
       </div>
 
@@ -40,7 +43,7 @@ export function NoCatalogMatchPanel({ category, closestCandidate, onNewSearch }:
                 <span className="font-mono font-semibold text-foreground">
                   {formatPercent(closestCandidate.similarity)}
                 </span>{' '}
-                visual similarity — under the {formatPercent(NO_CATALOG_MATCH_THRESHOLD)} we require before calling
+                visual similarity — under the {formatPercent(effectiveThreshold)} we require before calling
                 something a match. Rather than recommend a part that probably isn't yours, we're flagging it.
               </>
             ) : (
@@ -75,11 +78,11 @@ export function NoCatalogMatchPanel({ category, closestCandidate, onNewSearch }:
         still comes back empty, we likely don't stock this part.
       </p>
 
-      <div className="mt-auto flex gap-3 pt-2">
+      <div className="mt-auto pt-2">
         <button
           type="button"
           onClick={onNewSearch}
-          className="flex-1 rounded-lg border border-border-strong px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-accent/50"
+          className="rounded-lg border border-border-strong px-6 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-accent/50"
         >
           Try Another Photo
         </button>

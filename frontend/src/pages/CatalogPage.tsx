@@ -18,6 +18,8 @@ export function CatalogPage() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [brand, setBrand] = useState('')
+  // Bumped by Retry so the fetch effect re-runs without a full page reload.
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -34,7 +36,7 @@ export function CatalogPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadToken])
 
   const { categories, brands } = useMemo(() => deriveFilterOptions(products), [products])
 
@@ -104,7 +106,10 @@ export function CatalogPage() {
       {status === 'loading' && <LoadingState label="Loading catalog…" />}
 
       {status === 'error' && (
-        <ErrorState message="Could not load the catalog. Please try again." onRetry={() => window.location.reload()} />
+        <ErrorState
+          message="Could not load the catalog. Please try again."
+          onRetry={() => setReloadToken((token) => token + 1)}
+        />
       )}
 
       {status === 'success' && filtered.length === 0 && (

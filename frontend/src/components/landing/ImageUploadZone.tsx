@@ -1,5 +1,5 @@
 import { Upload, X } from 'lucide-react'
-import { useRef, type DragEvent, type KeyboardEvent } from 'react'
+import { useRef, type DragEvent } from 'react'
 import { ScanFrame } from '@/components/common/ScanFrame'
 import type { PartSample } from '@/services/sampleImage'
 import { MAX_UPLOAD_SIZE_MB } from '@/services/uploadPolicy'
@@ -65,21 +65,14 @@ export function ImageUploadZone({
     if (dropped) onFileDropped(dropped)
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      onBrowseClick()
-    }
-  }
-
   return (
     <div className="flex flex-col gap-3">
+      {/* Mouse-only convenience surface: the real, focusable control is the
+          "Browse Files" button inside. A role="button" wrapper here would
+          nest the browse button and ten carousel dots inside another button,
+          which assistive tech reads as one broken widget. */}
       <div
-        role="button"
-        tabIndex={0}
-        aria-label="Upload a part image. JPG, PNG or WEBP, maximum 10 megabytes."
         onClick={previewUrl ? undefined : onBrowseClick}
-        onKeyDown={previewUrl ? undefined : handleKeyDown}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -145,7 +138,7 @@ export function ImageUploadZone({
             </div>
 
             {activeSample && (
-              <span className="absolute top-3 left-3 rounded-full border border-accent/30 bg-surface/85 px-2.5 py-1 text-[11px] font-bold tracking-wide text-accent-soft uppercase backdrop-blur">
+              <span className="absolute top-3 left-3 rounded-full border border-accent/30 bg-surface/85 px-2.5 py-1 text-xs font-bold tracking-wide text-accent-soft uppercase backdrop-blur">
                 Sample · {activeSample.category}
               </span>
             )}
@@ -182,6 +175,7 @@ export function ImageUploadZone({
               <p className="text-xs text-muted">JPG, PNG or WEBP · Maximum {MAX_UPLOAD_SIZE_MB} MB</p>
               <button
                 type="button"
+                aria-label="Browse files to upload a part image. JPG, PNG or WEBP, maximum 10 megabytes."
                 onClick={(event) => {
                   event.stopPropagation()
                   onBrowseClick()

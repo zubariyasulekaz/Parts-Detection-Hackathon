@@ -23,7 +23,7 @@ export function IdentificationSummary({
     // actions read as one horizontal summary bar rather than a tall column.
     <div className="shadow-card flex flex-col gap-5 rounded-xl border border-border bg-surface p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-bold tracking-wide text-muted uppercase">Best Catalog Match</h2>
+        <h2 className="heading-eyebrow text-sm font-bold tracking-wide text-muted uppercase">Best Catalog Match</h2>
         {isHighConfidence && selectedCandidate && (
           <StatusBadge variant="success">High-confidence identification</StatusBadge>
         )}

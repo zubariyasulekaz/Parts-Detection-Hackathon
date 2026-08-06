@@ -1,3 +1,5 @@
+import type { VehicleCompatibility } from './product'
+
 export interface CategoryPrediction {
   name: string
   confidence: number
@@ -14,6 +16,13 @@ export interface IdentificationCandidate {
   similarity: number
   rank: number
   imageUrl?: string
+  /**
+   * Fitment from Brain 3, carried onto the candidate so the results page can ask
+   * which vehicle the part is for. Empty when the catalog lookup failed or the
+   * SKU has no recorded fitment — see `services/disambiguation.ts`, which will
+   * not ask a vehicle question it cannot answer for every candidate.
+   */
+  compatibleVehicles: VehicleCompatibility[]
 }
 
 /** The full outcome of an identification run, ready for the Results page. */

@@ -1,5 +1,5 @@
 import { CircleCheck, TriangleAlert } from 'lucide-react'
-import { STRONG_SEPARATION_GAP } from '@/services/identificationService'
+import { hasNoCatalogMatch, NO_CATALOG_MATCH_THRESHOLD, STRONG_SEPARATION_GAP } from '@/services/identificationService'
 import { formatPercent } from '@/utils/format'
 import type { IdentificationResult } from '@/types/identification'
 
@@ -16,6 +16,19 @@ interface SummaryLine {
 function buildSummaryLines(result: IdentificationResult): SummaryLine[] {
   const lines: SummaryLine[] = [{ tone: 'positive', text: `Predicted category: ${result.category.name}` }]
   const [top, runnerUp] = result.candidates
+
+  // A weak top score says the opposite of what the usual lines claim, so it
+  // replaces them rather than sitting alongside them.
+  if (hasNoCatalogMatch(result.candidates)) {
+    lines.push({
+      tone: 'caution',
+      text: top
+        ? `No catalog entry cleared the ${formatPercent(NO_CATALOG_MATCH_THRESHOLD)} match threshold — the closest scored ${formatPercent(top.similarity)}`
+        : 'The visual search returned no catalog entries for this part',
+    })
+    lines.push({ tone: 'caution', text: 'This part appears not to be stocked in the catalog' })
+    return lines
+  }
 
   if (top) {
     lines.push({

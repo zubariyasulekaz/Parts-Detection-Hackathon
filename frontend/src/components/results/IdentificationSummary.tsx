@@ -19,7 +19,9 @@ export function IdentificationSummary({
   onConfirmMatch,
 }: IdentificationSummaryProps) {
   return (
-    <div className="shadow-card flex h-full flex-col gap-5 rounded-xl border border-border bg-surface p-6">
+    // Sits full-width beneath the image comparison, so the metrics, product and
+    // actions read as one horizontal summary bar rather than a tall column.
+    <div className="shadow-card flex flex-col gap-5 rounded-xl border border-border bg-surface p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-bold tracking-wide text-muted uppercase">Best Catalog Match</h2>
         {isHighConfidence && selectedCandidate && (
@@ -27,7 +29,7 @@ export function IdentificationSummary({
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,14rem)_minmax(0,14rem)_1fr] lg:items-center">
         <ConfidenceMetric
           label="Category Prediction"
           primary={category.name}
@@ -50,22 +52,22 @@ export function IdentificationSummary({
             <p className="mt-1 text-sm text-subtle">Awaiting confirmation below</p>
           </div>
         )}
+
+        {selectedCandidate && (
+          <div className="rounded-lg border border-border-strong bg-surface-2 p-4">
+            <p className="text-xs font-semibold tracking-wide text-muted uppercase">{selectedCandidate.brand}</p>
+            <p className="text-base font-semibold text-foreground">{selectedCandidate.productName}</p>
+            <p className="text-xs text-subtle">{selectedCandidate.category}</p>
+          </div>
+        )}
       </div>
 
-      {selectedCandidate && (
-        <div className="rounded-lg border border-border-strong bg-surface-2 p-4">
-          <p className="text-xs font-semibold tracking-wide text-muted uppercase">{selectedCandidate.brand}</p>
-          <p className="text-base font-semibold text-foreground">{selectedCandidate.productName}</p>
-          <p className="text-xs text-subtle">{selectedCandidate.category}</p>
-        </div>
-      )}
-
-      <div className="mt-auto flex gap-3 pt-2">
+      <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={onConfirmMatch}
           disabled={!selectedCandidate}
-          className="shadow-glow-accent flex-1 rounded-lg bg-linear-to-b from-accent-hover to-accent px-4 py-2.5 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+          className="shadow-glow-accent rounded-lg bg-linear-to-b from-accent-hover to-accent px-6 py-2.5 text-sm font-semibold text-white transition-transform sm:w-48 hover:-translate-y-0.5 active:translate-y-0 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
         >
           Confirm Match
         </button>
@@ -73,7 +75,7 @@ export function IdentificationSummary({
           type="button"
           onClick={onViewProduct}
           disabled={!selectedCandidate}
-          className="flex-1 rounded-lg border border-border-strong px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg border border-border-strong px-6 py-2.5 sm:w-48 text-sm font-semibold text-foreground transition-colors hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           View Product
         </button>

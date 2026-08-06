@@ -21,9 +21,9 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['EXM002', 'EXM003'],
     accessorySkus: ['ACC-GSK-401', 'ACC-STUD-118', 'ACC-HS-220'],
     compatibleVehicles: [
-      { make: 'Ford', model: 'F-150', engine: '5.0L V8', yearStart: 2015, yearEnd: 2020 },
-      { make: 'Ford', model: 'Expedition', engine: '5.4L V8', yearStart: 2011, yearEnd: 2014 },
-      { make: 'Lincoln', model: 'Navigator', engine: '5.4L V8', yearStart: 2011, yearEnd: 2014 },
+      { make: 'Ford', model: 'F-150', yearStart: 2015, yearEnd: 2020 },
+      { make: 'Ford', model: 'Expedition', yearStart: 2011, yearEnd: 2014 },
+      { make: 'Lincoln', model: 'Navigator', yearStart: 2011, yearEnd: 2014 },
     ],
   },
   {
@@ -38,8 +38,8 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['EXM002', 'EXM003'],
     accessorySkus: ['ACC-GSK-401', 'ACC-STUD-118', 'ACC-HS-220'],
     compatibleVehicles: [
-      { make: 'Ford', model: 'F-150', engine: '5.0L V8', yearStart: 2015, yearEnd: 2020 },
-      { make: 'Ford', model: 'Expedition', engine: '5.4L V8', yearStart: 2011, yearEnd: 2014 },
+      { make: 'Ford', model: 'F-150', yearStart: 2015, yearEnd: 2020 },
+      { make: 'Ford', model: 'Expedition', yearStart: 2011, yearEnd: 2014 },
     ],
   },
   {
@@ -54,8 +54,8 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['EXM001', 'EXM003'],
     accessorySkus: ['ACC-GSK-401', 'ACC-STUD-118'],
     compatibleVehicles: [
-      { make: 'Ford', model: 'F-150', engine: '5.0L V8', yearStart: 2015, yearEnd: 2020 },
-      { make: 'Ford', model: 'Mustang GT', engine: '5.0L V8', yearStart: 2015, yearEnd: 2023 },
+      { make: 'Ford', model: 'F-150', yearStart: 2015, yearEnd: 2020 },
+      { make: 'Ford', model: 'Mustang GT', yearStart: 2015, yearEnd: 2023 },
     ],
   },
   {
@@ -70,8 +70,8 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['EXM001', 'EXM002'],
     accessorySkus: ['ACC-HS-220'],
     compatibleVehicles: [
-      { make: 'Ford', model: 'Expedition', engine: '5.4L V8', yearStart: 2011, yearEnd: 2014 },
-      { make: 'Lincoln', model: 'Navigator', engine: '5.4L V8', yearStart: 2011, yearEnd: 2014 },
+      { make: 'Ford', model: 'Expedition', yearStart: 2011, yearEnd: 2014 },
+      { make: 'Lincoln', model: 'Navigator', yearStart: 2011, yearEnd: 2014 },
     ],
   },
   {
@@ -124,8 +124,8 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['BP-1043', 'BP-1044'],
     accessorySkus: ['ACC-CAL-330', 'ACC-SENS-210'],
     compatibleVehicles: [
-      { make: 'Toyota', model: 'Camry', engine: '2.5L I4', yearStart: 2018, yearEnd: 2024 },
-      { make: 'Toyota', model: 'RAV4', engine: '2.5L I4', yearStart: 2019, yearEnd: 2024 },
+      { make: 'Toyota', model: 'Camry', yearStart: 2018, yearEnd: 2024 },
+      { make: 'Toyota', model: 'RAV4', yearStart: 2019, yearEnd: 2024 },
     ],
   },
   {
@@ -138,7 +138,7 @@ export const MOCK_PRODUCTS: Product[] = [
     replacementSku: null,
     alternativeSkus: ['BP-1043', 'BP-1044'],
     accessorySkus: ['ACC-CAL-330', 'ACC-SENS-210'],
-    compatibleVehicles: [{ make: 'Toyota', model: 'Camry', engine: '2.5L I4', yearStart: 2018, yearEnd: 2024 }],
+    compatibleVehicles: [{ make: 'Toyota', model: 'Camry', yearStart: 2018, yearEnd: 2024 }],
   },
   {
     sku: 'BP-1043',
@@ -151,8 +151,8 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['BP-1042', 'BP-1044'],
     accessorySkus: ['ACC-CAL-330'],
     compatibleVehicles: [
-      { make: 'Toyota', model: 'Camry', engine: '2.5L I4', yearStart: 2018, yearEnd: 2024 },
-      { make: 'Honda', model: 'Accord', engine: '1.5L Turbo I4', yearStart: 2018, yearEnd: 2022 },
+      { make: 'Toyota', model: 'Camry', yearStart: 2018, yearEnd: 2024 },
+      { make: 'Honda', model: 'Accord', yearStart: 2018, yearEnd: 2022 },
     ],
   },
   {
@@ -165,7 +165,7 @@ export const MOCK_PRODUCTS: Product[] = [
     replacementSku: null,
     alternativeSkus: ['BP-1042', 'BP-1043'],
     accessorySkus: ['ACC-CAL-330', 'ACC-SENS-210'],
-    compatibleVehicles: [{ make: 'Honda', model: 'Accord', engine: '1.5L Turbo I4', yearStart: 2018, yearEnd: 2022 }],
+    compatibleVehicles: [{ make: 'Honda', model: 'Accord', yearStart: 2018, yearEnd: 2022 }],
   },
   {
     sku: 'ACC-CAL-330',
@@ -204,8 +204,8 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['OF-45023'],
     accessorySkus: ['ACC-DRAIN-05'],
     compatibleVehicles: [
-      { make: 'Honda', model: 'Civic', engine: '1.5L Turbo I4', yearStart: 2016, yearEnd: 2021 },
-      { make: 'Honda', model: 'CR-V', engine: '1.5L Turbo I4', yearStart: 2017, yearEnd: 2022 },
+      { make: 'Honda', model: 'Civic', yearStart: 2016, yearEnd: 2021 },
+      { make: 'Honda', model: 'CR-V', yearStart: 2017, yearEnd: 2022 },
     ],
   },
   {
@@ -218,7 +218,7 @@ export const MOCK_PRODUCTS: Product[] = [
     replacementSku: null,
     alternativeSkus: ['OF-3978', 'OF-45023'],
     accessorySkus: ['ACC-DRAIN-05'],
-    compatibleVehicles: [{ make: 'Honda', model: 'Civic', engine: '1.5L Turbo I4', yearStart: 2016, yearEnd: 2021 }],
+    compatibleVehicles: [{ make: 'Honda', model: 'Civic', yearStart: 2016, yearEnd: 2021 }],
   },
   {
     sku: 'OF-45023',
@@ -230,7 +230,7 @@ export const MOCK_PRODUCTS: Product[] = [
     replacementSku: null,
     alternativeSkus: ['OF-3978', 'OF-45011'],
     accessorySkus: [],
-    compatibleVehicles: [{ make: 'Honda', model: 'CR-V', engine: '1.5L Turbo I4', yearStart: 2017, yearEnd: 2022 }],
+    compatibleVehicles: [{ make: 'Honda', model: 'CR-V', yearStart: 2017, yearEnd: 2022 }],
   },
   {
     sku: 'ACC-DRAIN-05',
@@ -257,8 +257,8 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['AF-2211'],
     accessorySkus: [],
     compatibleVehicles: [
-      { make: 'Toyota', model: 'Corolla', engine: '2.0L I4', yearStart: 2020, yearEnd: 2024 },
-      { make: 'Toyota', model: 'Camry', engine: '2.5L I4', yearStart: 2018, yearEnd: 2024 },
+      { make: 'Toyota', model: 'Corolla', yearStart: 2020, yearEnd: 2024 },
+      { make: 'Toyota', model: 'Camry', yearStart: 2018, yearEnd: 2024 },
     ],
   },
   {
@@ -271,7 +271,7 @@ export const MOCK_PRODUCTS: Product[] = [
     replacementSku: null,
     alternativeSkus: ['AF-2210'],
     accessorySkus: [],
-    compatibleVehicles: [{ make: 'Toyota', model: 'Corolla', engine: '2.0L I4', yearStart: 2020, yearEnd: 2024 }],
+    compatibleVehicles: [{ make: 'Toyota', model: 'Corolla', yearStart: 2020, yearEnd: 2024 }],
   },
 
   // --- Spark Plug ---------------------------------------------------------------
@@ -286,8 +286,8 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['SP-6611'],
     accessorySkus: ['ACC-COIL-118'],
     compatibleVehicles: [
-      { make: 'Ford', model: 'F-150', engine: '5.0L V8', yearStart: 2015, yearEnd: 2020 },
-      { make: 'Ford', model: 'Mustang GT', engine: '5.0L V8', yearStart: 2015, yearEnd: 2023 },
+      { make: 'Ford', model: 'F-150', yearStart: 2015, yearEnd: 2020 },
+      { make: 'Ford', model: 'Mustang GT', yearStart: 2015, yearEnd: 2023 },
     ],
   },
   {
@@ -300,7 +300,7 @@ export const MOCK_PRODUCTS: Product[] = [
     replacementSku: null,
     alternativeSkus: ['SP-6610'],
     accessorySkus: ['ACC-COIL-118'],
-    compatibleVehicles: [{ make: 'Ford', model: 'F-150', engine: '5.0L V8', yearStart: 2015, yearEnd: 2020 }],
+    compatibleVehicles: [{ make: 'Ford', model: 'F-150', yearStart: 2015, yearEnd: 2020 }],
   },
   {
     sku: 'ACC-COIL-118',
@@ -327,8 +327,8 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['CF-1181'],
     accessorySkus: [],
     compatibleVehicles: [
-      { make: 'Honda', model: 'Civic', engine: '1.5L Turbo I4', yearStart: 2016, yearEnd: 2021 },
-      { make: 'Honda', model: 'Accord', engine: '1.5L Turbo I4', yearStart: 2018, yearEnd: 2022 },
+      { make: 'Honda', model: 'Civic', yearStart: 2016, yearEnd: 2021 },
+      { make: 'Honda', model: 'Accord', yearStart: 2018, yearEnd: 2022 },
     ],
   },
   {
@@ -341,7 +341,7 @@ export const MOCK_PRODUCTS: Product[] = [
     replacementSku: null,
     alternativeSkus: ['CF-1180'],
     accessorySkus: [],
-    compatibleVehicles: [{ make: 'Honda', model: 'Civic', engine: '1.5L Turbo I4', yearStart: 2016, yearEnd: 2021 }],
+    compatibleVehicles: [{ make: 'Honda', model: 'Civic', yearStart: 2016, yearEnd: 2021 }],
   },
 
   // --- Shock Absorbers ---------------------------------------------------------
@@ -357,8 +357,8 @@ export const MOCK_PRODUCTS: Product[] = [
     alternativeSkus: ['SA-2211'],
     accessorySkus: ['ACC-MOUNT-118', 'ACC-BOOT-44'],
     compatibleVehicles: [
-      { make: 'Toyota', model: 'Camry', engine: '2.5L I4', yearStart: 2018, yearEnd: 2024 },
-      { make: 'Honda', model: 'Accord', engine: '1.5L Turbo I4', yearStart: 2018, yearEnd: 2022 },
+      { make: 'Toyota', model: 'Camry', yearStart: 2018, yearEnd: 2024 },
+      { make: 'Honda', model: 'Accord', yearStart: 2018, yearEnd: 2022 },
     ],
   },
   {
@@ -372,7 +372,7 @@ export const MOCK_PRODUCTS: Product[] = [
     replacementSku: null,
     alternativeSkus: ['SA-2210'],
     accessorySkus: ['ACC-MOUNT-118'],
-    compatibleVehicles: [{ make: 'Toyota', model: 'Camry', engine: '2.5L I4', yearStart: 2018, yearEnd: 2024 }],
+    compatibleVehicles: [{ make: 'Toyota', model: 'Camry', yearStart: 2018, yearEnd: 2024 }],
   },
   {
     sku: 'ACC-MOUNT-118',

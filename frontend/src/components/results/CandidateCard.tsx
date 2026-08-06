@@ -9,10 +9,21 @@ interface CandidateCardProps {
   candidate: IdentificationCandidate
   isSelected: boolean
   isPrimaryAction: boolean
+  /** False when no candidate cleared the match threshold — calling rank 1 the "best match" would overstate it. */
+  showBestMatch?: boolean
+  /** Eliminated by an answer in the guided flow. Still selectable — the user may know better. */
+  isRuledOut?: boolean
   onSelect: () => void
 }
 
-export function CandidateCard({ candidate, isSelected, isPrimaryAction, onSelect }: CandidateCardProps) {
+export function CandidateCard({
+  candidate,
+  isSelected,
+  isPrimaryAction,
+  showBestMatch = true,
+  isRuledOut = false,
+  onSelect,
+}: CandidateCardProps) {
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
@@ -36,10 +47,11 @@ export function CandidateCard({ candidate, isSelected, isPrimaryAction, onSelect
         <ProductThumbnail
           category={candidate.category}
           images={candidate.imageUrl ? [candidate.imageUrl] : []}
+          fit="cover"
           className="h-full w-full"
         />
         <div className="absolute top-2.5 left-2.5 flex gap-1.5">
-          {candidate.rank === 1 && (
+          {showBestMatch && candidate.rank === 1 && (
             <span className="shadow-glow-accent rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold tracking-wide text-white uppercase">
               Best Match
             </span>
@@ -47,6 +59,11 @@ export function CandidateCard({ candidate, isSelected, isPrimaryAction, onSelect
           <span className="rounded-full bg-surface/90 px-2 py-0.5 font-mono text-[11px] font-semibold text-muted backdrop-blur">
             RANK #{candidate.rank}
           </span>
+          {isRuledOut && (
+            <span className="rounded-full bg-surface/90 px-2 py-0.5 text-[11px] font-bold tracking-wide text-warning-soft uppercase backdrop-blur">
+              Ruled out
+            </span>
+          )}
         </div>
         {isSelected && (
           <span className="absolute top-2.5 right-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-accent text-white">

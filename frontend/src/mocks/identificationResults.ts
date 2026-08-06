@@ -1,3 +1,4 @@
+import { SAMPLE_FILE_PREFIX } from '@/services/sampleImage'
 import { findMockProduct } from './products'
 import type { IdentificationCandidate, ImageQuality } from '@/types/identification'
 
@@ -125,10 +126,51 @@ export const IDENTIFICATION_SCENARIOS: IdentificationScenario[] = [
     explanation:
       "The uploaded photo matches SA-2210 (KYB Excel-G Gas Shock Absorber, Rear) with 92% visual similarity and 94% category confidence, clearly ahead of the alternative. This match looks reliable and doesn't need further confirmation.",
   },
+  {
+    // The catalog-miss path: Brain 2 still returns its nearest neighbours inside
+    // the predicted category, but nothing clears NO_CATALOG_MATCH_THRESHOLD, so
+    // the results page reports "not in our catalog" instead of a best match.
+    // This is the only Air Filter scenario, so the Air Filter sample on the
+    // landing page is what demos this state in mock mode.
+    id: 'air-filter-not-in-catalog',
+    categoryName: 'Air Filter',
+    confidence: 0.72,
+    imageQuality: 'fair',
+    searchTimeMs: 195,
+    candidates: [
+      { sku: 'AF-2210', similarity: 0.43 },
+      { sku: 'AF-2211', similarity: 0.39 },
+    ],
+    explanation:
+      "This looks like an air filter, but nothing in the catalog comes close visually — the nearest entry scores 43% similarity, well under the level at which a match is trustworthy. The most likely explanation is that this exact part isn't stocked. If you can, try a straight-on photo against a plain background, or share any part number printed on the filter frame.",
+  },
 ]
 
-/** "Try Sample Image" always resolves to the golden-path, high-confidence scenario. */
+/** Fallback for sample categories with no canned scenario of their own. */
 export const SAMPLE_IMAGE_SCENARIO_ID = 'shock-absorbers-high-confidence'
+
+/** "Brake Pads" -> "brake-pads"; tolerates the plural/singular drift between the mock and backend label sets. */
+function categoryKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .replace(/s$/, '')
+}
+
+/**
+ * Resolves the scenario for a "Try Sample Image" run.
+ *
+ * The landing page cycles a sample per category, so the demo should answer for
+ * the part actually submitted. `getSampleImageFile` encodes the category slug in
+ * the file name, which is the only thing that survives the trip down to here.
+ */
+export function getSampleScenario(file: File): IdentificationScenario {
+  const slug = categoryKey(file.name.replace(SAMPLE_FILE_PREFIX, '').replace(/\.[a-z0-9]+$/i, ''))
+  const match = IDENTIFICATION_SCENARIOS.find((scenario) => categoryKey(scenario.categoryName) === slug)
+  return match ?? getScenarioById(SAMPLE_IMAGE_SCENARIO_ID)
+}
 
 export function resolveScenarioCandidates(scenario: IdentificationScenario): IdentificationCandidate[] {
   return scenario.candidates.map((seed, index) => {
@@ -140,6 +182,9 @@ export function resolveScenarioCandidates(scenario: IdentificationScenario): Ide
       category: product?.category ?? scenario.categoryName,
       similarity: seed.similarity,
       rank: index + 1,
+      // Drives the guided questions on the results page; without it the flow
+      // can only ask about brand.
+      compatibleVehicles: product?.compatibleVehicles ?? [],
     }
   })
 }

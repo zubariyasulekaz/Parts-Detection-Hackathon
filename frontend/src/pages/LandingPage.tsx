@@ -6,7 +6,8 @@ import { PipelineStrip } from '@/components/landing/PipelineStrip'
 import { AmbientBackground } from '@/components/layout/AmbientBackground'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { useIdentification } from '@/context/IdentificationContext'
-import { getSampleImageFile } from '@/services/sampleImage'
+import { useRotatingIndex } from '@/hooks/useRotatingIndex'
+import { getSampleImageFile, PART_SAMPLES } from '@/services/sampleImage'
 import { ALLOWED_IMAGE_MIME_TYPES, validateImageFile } from '@/services/uploadPolicy'
 
 function formatFileSize(bytes: number): string {
@@ -25,6 +26,13 @@ export function LandingPage() {
   const [isDragActive, setIsDragActive] = useState(false)
   const [isSampleLoading, setIsSampleLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Held here, not inside the upload zone: "Try Sample Image" has to submit
+  // whichever sample is on screen at the moment it's clicked.
+  const [activeSampleIndex, setActiveSampleIndex] = useRotatingIndex(PART_SAMPLES.length, {
+    paused: Boolean(previewUrl) || isSampleLoading,
+  })
+  const activeSample = PART_SAMPLES[activeSampleIndex]
 
   useEffect(() => {
     if (location.hash === '#how-it-works') {
@@ -73,9 +81,11 @@ export function LandingPage() {
   async function handleTrySample() {
     setIsSampleLoading(true)
     try {
-      const sampleFile = await getSampleImageFile()
+      const sampleFile = await getSampleImageFile(activeSample)
       acceptFile(sampleFile)
       goIdentify(sampleFile, true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load the sample image.')
     } finally {
       setIsSampleLoading(false)
     }
@@ -87,7 +97,12 @@ export function LandingPage() {
         <AmbientBackground />
         <PageContainer className="relative py-10 lg:py-14">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-12">
-            <HeroSection onUploadClick={handleBrowseClick} onTrySample={handleTrySample} isSampleLoading={isSampleLoading} />
+            <HeroSection
+              onUploadClick={handleBrowseClick}
+              onTrySample={handleTrySample}
+              isSampleLoading={isSampleLoading}
+              sampleCategory={activeSample?.category}
+            />
 
             <div className="animate-pop-in" style={{ animationDelay: '150ms' }}>
               <input
@@ -104,6 +119,9 @@ export function LandingPage() {
                 fileSizeLabel={file ? formatFileSize(file.size) : undefined}
                 error={error}
                 isDragActive={isDragActive}
+                samples={PART_SAMPLES}
+                activeSampleIndex={activeSampleIndex}
+                onSelectSample={setActiveSampleIndex}
                 onDragActiveChange={setIsDragActive}
                 onFileDropped={acceptFile}
                 onBrowseClick={handleBrowseClick}

@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     # siglip-large, siglip-so400m, dinov2, dinov2-large, a HuggingFace model id,
     # or several joined with "+" to average their scores (e.g. "dinov2+siglip").
     # Changing this invalidates the FAISS indexes - rebuild after switching.
+    # Where the catalog vectors live: "faiss" reads index files from disk,
+    # "pgvector" queries the products table. Same vectors and same matches
+    # either way - pgvector just keeps them in the product's own row, so they
+    # cannot drift out of step with the catalog.
+    VECTOR_STORE: str = "faiss"
     EMBEDDING_BACKEND: str = "dinov2"
     # Categories that score better on a different model than the default.
     # Measured with scripts/evaluate_brain2.py: DINOv2 wins overall but loses

@@ -45,7 +45,22 @@ def get_classifier() -> ClassifierInterface:
 
 @lru_cache
 def get_similarity_search() -> SimilaritySearchInterface:
-    """Dependency provider for the Brain 2 similarity search service."""
+    """Dependency provider for the Brain 2 similarity search service.
+
+    Both stores hold the same vectors and return the same matches; the choice
+    is where they live. `pgvector` keeps them in the product's own row, so they
+    cannot drift out of step with the catalog, at the cost of a round trip per
+    search. `faiss` reads them from index files on disk.
+    """
+    store = get_settings().VECTOR_STORE.strip().lower()
+    if store == "pgvector":
+        from backend.pipeline.brain2_similarity.pgvector_search import (  # noqa: PLC0415
+            PgVectorSearchService,
+        )
+
+        return PgVectorSearchService()
+    if store != "faiss":
+        raise ValueError(f"Unknown VECTOR_STORE {store!r}; expected 'faiss' or 'pgvector'.")
     return SimilaritySearchService()
 
 

@@ -1,6 +1,7 @@
-import { Sparkles } from 'lucide-react'
+import { Loader2, Sparkles, Trash2 } from 'lucide-react'
 import { ConfidenceGauge } from '@/components/common/ConfidenceGauge'
 import { PartIllustration } from '@/components/common/PartIllustration'
+import { ProductThumbnail } from '@/components/common/ProductThumbnail'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { HIGH_CONFIDENCE_THRESHOLD } from '@/services/identificationService'
 import type { PredictionHistoryEntry } from '@/types/history'
@@ -8,7 +9,11 @@ import type { PredictionHistoryEntry } from '@/types/history'
 interface HistoryEntryCardProps {
   entry: PredictionHistoryEntry
   isExpanded: boolean
+  /** Catalog photo of the SKU this run matched, when the catalog has one. */
+  matchedSkuImage?: string
+  isDeleting: boolean
   onToggleExplanation: () => void
+  onDelete: () => void
 }
 
 /** "2026-08-06T09:41:22Z" -> "6 Aug 2026, 09:41", in the reader's own timezone. */
@@ -28,7 +33,14 @@ function formatSearchTime(ms: number): string {
 }
 
 /** One recorded run at phone width, where HistoryTable's eight columns can't fit. */
-export function HistoryEntryCard({ entry, isExpanded, onToggleExplanation }: HistoryEntryCardProps) {
+export function HistoryEntryCard({
+  entry,
+  isExpanded,
+  matchedSkuImage,
+  isDeleting,
+  onToggleExplanation,
+  onDelete,
+}: HistoryEntryCardProps) {
   return (
     <article className="shadow-card flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
       <div className="flex items-start gap-3">
@@ -45,7 +57,14 @@ export function HistoryEntryCard({ entry, isExpanded, onToggleExplanation }: His
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground">{entry.category}</p>
           {entry.topSku ? (
-            <p className="mt-1 font-mono text-xs text-subtle">{entry.topSku}</p>
+            <span className="mt-1 flex items-center gap-2">
+              <ProductThumbnail
+                category={entry.category}
+                images={matchedSkuImage ? [matchedSkuImage] : []}
+                className="h-8 w-8 shrink-0 rounded-md border border-border-strong"
+              />
+              <span className="font-mono text-xs text-subtle">{entry.topSku}</span>
+            </span>
           ) : (
             <StatusBadge variant="warning" className="mt-1">
               No match
@@ -77,29 +96,46 @@ export function HistoryEntryCard({ entry, isExpanded, onToggleExplanation }: His
         </div>
       </dl>
 
-      {entry.explanation && (
-        <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          {entry.explanation && (
+            <button
+              type="button"
+              onClick={onToggleExplanation}
+              aria-expanded={isExpanded}
+              aria-controls={isExpanded ? `history-explanation-card-${entry.id}` : undefined}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-accent/50 hover:text-accent-hover"
+            >
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              {isExpanded ? 'Hide' : 'Show'}
+              <span className="sr-only"> AI explanation for the {entry.category} run</span>
+            </button>
+          )}
           <button
             type="button"
-            onClick={onToggleExplanation}
-            aria-expanded={isExpanded}
-            aria-controls={isExpanded ? `history-explanation-card-${entry.id}` : undefined}
-            className="inline-flex items-center gap-1.5 self-start rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-accent/50 hover:text-accent-hover"
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold text-muted transition-colors hover:border-danger/50 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-            {isExpanded ? 'Hide' : 'Show'}
-            <span className="sr-only"> AI explanation for the {entry.category} run</span>
+            {isDeleting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            Delete
+            <span className="sr-only"> the {entry.category} run recorded {formatRecordedAt(entry.createdAt)}</span>
           </button>
-          {isExpanded && (
-            <p
-              id={`history-explanation-card-${entry.id}`}
-              className="border-l-2 border-accent/30 pl-3 text-sm leading-relaxed whitespace-pre-line text-foreground/90"
-            >
-              {entry.explanation}
-            </p>
-          )}
         </div>
-      )}
+
+        {isExpanded && entry.explanation && (
+          <p
+            id={`history-explanation-card-${entry.id}`}
+            className="border-l-2 border-accent/30 pl-3 text-sm leading-relaxed whitespace-pre-line text-foreground/90"
+          >
+            {entry.explanation}
+          </p>
+        )}
+      </div>
     </article>
   )
 }

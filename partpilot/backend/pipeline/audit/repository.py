@@ -61,6 +61,19 @@ class PredictionAuditRepository:
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 
+    async def delete(self, entry_id: int) -> bool:
+        """Delete one audit row by primary key.
+
+        Returns:
+            `True` if a row was deleted, `False` if `entry_id` did not exist.
+        """
+        entry = await self._session.get(PredictionAuditORM, entry_id)
+        if entry is None:
+            return False
+        await self._session.delete(entry)
+        await self._session.flush()
+        return True
+
     async def count(self) -> int:
         """Return the total number of recorded predictions."""
         stmt = select(func.count()).select_from(PredictionAuditORM)

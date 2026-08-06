@@ -15,9 +15,16 @@ const STACK_ITEMS: StackItem[] = [
     description: 'Fine-tuned image classifier used by Brain 1 to predict part category.',
   },
   {
+    name: 'DINOv2',
+    kind: 'AI Model',
+    description:
+      'Brain 2’s default embedding model. Self-supervised on images alone, so it matches on “is this the same object” rather than on what the part is called.',
+  },
+  {
     name: 'OpenCLIP',
     kind: 'AI Model',
-    description: 'Generates the visual embeddings Brain 2 uses for similarity search.',
+    description:
+      'The alternative Brain 2 backend, kept for the categories that benchmarked better on it than on DINOv2 — air filters, wheel hubs, and shock absorbers.',
   },
   {
     name: 'Qwen (Transformers)',

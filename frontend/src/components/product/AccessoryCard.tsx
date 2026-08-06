@@ -1,4 +1,4 @@
-import { PartIllustration } from '@/components/common/PartIllustration'
+import { ProductThumbnail } from '@/components/common/ProductThumbnail'
 import type { Product } from '@/types/product'
 
 interface AccessoryCardProps {
@@ -9,7 +9,7 @@ interface AccessoryCardProps {
 export function AccessoryCard({ product, onView }: AccessoryCardProps) {
   return (
     <div className="shadow-card group flex flex-col overflow-hidden rounded-xl border border-border-strong bg-surface transition-all hover:-translate-y-0.5 hover:shadow-glow-accent">
-      <PartIllustration category={product.category} className="aspect-4/3" />
+      <ProductThumbnail category={product.category} images={product.images} className="aspect-4/3" />
       <div className="flex flex-1 flex-col gap-1 p-4">
         <span className="text-xs font-semibold tracking-wide text-accent-hover uppercase">{product.category}</span>
         <span className="text-sm font-semibold text-foreground">{product.productName}</span>

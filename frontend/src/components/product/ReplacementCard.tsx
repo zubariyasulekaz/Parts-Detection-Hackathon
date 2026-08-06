@@ -1,5 +1,5 @@
 import { EmptyState } from '@/components/common/EmptyState'
-import { PartIllustration } from '@/components/common/PartIllustration'
+import { ProductThumbnail } from '@/components/common/ProductThumbnail'
 import type { Product } from '@/types/product'
 
 interface ReplacementCardProps {
@@ -19,7 +19,11 @@ export function ReplacementCard({ product, onView }: ReplacementCardProps) {
 
   return (
     <div className="shadow-card flex flex-col gap-5 rounded-xl border border-border bg-surface p-6 sm:flex-row sm:items-center">
-      <PartIllustration category={product.category} className="h-32 w-full shrink-0 rounded-lg sm:h-28 sm:w-28" />
+      <ProductThumbnail
+        category={product.category}
+        images={product.images}
+        className="h-32 w-full shrink-0 rounded-lg sm:h-28 sm:w-28"
+      />
       <div className="flex-1">
         <p className="text-xs font-semibold tracking-wide text-muted uppercase">{product.brand}</p>
         <p className="text-base font-semibold text-foreground">{product.productName}</p>

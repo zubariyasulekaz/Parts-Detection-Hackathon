@@ -1,4 +1,4 @@
-import { apiGet, apiPostForm } from './client'
+import { apiDelete, apiGet, apiPostForm } from './client'
 import type {
   AuditEntryResponseDTO,
   HistoryListQuery,
@@ -21,6 +21,11 @@ export async function fetchHistory(query: HistoryListQuery = {}): Promise<AuditE
     limit: query.limit,
     offset: query.offset,
   })
+}
+
+/** Removes one recorded run. `entryId` is the audit row id from `fetchHistory`, not a SKU. */
+export async function deleteHistoryEntry(entryId: number): Promise<{ id: number }> {
+  return apiDelete<{ id: number }>(`/history/${entryId}`)
 }
 
 export async function fetchProduct(sku: string): Promise<ProductResponseDTO> {

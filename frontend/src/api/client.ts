@@ -88,3 +88,16 @@ export async function apiPostForm<T>(path: string, formData: FormData, params?: 
   }
   return unwrap<T>(response)
 }
+
+export async function apiDelete<T>(path: string, params?: QueryParams): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(buildUrl(path, params), {
+      method: 'DELETE',
+      headers: { Accept: 'application/json' },
+    })
+  } catch {
+    throw new ApiError('Could not reach the PartPilot backend. Confirm it is running and reachable.', 0)
+  }
+  return unwrap<T>(response)
+}

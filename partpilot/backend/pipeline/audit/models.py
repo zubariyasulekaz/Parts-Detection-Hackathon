@@ -20,15 +20,18 @@ from backend.core.database import Base
 class PredictionAudit(Base):
     """One recorded `/predict` run, keyed by a surrogate id.
 
-    Maps 1:1 onto the `prediction_audit` table. Rows are append-only —
-    nothing updates or deletes an audit record, hence a `created_at`
-    with no `updated_at`. Read/write access to this model is only ever
-    performed through `PredictionAuditRepository` — no other layer
-    should import or query this class directly.
+    Maps 1:1 onto the `prediction_audit` table. Rows are append-only,
+    with one exception: the user's confirmation (`confirmed_sku`,
+    `confirmed_at`, `disambiguation`) may be written once after the fact,
+    turning the row from "what the pipeline said" into "what the pipeline
+    said and whether it was right". Read/write access to this model is
+    only ever performed through `PredictionAuditRepository` — no other
+    layer should import or query this class directly.
 
-    `top_sku` deliberately carries no foreign key to `products`: it
-    records what the pipeline answered at the time, and that answer must
-    stay readable after a SKU is renamed or dropped from the catalog.
+    `top_sku` and `confirmed_sku` deliberately carry no foreign key to
+    `products`: they record what was answered at the time, and that
+    answer must stay readable after a SKU is renamed or dropped from the
+    catalog.
     """
 
     __tablename__ = "prediction_audit"
@@ -52,6 +55,17 @@ class PredictionAudit(Base):
     # A downscaled JPEG as a base64 data URL. Uploads are not stored
     # anywhere, so this is the only surviving trace of the image.
     thumbnail: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # The SKU the user settled on (via Confirm Match or the guided
+    # questions), when they told us. Differing from `top_sku` marks the
+    # run as a correction — a labeled example the pipeline got wrong.
+    confirmed_sku: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # The guided disambiguation Q&A trail that led to the confirmation,
+    # e.g. {"attr:position": "front", "make": "Honda"}.
+    disambiguation: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     def __repr__(self) -> str:
         return (

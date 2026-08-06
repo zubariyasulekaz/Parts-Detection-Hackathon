@@ -264,6 +264,23 @@ def backend_for_category(category: str) -> str:
     return settings.EMBEDDING_BACKEND
 
 
+def no_match_threshold(backend: str | None) -> float:
+    """The similarity below which a top match is not a plausible answer.
+
+    Keyed per backend spec because score distributions differ between
+    models (a DINOv2 cosine and an OpenCLIP cosine are not on the same
+    scale). Falls back to the configured default for unknown/composite
+    specs and for older indexes that never recorded their backend.
+    """
+    settings = get_settings()
+    if backend:
+        wanted = backend.strip().lower()
+        for name, value in settings.NO_MATCH_THRESHOLDS.items():
+            if name.strip().lower() == wanted:
+                return value
+    return settings.NO_MATCH_THRESHOLD_DEFAULT
+
+
 class BackendCache:
     """Builds each backend once and reuses it.
 

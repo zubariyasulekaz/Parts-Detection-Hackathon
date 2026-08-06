@@ -61,6 +61,27 @@ class PredictionAuditRepository:
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 
+    async def set_confirmation(
+        self,
+        entry_id: int,
+        confirmed_sku: str,
+        disambiguation: dict | None,
+    ) -> PredictionAuditORM | None:
+        """Write the user's confirmation onto one audit row.
+
+        Returns:
+            The updated ORM instance, or `None` if `entry_id` does not exist.
+        """
+        entry = await self._session.get(PredictionAuditORM, entry_id)
+        if entry is None:
+            return None
+        entry.confirmed_sku = confirmed_sku
+        entry.confirmed_at = func.now()
+        entry.disambiguation = disambiguation
+        await self._session.flush()
+        await self._session.refresh(entry)
+        return entry
+
     async def delete(self, entry_id: int) -> bool:
         """Delete one audit row by primary key.
 

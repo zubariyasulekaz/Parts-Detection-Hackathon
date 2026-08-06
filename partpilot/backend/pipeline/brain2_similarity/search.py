@@ -28,6 +28,7 @@ from backend.pipeline.brain2_similarity.embedding_generator import EmbeddingGene
 from backend.pipeline.brain2_similarity.index_manager import IndexManager
 from backend.pipeline.brain2_similarity.interfaces import (
     EmbeddingGeneratorInterface,
+    SearchOutcome,
     SimilarityMatch,
     SimilaritySearchInterface,
 )
@@ -68,7 +69,8 @@ class SimilaritySearchService(SimilaritySearchInterface):
         category: str,
         image: Image,
         top_k: int | None = None,
-    ) -> list[SimilarityMatch]:
+        raw_image: Image | None = None,
+    ) -> SearchOutcome:
         """Find the top-K most visually similar SKUs within a category.
 
         Raises:
@@ -79,9 +81,34 @@ class SimilaritySearchService(SimilaritySearchInterface):
         top_k = top_k or get_settings().FAISS_TOP_K
         index = self._index_manager.get_index(category)
 
-        # Follow the index's own backend so the query matches how it was built.
+        # Follow the index's own metadata so the query matches how the
+        # stored vectors were built: same embedding model, same background
+        # treatment. The configured defaults are only fallbacks for older
+        # indexes saved before these were tracked.
         spec = index.backend or backend_for_category(category)
-        embedding = self._generator_for(spec).generate(image)
+        query_image = image
+        if index.remove_bg is False and raw_image is not None:
+            query_image = raw_image
+        embedding = self._generator_for(spec).generate(query_image)
 
         raw_matches = index.search(embedding, top_k)
-        return [SimilarityMatch(sku=sku, similarity_score=score) for sku, score in raw_matches]
+        matches = [SimilarityMatch(sku=sku, similarity_score=score) for sku, score in raw_matches]
+        return SearchOutcome(matches=matches, backend=spec)
+
+    def warm(self) -> None:
+        """Load every category index and its embedding model up front.
+
+        Called from startup so the first real request doesn't pay model
+        loading. Failures are the caller's to log — a cold start is a
+        latency problem, not a correctness one.
+        """
+        from PIL import Image as PILImage  # noqa: PLC0415
+
+        dummy = PILImage.new("RGB", (224, 224), (128, 128, 128))
+        warmed: set[str] = set()
+        for slug in self._index_manager.list_available_categories():
+            index = self._index_manager.get_index(slug)
+            spec = index.backend or backend_for_category(slug)
+            if spec not in warmed:
+                self._generator_for(spec).generate(dummy)
+                warmed.add(spec)

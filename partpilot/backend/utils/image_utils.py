@@ -17,6 +17,13 @@ from backend.core.logging import get_logger
 logger = get_logger(__name__)
 
 
+#: If rembg keeps less than this fraction of the pixels, the segmentation is
+#: treated as failed (e.g. a white part on a white bench segments to almost
+#: nothing) and the original image is used instead — an image that is nearly
+#: all background fill would match nothing.
+_MIN_FOREGROUND_FRACTION = 0.02
+
+
 def remove_background(
     image: Image.Image,
     background: tuple[int, int, int] = (255, 255, 255),
@@ -27,35 +34,56 @@ def remove_background(
     downstream models that expect 3-channel RGB (EfficientNet, OpenCLIP)
     receive a clean image instead of an alpha channel.
 
-    ``rembg`` is imported lazily so this module imports fine where the
-    (heavy) dependency is not installed.
+    Background removal is best-effort preprocessing, never a verdict on the
+    upload: if rembg is unavailable, errors out, or produces a degenerate
+    mask, the original image is returned unchanged and the problem is
+    logged. A model/runtime failure here must not surface to the user as
+    "your photo is invalid" — that confusion is exactly what the old
+    raise-on-failure behaviour caused.
 
     Args:
         image: Decoded RGB PIL image.
         background: Fill colour for the removed region.
 
     Returns:
-        An RGB PIL image with the background replaced by ``background``.
-
-    Raises:
-        backend.core.exceptions.InvalidImage: If background removal fails.
+        An RGB PIL image with the background replaced by ``background``,
+        or the original image when removal could not be applied safely.
     """
     try:
         from rembg import remove  # noqa: PLC0415
-    except ImportError as exc:  # pragma: no cover - env-dependent
-        raise InvalidImage(
-            "rembg is not installed; cannot remove image background."
-        ) from exc
+    except ImportError:  # pragma: no cover - env-dependent
+        logger.warning("rembg is not installed; skipping background removal.")
+        return image
 
     try:
         cutout = remove(image)  # RGBA PIL image
-        if cutout.mode == "RGBA":
-            flattened = Image.new("RGB", cutout.size, background)
-            flattened.paste(cutout, mask=cutout.split()[3])
-            return flattened
-        return cutout.convert("RGB")
+        if cutout.mode != "RGBA":
+            return cutout.convert("RGB")
+
+        alpha = cutout.split()[3]
+        coverage = _foreground_fraction(alpha)
+        if coverage < _MIN_FOREGROUND_FRACTION:
+            logger.warning(
+                "Background removal kept only %.1f%% of the image; using the original.",
+                coverage * 100,
+            )
+            return image
+
+        flattened = Image.new("RGB", cutout.size, background)
+        flattened.paste(cutout, mask=alpha)
+        return flattened
     except Exception as exc:  # noqa: BLE001
-        raise InvalidImage(f"Background removal failed: {exc}") from exc
+        logger.warning("Background removal failed (%s); using the original image.", exc)
+        return image
+
+
+def _foreground_fraction(alpha: Image.Image) -> float:
+    """Fraction of pixels rembg considers foreground (alpha > ~4%)."""
+    histogram = alpha.histogram()
+    total = sum(histogram)
+    if not total:
+        return 0.0
+    return sum(histogram[10:]) / total
 
 
 def load_image_from_bytes(content: bytes) -> Image.Image:

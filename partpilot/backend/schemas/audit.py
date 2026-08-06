@@ -5,11 +5,13 @@ builds once a run finishes; `AuditEntryResponse` is what gets serialized
 back out, including DB-generated fields (`id`, `created_at`). Both build
 on `AuditEntryBase` so field definitions live in exactly one place.
 
-Neither is a request body — audit rows are written by the pipeline, never
-posted by a client.
+`PredictionConfirmRequest` is the one client-posted payload: the SKU the
+user settled on (plus the guided-question answers that led there), sent to
+`POST /predict/{audit_id}/confirm` after the fact.
 """
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import ConfigDict, Field
 
@@ -59,3 +61,16 @@ class AuditEntryResponse(AuditEntryBase):
 
     id: int
     created_at: datetime
+    confirmed_sku: str | None = None
+    confirmed_at: datetime | None = None
+    disambiguation: dict[str, Any] | None = None
+
+
+class PredictionConfirmRequest(APIModel):
+    """What the user settled on, posted back against a recorded run."""
+
+    confirmed_sku: str = Field(min_length=1)
+    # Guided-question answers as facet -> chosen value, e.g.
+    # {"attr:position": "front", "make": "Honda"}. Optional: a plain
+    # "Confirm Match" click has no trail.
+    disambiguation: dict[str, Any] | None = None

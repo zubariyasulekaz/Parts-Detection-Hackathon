@@ -63,8 +63,11 @@ class Classifier(ClassifierInterface):
         except Exception as exc:  # noqa: BLE001
             raise PredictionError(f"Classifier inference failed: {exc}") from exc
 
-        index = int(np.argmax(probabilities))
-        confidence = float(probabilities[index])
-        category = self._resolve_label(index, probabilities.shape[0])
+        num_classes = probabilities.shape[0]
+        order = np.argsort(probabilities)[::-1]
+        ranking = [
+            (self._resolve_label(int(i), num_classes), float(probabilities[i])) for i in order
+        ]
+        category, confidence = ranking[0]
         logger.info("Brain 1 predicted '%s' (confidence %.3f)", category, confidence)
-        return ClassificationResult(category=category, confidence=confidence)
+        return ClassificationResult(category=category, confidence=confidence, ranking=ranking)

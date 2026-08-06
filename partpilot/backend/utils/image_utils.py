@@ -6,6 +6,7 @@ pre-processing (resizing, normalization, background removal) belongs in
 pipeline instead, since that logic is model-dependent.
 """
 
+import base64
 import io
 
 from PIL import Image, UnidentifiedImageError
@@ -76,3 +77,37 @@ def load_image_from_bytes(content: bytes) -> Image.Image:
     except (UnidentifiedImageError, OSError) as exc:
         raise InvalidImage("Uploaded file is not a valid image.") from exc
     return image.convert("RGB")
+
+
+def encode_thumbnail_data_url(
+    image: Image.Image,
+    max_side: int = 256,
+    quality: int = 75,
+) -> str:
+    """Downscale an image and encode it as a base64 JPEG data URL.
+
+    Uploads are never written to disk, so the prediction audit trail
+    keeps its own copy inline. A data URL is self-contained — it needs no
+    object storage behind it and drops straight into an `<img src>` — but
+    it is stored per recorded prediction, which is why the defaults are
+    deliberately small.
+
+    Args:
+        image: Decoded PIL image, in any mode.
+        max_side: Longest edge of the result, in pixels.
+        quality: JPEG quality (Pillow's 1-95 scale).
+
+    Returns:
+        A `data:image/jpeg;base64,...` URL of the downscaled image.
+    """
+    # JPEG carries neither alpha nor a palette, so anything but RGB has to
+    # be flattened or `save` raises. `convert` also returns a new image,
+    # which `thumbnail()` needs — it resizes in place and callers still
+    # hold the original.
+    downscaled = image.convert("RGB")
+    downscaled.thumbnail((max_side, max_side))
+
+    buffer = io.BytesIO()
+    downscaled.save(buffer, format="JPEG", quality=quality)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded}"

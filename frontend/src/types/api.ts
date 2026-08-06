@@ -73,9 +73,40 @@ export interface PredictionResultDTO {
   explanation: string | null
 }
 
+/** Mirrors `backend.schemas.audit.AuditCandidate` — a `SearchResult` plus the rank it held, stored rather than derived. */
+export interface AuditCandidateDTO {
+  sku: string
+  similarity_score: number
+  rank: number
+}
+
+/**
+ * Mirrors `backend.schemas.audit.AuditEntryResponse` — one recorded
+ * `POST /predict` run. `thumbnail` is a self-contained base64 data URL of the
+ * downscaled upload (there is no object storage yet), null when the row was
+ * written without one.
+ */
+export interface AuditEntryResponseDTO {
+  id: number
+  created_at: string
+  predicted_category: string
+  confidence: number
+  search_time_ms: number
+  top_sku: string | null
+  candidates: AuditCandidateDTO[]
+  embedding_backend: string | null
+  explanation: string | null
+  thumbnail: string | null
+}
+
 export interface ProductListQuery {
   limit?: number
   offset?: number
   category?: string
   brand?: string
+}
+
+export interface HistoryListQuery {
+  limit?: number
+  offset?: number
 }

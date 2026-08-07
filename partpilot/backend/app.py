@@ -82,10 +82,22 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # A wildcard origin and credentials are mutually exclusive under CORS: a
+    # browser rejects `Access-Control-Allow-Origin: *` when the response also
+    # allows credentials, and the request fails as a network error with no
+    # useful message. The preflight still succeeds, because Starlette echoes
+    # the real origin there and only falls back to "*" on the actual response -
+    # so the API answers fine from curl and only breaks in the browser.
+    #
+    # Nothing here uses cookies or auth headers, so drop credentials rather
+    # than the wildcard, which would otherwise have to list every port Vite
+    # might pick.
+    allow_credentials = "*" not in settings.CORS_ORIGINS
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
-        allow_credentials=True,
+        allow_credentials=allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )

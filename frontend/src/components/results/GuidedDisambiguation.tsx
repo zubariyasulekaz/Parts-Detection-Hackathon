@@ -13,7 +13,7 @@ interface GuidedDisambiguationProps {
   candidates: IdentificationCandidate[]
   /** Called as the set narrows, so the candidate grid can rule cards out in step. */
   onRemainingChange: (skus: string[]) => void
-  /** Called when exactly one candidate is left — the answer to the whole flow. */
+  /** Called when exactly one candidate is left - the answer to the whole flow. */
   onResolved: (sku: string, answers: DisambiguationAnswer[]) => void
   /** Kept in sync with the answer trail, so a later "Confirm Match" can report how the pick was reached. */
   onAnswersChange?: (answers: DisambiguationAnswer[]) => void
@@ -38,7 +38,7 @@ function facetLabel(facet: FacetKey): string {
  * Asks the user what the photo cannot tell us.
  *
  * When candidates are within a few points of each other, comparing thumbnails is
- * a coin flip — they look alike because they are the same shape. The catalog
+ * a coin flip - they look alike because they are the same shape. The catalog
  * knows what actually differs (which car it fits, who made it), so this walks
  * through those facts one chip-picker at a time, the way a parts counter would.
  */
@@ -52,7 +52,7 @@ export function GuidedDisambiguation({
   const [skipped, setSkipped] = useState<FacetKey[]>([])
 
   const remaining = useMemo(() => applyAnswers(candidates, answers), [candidates, answers])
-  // nextQuestion applies the answers itself — it needs the full candidate list
+  // nextQuestion applies the answers itself - it needs the full candidate list
   // so it can narrow the fitment rows in step with them.
   const question = useMemo(
     () => nextQuestion(candidates, answers, skipped),
@@ -101,7 +101,7 @@ export function GuidedDisambiguation({
         </StatusBadge>
       </div>
 
-      {/* Answered questions stay visible and reversible — a wrong tap early on
+      {/* Answered questions stay visible and reversible - a wrong tap early on
           would otherwise silently decide the whole result. */}
       {answers.length > 0 && (
         <ol className="flex flex-col gap-2">
@@ -128,7 +128,7 @@ export function GuidedDisambiguation({
         <div className="rounded-lg border border-success/30 bg-success-muted/40 p-4">
           <p className="text-sm text-foreground">
             That leaves one match:{' '}
-            <span className="font-mono font-semibold">{resolved.sku}</span> —{' '}
+            <span className="font-mono font-semibold">{resolved.sku}</span> -{' '}
             <span className="font-semibold">{resolved.productName}</span>
           </p>
           <p className="mt-1 text-xs text-muted">

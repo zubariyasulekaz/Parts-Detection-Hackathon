@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 export const DEFAULT_ROTATION_MS = 3200
 
 interface RotatingIndexOptions {
-  /** Stops the timer without losing the current index — e.g. once the user has their own image up. */
+  /** Stops the timer without losing the current index - e.g. once the user has their own image up. */
   paused?: boolean
   intervalMs?: number
 }
@@ -18,7 +18,7 @@ function prefersReducedMotion(): boolean {
  * driven manually (dot controls) as well.
  *
  * Readers who asked for reduced motion get a still frame rather than a slower
- * carousel — the rotation is decoration, and CSS alone can't stop a JS timer.
+ * carousel - the rotation is decoration, and CSS alone can't stop a JS timer.
  */
 export function useRotatingIndex(
   count: number,

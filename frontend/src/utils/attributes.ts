@@ -8,7 +8,7 @@
  */
 
 /**
- * Hyphens are kept by default — most of these are genuinely hyphenated terms
+ * Hyphens are kept by default - most of these are genuinely hyphenated terms
  * ("semi-metallic", "spin-on"). This map covers the slugs where the hyphen is
  * only joining words and reads wrong left in.
  */

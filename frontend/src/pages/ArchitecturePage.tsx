@@ -1,6 +1,7 @@
 import { AmbientBackground } from '@/components/layout/AmbientBackground'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { ArchitectureDiagram } from '@/components/architecture/ArchitectureDiagram'
+import { PerformancePanel } from '@/components/architecture/PerformancePanel'
 
 interface StackItem {
   name: string
@@ -24,12 +25,12 @@ const STACK_ITEMS: StackItem[] = [
     name: 'OpenCLIP',
     kind: 'AI Model',
     description:
-      'The alternative Brain 2 backend, kept for the categories that benchmarked better on it than on DINOv2 — air filters, wheel hubs, and shock absorbers.',
+      'The alternative Brain 2 backend, kept for the categories that benchmarked better on it than on DINOv2: air filters, wheel hubs, and shock absorbers.',
   },
   {
     name: 'Qwen (Transformers)',
     kind: 'AI Model',
-    description: 'Brain 4’s LLM — generates the explanation and clarifying questions, when requested.',
+    description: 'Brain 4’s LLM - generates the explanation and clarifying questions, when requested.',
   },
   {
     name: 'FAISS',
@@ -64,14 +65,20 @@ export function ArchitecturePage() {
         <span className="text-xs font-bold tracking-[0.2em] text-accent-hover uppercase">AI Architecture</span>
         <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">How PartPilot identifies a part</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          A single uploaded photograph moves through four specialized stages — classification, visual similarity
-          search, catalog intelligence, and an optional LLM explanation — before a ranked set of candidate products
+          A single uploaded photograph moves through four specialized stages - classification, visual similarity
+          search, catalog intelligence, and an optional LLM explanation - before a ranked set of candidate products
           reaches the frontend.
         </p>
       </div>
 
       <div className="mt-14">
         <ArchitectureDiagram />
+      </div>
+
+      {/* Straight after the diagram: the pipeline claim, then the evidence for
+          it, before the reader moves on to which libraries were used. */}
+      <div className="mt-20">
+        <PerformancePanel />
       </div>
 
       <div className="mt-16">

@@ -27,7 +27,7 @@ function formatRecordedAt(iso: string): string {
   })
 }
 
-/** Same rounding HistoryTable applies — a live row's search time is an unrounded `perf_counter` delta. */
+/** Same rounding HistoryTable applies - a live row's search time is an unrounded `perf_counter` delta. */
 function formatSearchTime(ms: number): string {
   return `${Math.round(ms)} ms`
 }
@@ -94,7 +94,7 @@ export function HistoryEntryCard({
         </div>
         <div>
           <dt className="text-xs font-semibold tracking-wide text-subtle uppercase">Model</dt>
-          <dd className="mt-0.5 font-mono text-xs text-muted uppercase">{entry.embeddingBackend ?? '—'}</dd>
+          <dd className="mt-0.5 font-mono text-xs text-muted uppercase">{entry.embeddingBackend ?? '-'}</dd>
         </div>
       </dl>
 

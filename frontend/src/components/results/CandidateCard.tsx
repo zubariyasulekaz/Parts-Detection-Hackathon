@@ -1,6 +1,7 @@
 import { CircleCheck } from 'lucide-react'
 import { ConfidenceGauge } from '@/components/common/ConfidenceGauge'
 import { ProductThumbnail } from '@/components/common/ProductThumbnail'
+import { Tilt3D } from '@/components/common/Tilt3D'
 import { formatPercent } from '@/utils/format'
 import type { IdentificationCandidate } from '@/types/identification'
 
@@ -8,9 +9,7 @@ interface CandidateCardProps {
   candidate: IdentificationCandidate
   isSelected: boolean
   isPrimaryAction: boolean
-  /** False when no candidate cleared the match threshold — calling rank 1 the "best match" would overstate it. */
-  showBestMatch?: boolean
-  /** Eliminated by an answer in the guided flow. Still selectable — the user may know better. */
+  /** Eliminated by an answer in the guided flow. Still selectable - the user may know better. */
   isRuledOut?: boolean
   onSelect: () => void
 }
@@ -25,11 +24,10 @@ export function CandidateCard({
   candidate,
   isSelected,
   isPrimaryAction,
-  showBestMatch = true,
   isRuledOut = false,
   onSelect,
 }: CandidateCardProps) {
-  // The facts that tell look-alike candidates apart — the same data the
+  // The facts that tell look-alike candidates apart - the same data the
   // guided questions ask about. Shown on the card so "what's actually
   // different?" has a visible answer instead of a hidden one.
   const attributeChips = Object.entries(candidate.attributes ?? {}).slice(0, 3)
@@ -39,10 +37,19 @@ export function CandidateCard({
     // screen readers); this wrapper only widens the mouse click target.
     // A role="button" here would nest interactive controls, which
     // assistive tech announces as one broken widget.
-    <div
+    //
+    // `near` perspective: at a grid card's size the hero's 1200px camera
+    // makes the same tilt angle read as a flat skew. The old
+    // `hover:-translate-y-0.5` is gone - the tilt's own `--tilt-lift`
+    // is the lift now, and two competing transforms fought each other.
+    <Tilt3D
       onClick={onSelect}
-      className={`shadow-card group flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-surface transition-all hover:-translate-y-0.5 ${
-        isSelected ? 'shadow-glow-accent border-accent' : 'border-border-strong hover:shadow-glow-accent'
+      intensity="subtle"
+      near
+      glare
+      sceneClassName="h-full"
+      className={`shadow-depth group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-surface ${
+        isSelected ? 'shadow-glow-accent border-accent' : 'border-border-strong hover:shadow-depth-lift'
       }`}
     >
       <div className="relative aspect-4/3">
@@ -53,7 +60,7 @@ export function CandidateCard({
           className="h-full w-full"
         />
         <div className="absolute top-2.5 left-2.5 flex gap-1.5">
-          {showBestMatch && candidate.rank === 1 && (
+          {candidate.rank === 1 && (
             <span className="shadow-glow-accent rounded-full bg-accent px-2 py-0.5 text-xs font-bold tracking-wide text-white uppercase">
               Best Match
             </span>
@@ -127,6 +134,6 @@ export function CandidateCard({
           {isSelected ? 'Selected' : 'Select This Product'}
         </button>
       </div>
-    </div>
+    </Tilt3D>
   )
 }

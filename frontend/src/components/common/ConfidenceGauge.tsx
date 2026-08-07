@@ -16,7 +16,7 @@ const TONE_VAR: Record<NonNullable<ConfidenceGaugeProps['tone']>, string> = {
 }
 
 /**
- * Custom radial-arc readout for confidence/similarity scores — used in
+ * Custom radial-arc readout for confidence/similarity scores - used in
  * place of plain percentage text at the moments that matter most, so the
  * score reads as measured data rather than a marketing stat.
  */

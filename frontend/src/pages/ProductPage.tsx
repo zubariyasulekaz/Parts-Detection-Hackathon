@@ -36,7 +36,7 @@ export function ProductPage() {
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabKey>('details')
-  // Bumped by Retry so the fetch effect actually re-runs — setting status
+  // Bumped by Retry so the fetch effect actually re-runs - setting status
   // back to 'loading' alone re-rendered the spinner without refetching.
   const [reloadToken, setReloadToken] = useState(0)
 

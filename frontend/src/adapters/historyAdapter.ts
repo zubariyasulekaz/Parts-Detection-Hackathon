@@ -3,7 +3,7 @@ import type { PredictionHistoryCandidate, PredictionHistoryEntry } from '@/types
 import { formatCategoryLabel } from '@/utils/format'
 
 function adaptPredictionHistoryCandidate(dto: AuditCandidateDTO): PredictionHistoryCandidate {
-  // Unlike `/predict`, an audit row carries its own `rank` — the JSONB column's
+  // Unlike `/predict`, an audit row carries its own `rank` - the JSONB column's
   // element order is not dependable, so rank is never re-derived from position.
   return {
     sku: dto.sku,

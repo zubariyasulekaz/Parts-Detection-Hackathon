@@ -9,8 +9,8 @@ interface SummaryLine {
 }
 
 /**
- * Every line here is derived only from data the pipeline actually returns —
- * predicted category, similarity scores, and rank — never from claims about
+ * Every line here is derived only from data the pipeline actually returns -
+ * predicted category, similarity scores, and rank - never from claims about
  * physical features the model doesn't inspect.
  */
 function buildSummaryLines(result: IdentificationResult): SummaryLine[] {
@@ -26,7 +26,7 @@ function buildSummaryLines(result: IdentificationResult): SummaryLine[] {
       {
         tone: 'caution',
         text: top
-          ? `No catalog entry cleared the ${formatPercent(threshold)} match threshold — the closest scored ${formatPercent(top.similarity)}`
+          ? `No catalog entry cleared the ${formatPercent(threshold)} match threshold; the closest scored ${formatPercent(top.similarity)}`
           : 'The visual search returned no catalog entries for this part',
       },
     ]
@@ -52,7 +52,7 @@ function buildSummaryLines(result: IdentificationResult): SummaryLine[] {
     } else {
       lines.push({
         tone: 'caution',
-        text: `Close score separation from the next candidate (${formatPercent(gap)} apart) — confirmation recommended`,
+        text: `Close score separation from the next candidate (${formatPercent(gap)} apart), so confirmation is recommended`,
       })
     }
   }

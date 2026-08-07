@@ -17,7 +17,7 @@ export interface AdaptedPrediction {
   /**
    * Server-side verdict that nothing cleared the no-match threshold.
    * `null` when the backend predates the verdict (field absent from the
-   * response) — the caller must then fall back to the local threshold
+   * response) - the caller must then fall back to the local threshold
    * rather than assuming "match".
    */
   noMatch: boolean | null
@@ -25,7 +25,7 @@ export interface AdaptedPrediction {
 }
 
 export interface AdaptedPredictionResult extends AdaptedPrediction {
-  /** Already resolved server-side, top-ranked SKU only — null if no confident match. */
+  /** Already resolved server-side, top-ranked SKU only - null if no confident match. */
   topProduct: Product | null
   topAlternatives: Product[]
   topAccessories: Product[]
@@ -36,7 +36,7 @@ export interface AdaptedPredictionResult extends AdaptedPrediction {
 }
 
 /**
- * Structural mapping only — `PredictionResponse.results` carries just
+ * Structural mapping only - `PredictionResponse.results` carries just
  * `{sku, similarity_score}`, so enriching ranked results *other than the
  * top one* with brand/name/category (a per-SKU catalog lookup) happens in
  * identificationService, not here.
@@ -60,7 +60,7 @@ export function adaptPredictionResponse(dto: PredictionResponseDTO): AdaptedPred
   }
 }
 
-/** Maps the full `/predict` response — prediction + Brain 3/4 output already joined server-side. */
+/** Maps the full `/predict` response - prediction + Brain 3/4 output already joined server-side. */
 export function adaptPredictionResult(dto: PredictionResultDTO): AdaptedPredictionResult {
   return {
     ...adaptPredictionResponse(dto.prediction),

@@ -2,7 +2,7 @@ interface ShockAbsorberGlyphProps {
   className?: string
 }
 
-/** A lucide-style line glyph for the "Shock Absorbers" category — a coil-over strut. */
+/** A lucide-style line glyph for the "Shock Absorbers" category - a coil-over strut. */
 export function ShockAbsorberGlyph({ className }: ShockAbsorberGlyphProps) {
   return (
     <svg

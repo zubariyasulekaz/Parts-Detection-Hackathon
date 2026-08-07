@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { ScanFrame } from '@/components/common/ScanFrame'
+import { Tilt3D } from '@/components/common/Tilt3D'
 import { AmbientBackground } from '@/components/layout/AmbientBackground'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { ProcessingPipeline } from '@/components/processing/ProcessingPipeline'
@@ -98,48 +99,30 @@ export function IdentifyPage() {
   }
 
   const activeDefinition = PROCESSING_STAGE_DEFINITIONS[Math.min(stageIndex + 1, STAGE_COUNT - 1)]
-  const liveLabel = isDone ? 'MATCH LOCKED' : isProcessing ? activeDefinition.activeLabel.toUpperCase() : undefined
+  const stageNumber = Math.min(stageIndex + 2, STAGE_COUNT)
+  // Short by construction. The frame chip is ~150px wide and ellipsises, so a
+  // full stage name rendered here as "RETRIEVING PR…" - unreadable, and the
+  // long form already has a proper home in the stage panel beside it.
+  const frameLabel = isDone ? 'MATCH LOCKED' : isProcessing ? `STAGE ${stageNumber}/${STAGE_COUNT}` : undefined
   const progressPercent = Math.round(displayPercent)
 
   return (
     <div className="relative overflow-hidden">
       <AmbientBackground className="opacity-70" />
-      <PageContainer className="relative py-6">
-        <div className="mx-auto flex max-w-xl flex-col items-center gap-4">
-          <div className="shadow-glow-accent relative h-40 w-40 overflow-hidden rounded-2xl border border-accent/20 bg-surface p-4">
-            {uploadedImageUrl && (
-              <img src={uploadedImageUrl} alt="Uploaded part" className="h-full w-full object-contain" />
-            )}
-            <ScanFrame active={isProcessing} label={liveLabel} labelTone={isDone ? 'success' : 'accent'} />
-          </div>
-
-          <div className="w-full max-w-55">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-              <div
-                className="shadow-glow-accent h-full rounded-full bg-linear-to-r from-accent-hover to-accent transition-all duration-300 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-            <p className="mt-1 text-center font-mono text-xs text-subtle">
-              {progressPercent}% complete
-              {isProcessing && elapsedSeconds >= 3 && <span> · {elapsedSeconds}s</span>}
-            </p>
-            {isProcessing && elapsedSeconds >= 15 && (
-              <p className="animate-fade-in mt-1 text-center text-xs text-muted">
-                First run after a backend restart loads the models — this can take up to a minute.
-              </p>
-            )}
-          </div>
-
-          <div className="text-center">
-            <h1 className="text-lg font-bold text-foreground">Analyzing your part</h1>
-            <p className="mt-0.5 text-xs text-muted">
-              Running the image through PartPilot&apos;s classification and similarity-search pipeline.
-            </p>
-          </div>
+      <PageContainer className="relative py-8 lg:py-12">
+        <div className="mx-auto max-w-5xl">
+          <p className="heading-eyebrow text-xs font-bold tracking-[0.2em] text-accent-soft uppercase">
+            {isDone ? 'Analysis complete' : 'Analyzing'}
+          </p>
+          <h1 className="mt-3 text-2xl font-bold text-foreground sm:text-3xl">
+            Reading your <span className="text-gradient-accent">part</span>.
+          </h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+            Running the image through PartPilot&apos;s classification and similarity-search pipeline.
+          </p>
 
           {status === 'error' ? (
-            <>
+            <div className="mt-8 flex max-w-xl flex-col items-start gap-4">
               <ErrorState message={error ?? 'Identification failed. Please try again.'} onRetry={handleRetry} />
               <button
                 type="button"
@@ -148,10 +131,68 @@ export function IdentifyPage() {
               >
                 Start over with a new image
               </button>
-            </>
+            </div>
           ) : (
-            <div className="shadow-card animate-fade-in w-full rounded-xl border border-border bg-surface px-5 py-1">
-              <ProcessingPipeline currentStage={currentStage} isComplete={status === 'success' || status === 'ambiguous'} />
+            // Two columns instead of one narrow stack: the image was 160px in a
+            // centred column, too small to actually inspect while the thing the
+            // page is about is "look at what we're looking at".
+            <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,20rem)_1fr] lg:items-start lg:gap-8">
+              <div className="flex flex-col gap-4">
+                <Tilt3D
+                  intensity="subtle"
+                  glare
+                  className="shadow-depth aspect-square overflow-hidden rounded-2xl border border-accent/20 bg-surface p-5"
+                >
+                  {uploadedImageUrl && (
+                    <img src={uploadedImageUrl} alt="Uploaded part" className="h-full w-full object-contain" />
+                  )}
+                  <ScanFrame active={isProcessing} label={frameLabel} labelTone={isDone ? 'success' : 'accent'} />
+                </Tilt3D>
+
+                <div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-mono text-2xl leading-none font-bold text-foreground">
+                      {progressPercent}
+                      <span className="text-base text-subtle">%</span>
+                    </span>
+                    {isProcessing && elapsedSeconds >= 3 && (
+                      <span className="font-mono text-xs text-subtle">{elapsedSeconds}s elapsed</span>
+                    )}
+                  </div>
+                  <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="shadow-glow-accent h-full rounded-full bg-linear-to-r from-accent to-accent-2 transition-all duration-300 ease-out"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="shadow-depth animate-fade-in rounded-2xl border border-border bg-surface p-6">
+                {/* The full stage name lives here, where there is room for it. */}
+                <div className="mb-5 flex items-start justify-between gap-4 border-b border-border pb-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold tracking-[0.2em] text-subtle uppercase">Current stage</p>
+                    <p className="mt-1.5 text-base font-semibold text-foreground">
+                      {isDone ? 'Match locked' : activeDefinition.activeLabel}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-border-strong bg-surface-2 px-2.5 py-1 font-mono text-xs font-semibold text-muted">
+                    {isDone ? STAGE_COUNT : stageNumber}/{STAGE_COUNT}
+                  </span>
+                </div>
+
+                <ProcessingPipeline
+                  currentStage={currentStage}
+                  isComplete={status === 'success' || status === 'ambiguous'}
+                />
+
+                {isProcessing && elapsedSeconds >= 15 && (
+                  <p className="animate-fade-in mt-5 border-t border-border pt-4 text-xs leading-relaxed text-muted">
+                    First run after a backend restart loads the models - this can take up to a minute.
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>

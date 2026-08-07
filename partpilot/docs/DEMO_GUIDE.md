@@ -1,4 +1,4 @@
-# PartPilot — Demo Setup Guide (Google Colab)
+# PartPilot - Demo Setup Guide (Google Colab)
 
 This guide walks you through running the **PartPilot** parts-detection demo end to end
 in Google Colab. Follow the steps in order. Copy each cell into a Colab notebook (or use
@@ -10,7 +10,7 @@ the provided `partpilot/notebooks/partpilot_colab_demo.ipynb`) and run them top 
 
 ---
 
-## Before you start — what you need
+## Before you start - what you need
 
 | Item | How you get it |
 |------|----------------|
@@ -24,7 +24,7 @@ the provided `partpilot/notebooks/partpilot_colab_demo.ipynb`) and run them top 
 
 ---
 
-## Step 0 — Create your GitHub token (one time)
+## Step 0 - Create your GitHub token (one time)
 
 1. Go to **https://github.com/settings/tokens**
 2. Click **Tokens (classic) → Generate new token (classic)**
@@ -33,7 +33,7 @@ the provided `partpilot/notebooks/partpilot_colab_demo.ipynb`) and run them top 
 
 ---
 
-## Step 1 — Clone the repo
+## Step 1 - Clone the repo
 
 ```python
 import os, sys
@@ -57,10 +57,10 @@ print('Working dir:', os.getcwd())
 
 ---
 
-## Step 2 — Upload the dataset images
+## Step 2 - Upload the dataset images
 
 Zip structure must be `images/<SKU>/<photo files>` (e.g. `images/DE1439/DE1439-02.avif`).
-Zip the **`images`** folder itself — not the folder above it.
+Zip the **`images`** folder itself - not the folder above it.
 
 ```python
 import zipfile, os, shutil
@@ -85,7 +85,7 @@ print(f'{len(skus)} SKU folders:', skus)
 
 ---
 
-## Step 3 — Convert images to JPG
+## Step 3 - Convert images to JPG
 
 The photos are in **`.avif`** format, which TensorFlow and the FAISS builder cannot read.
 This cell converts them to `.jpg` **in place**.
@@ -118,7 +118,7 @@ print(f'Converted {converted} images to .jpg')
 
 ---
 
-## Step 4 — Install dependencies
+## Step 4 - Install dependencies
 
 ```python
 !pip install -q pydantic-settings==2.7.1 python-dotenv==1.0.1 \
@@ -130,7 +130,7 @@ print(f'Converted {converted} images to .jpg')
 
 ---
 
-## Step 5 — Train Brain 1 (category classifier)
+## Step 5 - Train Brain 1 (category classifier)
 
 Trains an EfficientNetB0 transfer-learning model to tell part categories apart, and
 saves it where the backend expects.
@@ -211,7 +211,7 @@ print('Saved brain1_classifier.keras + labels.json ->', out_dir)
 
 ---
 
-## Step 6 — Build Brain 2 (similarity search indexes)
+## Step 6 - Build Brain 2 (similarity search indexes)
 
 Embeds each catalog image with OpenCLIP and builds one FAISS index per category.
 
@@ -229,7 +229,7 @@ print('Indexes:', os.listdir('backend/models/faiss'))
 
 ---
 
-## Step 7 — Run the demo (upload a photo, get the match)
+## Step 7 - Run the demo (upload a photo, get the match)
 
 ```python
 import os, sys, io, importlib
@@ -325,6 +325,6 @@ Step 7's cell already includes this.
   not production-grade. The goal is a working end-to-end demo.
 - **Models are rebuilt each session.** Colab wipes everything on a full disconnect, so
   Steps 5–6 must be re-run when you start a fresh session (unless the team shares the
-  pre-built `backend/models/` folder — then you can skip straight to Step 7).
+  pre-built `backend/models/` folder - then you can skip straight to Step 7).
 - **Brain 4 (LLM reasoning)** is optional and not required for this demo.
 ```

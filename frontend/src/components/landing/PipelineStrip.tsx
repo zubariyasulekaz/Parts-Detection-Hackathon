@@ -1,4 +1,6 @@
-import { Camera, Cpu, Database, Network, PackageSearch } from 'lucide-react'
+import { ArrowRight, Camera, Cpu, Database, Network, PackageSearch } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Tilt3D } from '@/components/common/Tilt3D'
 import type { ComponentType } from 'react'
 
 interface PipelineStep {
@@ -15,8 +17,6 @@ const STEPS: PipelineStep[] = [
   { icon: PackageSearch, label: 'Product Intelligence', detail: 'Fitment + alternatives' },
 ]
 
-const STACK_BADGES = ['EfficientNet', 'DINOv2', 'OpenCLIP', 'FAISS', 'PostgreSQL']
-
 export function PipelineStrip() {
   return (
     <div>
@@ -32,18 +32,31 @@ export function PipelineStrip() {
       <div className="flex items-stretch gap-2 overflow-x-auto px-1 py-3 sm:justify-center">
         {STEPS.map((step, index) => (
           <div key={step.label} className="flex items-center">
-            <div
-              style={{ animationDelay: `${index * 100}ms` }}
-              className="animate-pop-in group shadow-card relative flex h-full w-36 shrink-0 flex-col items-center gap-2.5 rounded-xl border border-border-strong bg-surface px-3 py-5 text-center transition-all hover:-translate-y-1 hover:border-accent/40 sm:w-40"
-            >
-              <span className="absolute top-2.5 right-3 font-mono text-xs font-semibold text-subtle">
-                0{index + 1}
-              </span>
-              <div className="shadow-glow-accent flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-accent to-[#1fa2a2] text-white transition-transform duration-300 group-hover:scale-110">
-                <step.icon className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <span className="text-sm leading-tight font-semibold text-foreground">{step.label}</span>
-              <span className="text-xs leading-tight text-muted">{step.detail}</span>
+            {/* The entry animation stays on this wrapper rather than moving
+                onto the tile. `animate-pop-in` uses fill-mode `both`, so its
+                final `transform` keeps winning the cascade after the animation
+                ends - on the tilting element that would pin it flat forever.
+                Animating the scene and tilting the surface keeps the two
+                transforms on separate elements, where they can't collide. */}
+            <div style={{ animationDelay: `${index * 100}ms` }} className="animate-pop-in h-full">
+              <Tilt3D
+                near
+                glare
+                sceneClassName="h-full w-36 shrink-0 sm:w-40"
+                className="group shadow-depth flex h-full flex-col items-center gap-2.5 rounded-xl border border-border-strong bg-surface px-3 py-5 text-center hover:border-accent/40 hover:shadow-depth-lift"
+              >
+                <span className="absolute top-2.5 right-3 font-mono text-xs font-semibold text-subtle">
+                  0{index + 1}
+                </span>
+                {/* No `overflow-hidden` on this tile, so the surface keeps
+                    `preserve-3d` and the icon can genuinely stand off the
+                    card face instead of only scaling up. */}
+                <div className="shadow-glow-accent flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-accent to-[#1fa2a2] text-white transition-all duration-300 group-hover:scale-110 group-hover:translate-z-8">
+                  <step.icon className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <span className="text-sm leading-tight font-semibold text-foreground">{step.label}</span>
+                <span className="text-xs leading-tight text-muted">{step.detail}</span>
+              </Tilt3D>
             </div>
             {index < STEPS.length - 1 && (
               <div
@@ -55,17 +68,25 @@ export function PipelineStrip() {
         ))}
       </div>
 
-      <div className="mt-10 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-3 border-t border-border pt-7">
-        <span className="mr-2 text-xs font-bold tracking-[0.2em] text-subtle uppercase">Powered by</span>
-        {STACK_BADGES.map((badge) => (
-          <span
-            key={badge}
-            className="inline-flex items-center gap-2 rounded-full border border-border-strong bg-surface-2 px-3.5 py-1.5 font-mono text-xs font-semibold text-foreground/90"
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-linear-to-r from-accent to-accent-2" aria-hidden="true" />
-            {badge}
-          </span>
-        ))}
+      {/* Hand-off, not a dead end. This strip is the teaser; /architecture is
+          the same pipeline in full, and it already lists every model and
+          datastore with descriptions - so the "Powered by" badge row that used
+          to sit here was the same stack said twice, worse. Linking on turns the
+          duplication into a funnel. */}
+      <div className="mt-10 flex flex-col items-center gap-4 border-t border-border pt-8">
+        <p className="max-w-md text-center text-sm text-muted">
+          Four models, a vector index and a product database sit behind these five steps.
+        </p>
+        <Link
+          to="/architecture"
+          className="group inline-flex items-center gap-2 rounded-lg border border-border-strong bg-surface-2 px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-accent/50 hover:text-accent-soft"
+        >
+          See the full architecture
+          <ArrowRight
+            className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
+        </Link>
       </div>
     </div>
   )

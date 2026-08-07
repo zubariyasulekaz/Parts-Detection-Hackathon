@@ -1,7 +1,7 @@
 /**
  * Mirrors `Settings.MAX_UPLOAD_SIZE_MB` / `ALLOWED_IMAGE_EXTENSIONS` in
- * `partpilot/backend/config/settings.py`. Kept in sync manually — the
- * frontend can't import Python constants — so update both sides together.
+ * `partpilot/backend/config/settings.py`. Kept in sync manually - the
+ * frontend can't import Python constants - so update both sides together.
  */
 export const MAX_UPLOAD_SIZE_MB = 10
 export const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']

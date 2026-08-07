@@ -10,9 +10,10 @@ TTA, per-category backend), so measuring them measures what the running
 system will actually do, in milliseconds.
 
 Scoring matches ``FaissIndex.search`` exactly: each SKU is scored by cosine
-against the L2-normalized centroid of its image vectors (centroid ranked
-79.1% top-1 vs 72.0% for max-over-images on this catalog — with 2-7 photos
-per product, one lucky angle promotes the wrong SKU under max).
+against the L2-normalized centroid of its image vectors. Centroid beat
+max-over-images when the two were compared head to head (79.1% vs 72.0% top-1)
+with 2-7 photos per product, one lucky angle promotes the wrong SKU under max.
+The centroid scheme currently measures 85.0% top-1 on this catalog.
 
 Outputs:
   1. Leave-one-out retrieval accuracy (Top-1 / Top-3 / MRR per category),

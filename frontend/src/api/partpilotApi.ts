@@ -8,7 +8,7 @@ import type {
   RecommendationDTO,
 } from '@/types/api'
 
-/** Raw calls against the FastAPI backend. Returns wire-format DTOs — see src/adapters for domain mapping. */
+/** Raw calls against the FastAPI backend. Returns wire-format DTOs - see src/adapters for domain mapping. */
 
 /** Inference runs several models; give it far longer than a catalog read, but not forever. */
 const PREDICT_TIMEOUT_MS = 120_000
@@ -20,7 +20,7 @@ export async function predictPart(file: File, topK: number, explain = true): Pro
 }
 
 /**
- * Records which SKU the user settled on for a recorded run — the audit
+ * Records which SKU the user settled on for a recorded run - the audit
  * trail's feedback loop. `auditId` comes from the `/predict` response.
  */
 export async function confirmPrediction(

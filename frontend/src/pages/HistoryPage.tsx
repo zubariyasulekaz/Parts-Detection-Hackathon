@@ -78,7 +78,7 @@ export function HistoryPage() {
       <div className="mb-8 max-w-2xl">
         <h1 className="text-2xl font-bold text-foreground">Prediction History</h1>
         <p className="mt-2 text-sm text-muted">
-          Every identification run PartPilot has recorded, newest first — the photo it was given, what it predicted, and
+          Every identification run PartPilot has recorded, newest first - the photo it was given, what it predicted, and
           which model served it.
         </p>
       </div>

@@ -70,7 +70,7 @@ export function ResultsPage() {
   // so TypeScript cannot carry the non-null narrowing of `result` into them.
   const candidates = result.candidates
   const auditId = result.auditId
-  // Nothing in the catalog scored high enough to be a match — the page becomes a
+  // Nothing in the catalog scored high enough to be a match - the page becomes a
   // "we don't stock this" answer rather than a ranked recommendation. The
   // verdict is the server's (mock mode derives it locally).
   const noCatalogMatch = result.noMatch
@@ -97,7 +97,7 @@ export function ResultsPage() {
     goToProduct(sku)
   }
 
-  /** The guided questions ended on exactly one SKU — that outcome is worth recording on its own. */
+  /** The guided questions ended on exactly one SKU - that outcome is worth recording on its own. */
   function handleResolved(sku: string, answers: DisambiguationAnswer[]) {
     selectCandidate(sku)
     reportConfirmation(auditId, sku, answersToRecord(answers))
@@ -106,7 +106,7 @@ export function ResultsPage() {
   function handleRemainingChange(skus: string[]) {
     setRemainingSkus(skus)
     // An answer can rule out a card the user had already picked by hand. The
-    // answer is the newer and more specific statement, so it wins — otherwise
+    // answer is the newer and more specific statement, so it wins - otherwise
     // the summary would go on showing a SKU the grid has greyed out.
     if (selectedSku && !skus.includes(selectedSku)) {
       const fallback = candidates.find((candidate) => skus.includes(candidate.sku))
@@ -168,7 +168,7 @@ export function ResultsPage() {
                 square ratio. */}
             <div className="relative aspect-square min-h-0 overflow-hidden rounded-xl border border-border-strong bg-surface-2">
               <img src={uploadedImageUrl} alt="Uploaded part" className="h-full w-full object-contain p-5" />
-              {/* On no-match the guard silences the category chip too — the
+              {/* On no-match the guard silences the category chip too - the
                   system refused the match, so it must not caption the photo
                   with a category it couldn't stand behind. */}
               <ScanFrame
@@ -245,7 +245,7 @@ export function ResultsPage() {
         )}
       </div>
 
-      {/* Stays mounted once resolved — gating on `awaitingConfirmation` would
+      {/* Stays mounted once resolved - gating on `awaitingConfirmation` would
           unmount the panel the instant its last answer set the selection,
           taking the answer trail and the "change this" buttons with it. */}
       {result.requiresConfirmation && (
@@ -267,40 +267,40 @@ export function ResultsPage() {
         </div>
       )}
 
-      <div className="mt-8">
-        <h2 className="heading-eyebrow text-sm font-bold tracking-wide text-muted uppercase">
-          {noCatalogMatch ? 'Closest Catalog Entries' : 'Top Candidates'}
-        </h2>
-        {noCatalogMatch && (
-          <p className="mt-1 text-xs text-muted">
-            Shown for reference only — none of these scored high enough to be treated as a match.
-          </p>
-        )}
-        <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {candidates.map((candidate, index) => {
-            // Ruled-out candidates stay on screen, dimmed, rather than
-            // disappearing — seeing what an answer eliminated is what makes the
-            // questions feel like narrowing rather than a black box.
-            const ruledOut = remainingSkus !== null && !remainingSkus.includes(candidate.sku)
-            return (
-              <div
-                key={candidate.sku}
-                className={`animate-pop-in transition-opacity ${ruledOut ? 'opacity-40 grayscale' : ''}`}
-                style={{ animationDelay: `${index * 90}ms` }}
-              >
-                <CandidateCard
-                  candidate={candidate}
-                  isSelected={candidate.sku === selectedSku}
-                  isPrimaryAction={awaitingConfirmation && !ruledOut}
-                  showBestMatch={!noCatalogMatch}
-                  isRuledOut={ruledOut}
-                  onSelect={() => selectCandidate(candidate.sku)}
-                />
-              </div>
-            )
-          })}
+      {/* Nothing cleared the threshold, so there is no candidate list at all -
+          not a collapsed one, not a labelled-for-reference one. A ranked grid
+          under a "we couldn't recognise this" verdict invites the user to
+          overrule a refusal the pipeline made on purpose, and the refusal panel
+          above already names the closest entry and its score for anyone who
+          wants the number. */}
+      {!noCatalogMatch && (
+        <div className="mt-8">
+          <h2 className="heading-eyebrow text-sm font-bold tracking-wide text-muted uppercase">Top Candidates</h2>
+          <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {candidates.map((candidate, index) => {
+              // Ruled-out candidates stay on screen, dimmed, rather than
+              // disappearing - seeing what an answer eliminated is what makes the
+              // questions feel like narrowing rather than a black box.
+              const ruledOut = remainingSkus !== null && !remainingSkus.includes(candidate.sku)
+              return (
+                <div
+                  key={candidate.sku}
+                  className={`animate-pop-in transition-opacity ${ruledOut ? 'opacity-40 grayscale' : ''}`}
+                  style={{ animationDelay: `${index * 90}ms` }}
+                >
+                  <CandidateCard
+                    candidate={candidate}
+                    isSelected={candidate.sku === selectedSku}
+                    isPrimaryAction={awaitingConfirmation && !ruledOut}
+                    isRuledOut={ruledOut}
+                    onSelect={() => selectCandidate(candidate.sku)}
+                  />
+                </div>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mt-8 grid max-w-4xl gap-5 lg:grid-cols-2">
         <AIMatchSummary result={result} />

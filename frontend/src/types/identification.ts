@@ -19,13 +19,13 @@ export interface IdentificationCandidate {
   /**
    * Fitment from Brain 3, carried onto the candidate so the results page can ask
    * which vehicle the part is for. Empty when the catalog lookup failed or the
-   * SKU has no recorded fitment — see `services/disambiguation.ts`, which will
+   * SKU has no recorded fitment - see `services/disambiguation.ts`, which will
    * not ask a vehicle question it cannot answer for every candidate.
    */
   compatibleVehicles: VehicleCompatibility[]
   /** The number stamped on the part, when the catalog records one. */
   manufacturerPartNumber: string | null
-  /** Visual facts from Brain 3 — what the user can answer by looking at the part. */
+  /** Visual facts from Brain 3 - what the user can answer by looking at the part. */
   attributes: Record<string, string>
 }
 
@@ -47,10 +47,10 @@ export interface IdentificationResult {
   noMatch: boolean
   /** The similarity threshold that verdict was made against, when known. */
   noMatchThreshold: number | null
-  /** Audit-trail row id — needed to post the user's confirmation back. Null in mock mode. */
+  /** Audit-trail row id - needed to post the user's confirmation back. Null in mock mode. */
   auditId: number | null
   /**
-   * Brain 4's (Qwen LLM) free-form explanation, verbatim — displayed as-is,
+   * Brain 4's (Qwen LLM) free-form explanation, verbatim - displayed as-is,
    * never parsed into structured UI. Null in mock mode's non-demo scenarios
    * and whenever live mode ran without `explain` or the model didn't load.
    */

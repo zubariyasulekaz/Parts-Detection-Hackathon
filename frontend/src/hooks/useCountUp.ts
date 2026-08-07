@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-/** Animates a number from 0 to `target` on mount/change — powers the "reveal" moment on confidence gauges. */
+/** Animates a number from 0 to `target` on mount/change - powers the "reveal" moment on confidence gauges. */
 export function useCountUp(target: number, durationMs = 900): number {
   const [value, setValue] = useState(0)
   const frameRef = useRef(0)

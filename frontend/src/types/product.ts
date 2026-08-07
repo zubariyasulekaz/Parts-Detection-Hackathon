@@ -1,9 +1,13 @@
-/** A single vehicle fitment entry for a product. */
+/**
+ * A single vehicle fitment entry for a product.
+ *
+ * Engine is deliberately absent: the catalog records fitment as make/model/year
+ * only (`compatible_vehicles` in catalog.csv, e.g. "Ford Focus (2012-2018)"),
+ * so there is no engine to show and guessing one would be inventing fitment.
+ */
 export interface VehicleCompatibility {
   make: string
   model: string
-  /** Not modeled by the current backend catalog schema; only ever populated in mock data. */
-  engine?: string
   yearStart: number
   yearEnd: number
 }
@@ -15,6 +19,14 @@ export interface Product {
   brand: string
   category: string
   description: string
+  /** The number stamped on the part / printed on the box. Null when unrecorded. */
+  manufacturerPartNumber: string | null
+  /**
+   * Visual facts that separate look-alike SKUs — `filter_style`, `position`,
+   * `primary_colour`, and so on. Keys vary by category, so treat this as an
+   * open bag: read what is there, never assume a key exists.
+   */
+  attributes: Record<string, string>
   /** Resolved, ready-to-render image URLs. Empty when no photography exists yet. */
   images: string[]
   replacementSku: string | null

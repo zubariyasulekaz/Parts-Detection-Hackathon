@@ -84,7 +84,7 @@ export function ArchitecturePage() {
               className="shadow-card animate-pop-in flex flex-col gap-2 rounded-xl border border-border bg-surface p-4"
             >
               <span
-                className={`w-fit rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide uppercase ${KIND_BADGE_CLASS[item.kind]}`}
+                className={`w-fit rounded-full border px-2.5 py-1 text-xs font-semibold tracking-wide uppercase ${KIND_BADGE_CLASS[item.kind]}`}
               >
                 {item.kind}
               </span>

@@ -1,4 +1,5 @@
-import { Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { IdentificationProvider } from '@/context/IdentificationContext'
 import { ArchitecturePage } from '@/pages/ArchitecturePage'
@@ -10,10 +11,26 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import { ProductPage } from '@/pages/ProductPage'
 import { ResultsPage } from '@/pages/ResultsPage'
 
+/**
+ * SPA navigation keeps the scroll position of the page you left, so picking a
+ * candidate deep down /results used to land mid-page on /product. Hash links
+ * ("How It Works") are left to the browser's own anchor scrolling.
+ */
+function ScrollToTop() {
+  const { pathname, hash } = useLocation()
+  useEffect(() => {
+    if (!hash) window.scrollTo(0, 0)
+  }, [pathname, hash])
+  return null
+}
+
 export default function App() {
   return (
     <IdentificationProvider>
-      <div className="flex min-h-screen flex-col bg-background">
+      <ScrollToTop />
+      {/* Transparent shell: the page atmosphere (aurora + star-field) is
+          painted once on `body` and shows through on every route. */}
+      <div className="flex min-h-screen flex-col">
         <AppHeader />
         <main className="flex-1">
           <Routes>

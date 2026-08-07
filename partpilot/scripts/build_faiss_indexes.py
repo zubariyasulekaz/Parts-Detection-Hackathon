@@ -1,19 +1,21 @@
 """Build one FAISS index per product category from the image dataset.
 
-For each SKU it averages the OpenCLIP embeddings of that product's images
-into a single L2-normalized product vector (the `get_product_embedding`
-approach from vector_1.py), then writes one ``<category_slug>.faiss`` index
-(plus a ``.ids.json`` SKU sidecar) per category into ``backend/models/faiss/``.
+By default every catalog image gets its own vector in the index (the SKU
+sidecar simply repeats the SKU once per image), and a search scores each SKU
+by its best-matching image. This replaced the earlier one-centroid-per-SKU
+scheme (`--centroid`), where even an exact catalog photo scored only ~0.70
+because it was compared against the average of its product's other photos.
 
-Requires: ``faiss-cpu``, ``open_clip_torch``, ``torch`` (run in Colab or an
-env where these are installed), and images already converted to a loadable
-format (JPG/PNG) via ``scripts/convert_images_to_jpg.py``. With ``--remove-bg``
-each catalog image is background-removed (rembg) so the stored vectors match
-how the runtime cleans an uploaded query image.
+Requires: ``faiss-cpu``, ``torch``, ``transformers``/``open_clip_torch``, and
+images already converted to a loadable format (JPG/PNG) via
+``scripts/convert_images_to_jpg.py``. With ``--remove-bg`` each catalog image
+is background-removed (rembg) so the stored vectors match how the runtime
+cleans an uploaded query image; the choice is recorded in the index metadata
+so the query side follows it.
 
 Run:
-    python scripts/build_faiss_indexes.py                # embed images as-is
-    python scripts/build_faiss_indexes.py --remove-bg    # rembg first (recommended)
+    python scripts/build_faiss_indexes.py --remove-bg    # recommended
+    python scripts/build_faiss_indexes.py --centroid     # legacy per-SKU mean
 """
 
 import argparse
@@ -52,12 +54,12 @@ def load_catalog_records(csv_path: Path) -> list[dict]:
         return list(csv.DictReader(f))
 
 
-def product_embedding(
+def image_embeddings(
     sku_folder: Path,
     generator: EmbeddingGenerator,
     remove_bg: bool = False,
-) -> np.ndarray | None:
-    """Mean of per-image embeddings for one product, L2-normalized.
+) -> list[np.ndarray]:
+    """One embedding per loadable image in a SKU's folder.
 
     If ``remove_bg`` is set, each image is background-removed before
     embedding, matching the runtime query preprocessing.
@@ -74,9 +76,11 @@ def product_embedding(
                 vectors.append(generator.generate(im))
         except Exception as exc:  # noqa: BLE001
             print(f"    [skip] {img_path.name}: {type(exc).__name__}: {exc}")
+    return vectors
 
-    if not vectors:
-        return None
+
+def centroid(vectors: list[np.ndarray]) -> np.ndarray:
+    """Mean of per-image embeddings, L2-normalized (legacy per-SKU vector)."""
     mean = np.mean(np.stack(vectors), axis=0)
     norm = np.linalg.norm(mean)
     return mean / norm if norm else mean
@@ -95,6 +99,19 @@ def main() -> None:
         help="Embedding model to build with, e.g. dinov2, siglip, 'dinov2+siglip'. "
              "Default: whatever EMBEDDING_BACKEND is set to. Indexes built with "
              "one backend cannot be queried with another.",
+    )
+    parser.add_argument(
+        "--centroid",
+        action="store_true",
+        help="Legacy mode: one mean-of-images vector per SKU instead of one "
+             "vector per image.",
+    )
+    parser.add_argument(
+        "--category",
+        default=None,
+        help="Rebuild only this catalog category (e.g. 'Air Filter'), "
+             "matched case-insensitively. Other categories' index files are "
+             "left untouched.",
     )
     cli_args = parser.parse_args()
 
@@ -118,6 +135,8 @@ def main() -> None:
     FAISS_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
     for category, records in by_category.items():
+        if cli_args.category and category.strip().lower() != cli_args.category.strip().lower():
+            continue
         slug = category_slug(category)
         # --backend forces one model for everything; otherwise per-category.
         spec = cli_args.backend or backend_for_category(category)
@@ -125,7 +144,8 @@ def main() -> None:
         index = FaissIndex(FAISS_MODEL_DIR / f"{slug}.faiss")
         print(f"\n[{category}] -> {slug}.faiss  (backend: {generator.backend_name})")
 
-        added = 0
+        added_skus = 0
+        added_vectors = 0
         for record in records:
             sku = record["sku"]
             image_folder = record.get("image_folder") or f"images/{sku}"
@@ -134,18 +154,24 @@ def main() -> None:
                 print(f"    [skip] {sku}: folder not found ({sku_folder})")
                 continue
 
-            vector = product_embedding(sku_folder, generator, remove_bg=cli_args.remove_bg)
-            if vector is None:
+            vectors = image_embeddings(sku_folder, generator, remove_bg=cli_args.remove_bg)
+            if not vectors:
                 print(f"    [skip] {sku}: no loadable images")
                 continue
-            index.add(sku, vector)
-            added += 1
-            print(f"    [ok] {sku}")
+            if cli_args.centroid:
+                vectors = [centroid(vectors)]
+            for vector in vectors:
+                index.add(sku, vector)
+            added_skus += 1
+            added_vectors += len(vectors)
+            print(f"    [ok] {sku} ({len(vectors)} vectors)")
 
-        if added:
-            # Record the backend so the query side embeds with the same model.
-            index.save(backend=generator.backend_name)
-            print(f"  Saved {added} product vectors -> {index._index_path}")
+        if added_skus:
+            # Record how the index was built so the query side matches it.
+            index.save(backend=generator.backend_name, remove_bg=cli_args.remove_bg)
+            print(
+                f"  Saved {added_vectors} vectors across {added_skus} SKUs -> {index._index_path}"
+            )
         else:
             print(f"  [warn] no vectors added for '{category}', index not written")
 

@@ -1,1 +1,1 @@
-{"backend": "openclip"}
+{"backend": "openclip", "remove_bg": true, "vectors": "per_image"}

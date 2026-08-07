@@ -32,6 +32,7 @@ from backend.pipeline.brain2_similarity.embedding_backends import (
 )
 from backend.pipeline.brain2_similarity.embedding_generator import EmbeddingGenerator
 from backend.pipeline.brain2_similarity.interfaces import (
+    SearchOutcome,
     SimilarityMatch,
     SimilaritySearchInterface,
 )
@@ -79,8 +80,14 @@ class PgVectorSearchService(SimilaritySearchInterface):
         category: str,
         image: Image,
         top_k: int | None = None,
-    ) -> list[SimilarityMatch]:
+        raw_image: Image | None = None,
+    ) -> SearchOutcome:
         """Find the top-K most visually similar SKUs within a category.
+
+        `raw_image` is accepted for interface parity but unused: the rows
+        do not record background treatment, and the loader that writes them
+        (scripts/load_embeddings_to_db.py) copies vectors out of the FAISS
+        indexes, which are built background-removed.
 
         Raises:
             backend.core.exceptions.EmbeddingError: If embedding fails.
@@ -122,4 +129,5 @@ class PgVectorSearchService(SimilaritySearchInterface):
             )
 
         logger.info("pgvector matched %d products in '%s' using %s", len(rows), category, spec)
-        return [SimilarityMatch(sku=sku, similarity_score=float(score)) for sku, score in rows]
+        matches = [SimilarityMatch(sku=sku, similarity_score=float(score)) for sku, score in rows]
+        return SearchOutcome(matches=matches, backend=spec)

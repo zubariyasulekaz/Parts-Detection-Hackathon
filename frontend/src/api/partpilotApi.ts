@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPostForm } from './client'
+import { apiDelete, apiGet, apiPostForm, apiPostJson } from './client'
 import type {
   AuditEntryResponseDTO,
   HistoryListQuery,
@@ -10,10 +10,28 @@ import type {
 
 /** Raw calls against the FastAPI backend. Returns wire-format DTOs — see src/adapters for domain mapping. */
 
+/** Inference runs several models; give it far longer than a catalog read, but not forever. */
+const PREDICT_TIMEOUT_MS = 120_000
+
 export async function predictPart(file: File, topK: number, explain = true): Promise<PredictionResultDTO> {
   const formData = new FormData()
   formData.append('file', file)
-  return apiPostForm<PredictionResultDTO>('/predict', formData, { top_k: topK, explain })
+  return apiPostForm<PredictionResultDTO>('/predict', formData, { top_k: topK, explain }, PREDICT_TIMEOUT_MS)
+}
+
+/**
+ * Records which SKU the user settled on for a recorded run — the audit
+ * trail's feedback loop. `auditId` comes from the `/predict` response.
+ */
+export async function confirmPrediction(
+  auditId: number,
+  confirmedSku: string,
+  disambiguation?: Record<string, string>,
+): Promise<AuditEntryResponseDTO> {
+  return apiPostJson<AuditEntryResponseDTO>(`/predict/${auditId}/confirm`, {
+    confirmed_sku: confirmedSku,
+    disambiguation: disambiguation ?? null,
+  })
 }
 
 export async function fetchHistory(query: HistoryListQuery = {}): Promise<AuditEntryResponseDTO[]> {

@@ -24,6 +24,7 @@ export const MOCK_PREDICTION_HISTORY: PredictionHistoryEntry[] = [
     confidence: 0.94,
     searchTimeMs: 188,
     topSku: 'SA-2210',
+    confirmedSku: 'SA-2210',
     candidates: [
       { sku: 'SA-2210', similarity: 0.92, rank: 1 },
       { sku: 'SA-2211', similarity: 0.76, rank: 2 },
@@ -58,6 +59,8 @@ export const MOCK_PREDICTION_HISTORY: PredictionHistoryEntry[] = [
     confidence: 0.93,
     searchTimeMs: 176,
     topSku: 'OF-3978',
+    // The user picked rank 2 in the guided flow — a recorded correction.
+    confirmedSku: 'OF-45011',
     candidates: [
       { sku: 'OF-3978', similarity: 0.9, rank: 1 },
       { sku: 'OF-45011', similarity: 0.74, rank: 2 },

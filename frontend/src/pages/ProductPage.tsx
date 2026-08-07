@@ -36,6 +36,9 @@ export function ProductPage() {
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabKey>('details')
+  // Bumped by Retry so the fetch effect actually re-runs — setting status
+  // back to 'loading' alone re-rendered the spinner without refetching.
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     if (!sku) return
@@ -59,7 +62,7 @@ export function ProductPage() {
     return () => {
       cancelled = true
     }
-  }, [sku])
+  }, [sku, reloadToken])
 
   const cameFromResults = Boolean(result)
 
@@ -90,7 +93,7 @@ export function ProductPage() {
   if (status === 'error' || !product) {
     return (
       <PageContainer className="py-16">
-        <ErrorState message={error ?? 'Could not load this product.'} onRetry={() => setStatus('loading')} />
+        <ErrorState message={error ?? 'Could not load this product.'} onRetry={() => setReloadToken((token) => token + 1)} />
       </PageContainer>
     )
   }

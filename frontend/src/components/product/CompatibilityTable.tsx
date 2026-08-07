@@ -14,7 +14,7 @@ export function CompatibilityTable({ vehicles }: CompatibilityTableProps) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return vehicles
-    return vehicles.filter((vehicle) => `${vehicle.make} ${vehicle.model} ${vehicle.engine ?? ''}`.toLowerCase().includes(q))
+    return vehicles.filter((vehicle) => `${vehicle.make} ${vehicle.model}`.toLowerCase().includes(q))
   }, [vehicles, query])
 
   if (vehicles.length === 0) {
@@ -55,9 +55,6 @@ export function CompatibilityTable({ vehicles }: CompatibilityTableProps) {
                     Model
                   </th>
                   <th scope="col" className="px-4 py-3">
-                    Engine
-                  </th>
-                  <th scope="col" className="px-4 py-3">
                     Year Range
                   </th>
                 </tr>
@@ -67,7 +64,6 @@ export function CompatibilityTable({ vehicles }: CompatibilityTableProps) {
                   <tr key={`${vehicle.make}-${vehicle.model}-${index}`} className="text-foreground">
                     <td className="px-4 py-3 font-medium">{vehicle.make}</td>
                     <td className="px-4 py-3">{vehicle.model}</td>
-                    <td className="px-4 py-3 font-mono text-muted">{vehicle.engine ?? '—'}</td>
                     <td className="px-4 py-3 font-mono text-muted">{formatYearRange(vehicle.yearStart, vehicle.yearEnd)}</td>
                   </tr>
                 ))}
@@ -81,7 +77,6 @@ export function CompatibilityTable({ vehicles }: CompatibilityTableProps) {
                 <p className="text-sm font-semibold text-foreground">
                   {vehicle.make} {vehicle.model}
                 </p>
-                <p className="mt-1 font-mono text-xs text-muted">{vehicle.engine ?? 'Engine not specified'}</p>
                 <p className="mt-1 font-mono text-xs text-muted">{formatYearRange(vehicle.yearStart, vehicle.yearEnd)}</p>
               </div>
             ))}

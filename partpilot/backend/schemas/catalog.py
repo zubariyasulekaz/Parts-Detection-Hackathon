@@ -8,6 +8,7 @@ live in exactly one place.
 """
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import ConfigDict, Field
 
@@ -29,6 +30,11 @@ class ProductBase(APIModel):
     brand: str = Field(min_length=1)
     category: str = Field(min_length=1)
     description: str | None = None
+    #: The number stamped on the part / printed on the box, e.g. "DE1439".
+    manufacturer_part_number: str | None = None
+    #: Visual facts that separate look-alike SKUs (filter_style, position,
+    #: primary_colour, …). Keys vary by category, so this is deliberately open.
+    attributes: dict[str, Any] = Field(default_factory=dict)
     image_paths: list[str] = Field(default_factory=list)
     replacement_sku: str | None = None
     alternative_skus: list[str] = Field(default_factory=list)

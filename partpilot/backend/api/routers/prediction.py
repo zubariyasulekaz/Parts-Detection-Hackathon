@@ -19,9 +19,13 @@ from backend.config.settings import Settings
 from backend.core.exceptions import InvalidImage, PartPilotError, PredictionError
 from backend.core.logging import get_logger
 from backend.pipeline.audit.service import PredictionAuditService
-from backend.pipeline.brain2_similarity.embedding_backends import backend_for_category
 from backend.pipeline.orchestrator import PipelineOrchestrator
-from backend.schemas.audit import AuditCandidate, AuditEntryCreate
+from backend.schemas.audit import (
+    AuditCandidate,
+    AuditEntryCreate,
+    AuditEntryResponse,
+    PredictionConfirmRequest,
+)
 from backend.schemas.prediction import PredictionResult
 from backend.schemas.response import StandardResponse
 from backend.utils.image_utils import encode_thumbnail_data_url, load_image_from_bytes
@@ -75,6 +79,7 @@ async def predict_part(
     except Exception as exc:  # noqa: BLE001
         raise PredictionError(f"Prediction pipeline failed: {exc}") from exc
 
+    no_match = result.prediction.no_match
     top = result.prediction.results[0].sku if result.prediction.results else None
 
     # The audit trail is a by-product of answering, never a precondition for
@@ -83,36 +88,71 @@ async def predict_part(
     # `PipelineOrchestrator.run`: log what was lost and hand back the result
     # the pipeline already produced. `PredictionAuditService.record` swallows
     # (and rolls back) write failures on its own; this guard covers the rest.
+    audit_id: int | None = None
     try:
         # `image` is still the decoded upload: `orchestrator.run` rebinds the
         # background-stripped copy to its own local and never touches ours.
-        await audit_service.record(
+        recorded = await audit_service.record(
             AuditEntryCreate(
                 predicted_category=result.prediction.predicted_category,
                 confidence=result.prediction.confidence,
                 search_time_ms=result.prediction.search_time_ms,
-                top_sku=top,
+                # A below-threshold nearest neighbour is context, not an
+                # answer — the trail must not record it as one.
+                top_sku=None if no_match else top,
                 candidates=[
                     AuditCandidate(sku=r.sku, similarity_score=r.similarity_score, rank=rank)
                     for rank, r in enumerate(result.prediction.results, start=1)
                 ],
-                # The backend configured for this category. Brain 2 prefers the
-                # one recorded on the index/rows when the two disagree, and does
-                # not report which it used.
-                embedding_backend=backend_for_category(result.prediction.predicted_category),
+                # The backend that actually embedded the query, as reported
+                # by Brain 2 (follows the index, not the configured default).
+                embedding_backend=result.prediction.embedding_backend,
                 explanation=result.explanation,
                 thumbnail=encode_thumbnail_data_url(image),
             )
         )
+        audit_id = recorded.id if recorded else None
     except Exception as exc:  # noqa: BLE001
         logger.warning("Prediction not recorded; returning the result anyway: %s", exc)
 
     return StandardResponse(
-        message=f"Best match: {top}" if top else "No match found",
+        message="No catalog match" if no_match or not top else f"Best match: {top}",
         data=PredictionResult(
             prediction=result.prediction,
             product=result.product,
             recommendation=result.recommendation,
             explanation=result.explanation,
+            audit_id=audit_id,
         ),
+    )
+
+
+@router.post("/{audit_id}/confirm", response_model=StandardResponse[AuditEntryResponse])
+async def confirm_prediction(
+    audit_id: int,
+    payload: PredictionConfirmRequest,
+    audit_service: PredictionAuditService = Depends(get_prediction_audit_service),
+) -> StandardResponse[AuditEntryResponse]:
+    """Record which SKU the user settled on for a recorded prediction.
+
+    Closes the feedback loop the audit trail exists for: a confirmation
+    matching the pipeline's `top_sku` validates the run, one differing
+    from it labels the run as a correction — training data the catalog
+    earns just by being used.
+
+    Args:
+        audit_id: The `audit_id` returned by `POST /predict`.
+        payload: The confirmed SKU plus any guided-question answers that
+            led to it.
+        audit_service: Injected audit trail service.
+
+    Returns:
+        The updated audit entry.
+    """
+    entry = await audit_service.confirm(
+        audit_id, payload.confirmed_sku, payload.disambiguation
+    )
+    return StandardResponse(
+        message=f"Recorded confirmation of {payload.confirmed_sku}",
+        data=entry,
     )

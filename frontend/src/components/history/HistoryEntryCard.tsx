@@ -57,13 +57,19 @@ export function HistoryEntryCard({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground">{entry.category}</p>
           {entry.topSku ? (
-            <span className="mt-1 flex items-center gap-2">
+            <span className="mt-1 flex flex-wrap items-center gap-2">
               <ProductThumbnail
                 category={entry.category}
                 images={matchedSkuImage ? [matchedSkuImage] : []}
                 className="h-8 w-8 shrink-0 rounded-md border border-border-strong"
               />
               <span className="font-mono text-xs text-subtle">{entry.topSku}</span>
+              {entry.confirmedSku &&
+                (entry.confirmedSku === entry.topSku ? (
+                  <StatusBadge variant="success">Confirmed</StatusBadge>
+                ) : (
+                  <StatusBadge variant="warning">Corrected → {entry.confirmedSku}</StatusBadge>
+                ))}
             </span>
           ) : (
             <StatusBadge variant="warning" className="mt-1">
@@ -81,17 +87,13 @@ export function HistoryEntryCard({
         />
       </div>
 
-      <dl className="grid grid-cols-3 gap-2 border-t border-border pt-3">
+      <dl className="grid grid-cols-2 gap-2 border-t border-border pt-3">
         <div>
-          <dt className="text-[11px] font-semibold tracking-wide text-subtle uppercase">Candidates</dt>
-          <dd className="mt-0.5 font-mono text-xs text-muted">{entry.candidates.length}</dd>
-        </div>
-        <div>
-          <dt className="text-[11px] font-semibold tracking-wide text-subtle uppercase">Search</dt>
+          <dt className="text-xs font-semibold tracking-wide text-subtle uppercase">Search</dt>
           <dd className="mt-0.5 font-mono text-xs text-muted">{formatSearchTime(entry.searchTimeMs)}</dd>
         </div>
         <div>
-          <dt className="text-[11px] font-semibold tracking-wide text-subtle uppercase">Model</dt>
+          <dt className="text-xs font-semibold tracking-wide text-subtle uppercase">Model</dt>
           <dd className="mt-0.5 font-mono text-xs text-muted uppercase">{entry.embeddingBackend ?? '—'}</dd>
         </div>
       </dl>
@@ -107,8 +109,10 @@ export function HistoryEntryCard({
               className="inline-flex items-center gap-1.5 rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-accent/50 hover:text-accent-hover"
             >
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              {isExpanded ? 'Hide' : 'Show'}
-              <span className="sr-only"> AI explanation for the {entry.category} run</span>
+              {/* Spelt out on the card: unlike the table there is no column
+                  header here to tell the reader what "Show" would show. */}
+              {isExpanded ? 'Hide' : 'Show'} explanation
+              <span className="sr-only"> for the {entry.category} run</span>
             </button>
           )}
           <button

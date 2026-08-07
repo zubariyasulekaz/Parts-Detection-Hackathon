@@ -33,6 +33,20 @@ class PredictionResponse(APIModel):
     confidence: float
     search_time_ms: float
     results: list[SearchResult] = []
+    # True when even the closest catalog entry scored below the no-match
+    # threshold: the ranked results are context, not an answer, and no
+    # product was resolved. Decided server-side so every consumer (UI,
+    # audit trail, API clients) gets the same verdict.
+    no_match: bool = False
+    # The threshold the verdict was made against, so clients can show
+    # "closest 0.41 vs threshold 0.62" instead of a bare refusal.
+    no_match_threshold: float | None = None
+    # Embedding model that actually produced the scores (per-category, and
+    # recorded on the index — may differ from the configured default).
+    embedding_backend: str | None = None
+    # Categories whose indexes were searched. More than one entry means the
+    # classifier was uncertain and the runner-up category was searched too.
+    searched_categories: list[str] = []
 
 
 class PredictionResult(APIModel):
@@ -42,3 +56,6 @@ class PredictionResult(APIModel):
     product: Product | None = None
     recommendation: Recommendation | None = None
     explanation: str | None = None
+    # Audit-trail row id for this run, when recording succeeded. Clients
+    # POST the user's confirmed SKU back to /predict/{audit_id}/confirm.
+    audit_id: int | None = None

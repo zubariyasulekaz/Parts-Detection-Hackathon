@@ -16,13 +16,25 @@ class ClassificationResult:
 
     Kept as a plain class (rather than importing the API schema) so the
     pipeline layer has no dependency on the API layer.
+
+    `ranking` lists every (label, probability) pair in descending
+    probability order. The orchestrator reads the runner-up when the top
+    prediction is too uncertain to gate the similarity search on a single
+    category. It defaults to just the winning pair for implementations
+    (fakes, remote classifiers) that only know their best answer.
     """
 
-    __slots__ = ("category", "confidence")
+    __slots__ = ("category", "confidence", "ranking")
 
-    def __init__(self, category: str, confidence: float) -> None:
+    def __init__(
+        self,
+        category: str,
+        confidence: float,
+        ranking: list[tuple[str, float]] | None = None,
+    ) -> None:
         self.category = category
         self.confidence = confidence
+        self.ranking = ranking if ranking is not None else [(category, confidence)]
 
 
 class ClassifierInterface(ABC):

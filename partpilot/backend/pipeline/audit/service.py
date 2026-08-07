@@ -55,6 +55,36 @@ class PredictionAuditService:
         logger.info("Prediction recorded: id=%s top_sku=%s", entry_orm.id, entry_orm.top_sku)
         return AuditEntryResponse.model_validate(entry_orm)
 
+    async def confirm(
+        self,
+        entry_id: int,
+        confirmed_sku: str,
+        disambiguation: dict | None = None,
+    ) -> AuditEntryResponse:
+        """Record which SKU the user settled on for a recorded run.
+
+        This is the feedback loop the audit trail exists for: rows where
+        the confirmation differs from `top_sku` are labeled examples of
+        the pipeline being wrong. Unlike `record`, the user asked for this
+        write, so failures propagate instead of being swallowed.
+
+        Raises:
+            backend.core.exceptions.AuditEntryNotFound: If `entry_id` is
+                unknown.
+        """
+        entry_orm = await self._repository.set_confirmation(
+            entry_id, confirmed_sku, disambiguation
+        )
+        if entry_orm is None:
+            raise AuditEntryNotFound(f"Prediction history entry {entry_id} was not found.")
+        logger.info(
+            "Prediction %s confirmed as %s%s",
+            entry_id,
+            confirmed_sku,
+            " (correction)" if entry_orm.top_sku != confirmed_sku else "",
+        )
+        return AuditEntryResponse.model_validate(entry_orm)
+
     async def list_entries(self, limit: int = 50, offset: int = 0) -> list[AuditEntryResponse]:
         """List recorded predictions, newest first, with pagination."""
         entries = await self._repository.get_all(limit=limit, offset=offset)

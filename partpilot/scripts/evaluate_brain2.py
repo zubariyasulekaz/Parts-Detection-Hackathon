@@ -2,19 +2,25 @@
 
 For every catalog image we ask: "if a customer uploaded THIS photo, would the
 system return the right SKU?" To make that honest, the held-out photo is
-excluded from its own product's fingerprint — otherwise we would be matching
-a photo against a vector that literally contains it, and accuracy would be a
-meaningless ~100%.
+excluded from its own product's vector pool — otherwise we would be matching
+a photo against itself, and accuracy would be a meaningless ~100%.
 
-Method (mirrors ``build_faiss_indexes.py`` exactly):
-  1. Embed every catalog image once (rembg -> OpenCLIP), cached in memory.
+Method (mirrors ``build_faiss_indexes.py`` + ``FaissIndex.search`` exactly):
+  1. Embed every catalog image once (rembg -> vision model), cached in memory.
   2. For each image i of product P, in P's category:
-       - P's vector      = L2-normalized mean of P's OTHER images
-       - every other SKU = L2-normalized mean of ALL its images
-       - score           = cosine(query_i, each product vector)
-     Cosine on L2-normalized vectors is exactly what ``IndexFlatIP`` computes,
-     so these numbers match what FAISS would return.
+       - every SKU's score = cosine against the L2-normalized centroid of
+         that SKU's image vectors (matching ``FaissIndex.search``), with
+         image i itself excluded from P's centroid
   3. Record the rank of the correct SKU.
+
+Prefer ``scripts/analyze_index_vectors.py`` when the indexes are already
+built — it reads the stored vectors and produces the same numbers in
+milliseconds. This script earns its model time only when experimenting with
+preprocessing/backends that the indexes don't contain yet.
+
+Products with a single image cannot be queried (nothing left once their only
+photo is held out) but still participate as distractors, exactly as their
+vectors do in the real index.
 
 Reported metrics:
   Top-1  - correct SKU ranked first        (the headline number)
@@ -127,13 +133,17 @@ def main() -> None:
             except Exception as exc:  # noqa: BLE001
                 print(f"  [skip] {img_path.name}: {type(exc).__name__}: {exc}")
 
-        if len(vectors) < 2:
-            # Leave-one-out needs at least 2 images: one to query, one to build with.
-            print(f"  [skip] {sku}: needs >=2 images (has {len(vectors)})")
+        if not vectors:
+            print(f"  [skip] {sku}: no loadable images")
             continue
+        if len(vectors) < 2:
+            # Not queryable (nothing left once its only photo is held out),
+            # but it still competes as a distractor below.
+            print(f"  [distractor-only] {sku}: 1 image")
+        else:
+            print(f"  [ok] {sku}: {len(vectors)} images")
         embeddings[category][sku] = vectors
         total_imgs += len(vectors)
-        print(f"  [ok] {sku}: {len(vectors)} images")
 
     print(f"\nEmbedded {total_imgs} images across {len(embeddings)} categories.\n")
 
@@ -143,21 +153,25 @@ def main() -> None:
     misses: list[tuple[str, str, str, float]] = []  # (sku, img#, predicted, score)
 
     for category, skus in sorted(embeddings.items()):
-        # Full-mean vector for every product (used for all the "other" SKUs).
-        full = {sku: unit(np.mean(np.stack(vs), axis=0)) for sku, vs in skus.items()}
         sku_list = list(skus)
         ranks: list[int] = []
 
         for true_sku, vecs in skus.items():
+            if len(vecs) < 2:
+                continue  # distractor-only: nothing left once held out
             for i, query in enumerate(vecs):
-                # Rebuild the true product's vector WITHOUT the query image.
-                held_out = [v for j, v in enumerate(vecs) if j != i]
-                loo = unit(np.mean(np.stack(held_out), axis=0))
-
+                # Centroid per SKU (as FaissIndex.search scores), with the
+                # query itself excluded from its own product's centroid.
                 scores = []
                 for sku in sku_list:
-                    vec = loo if sku == true_sku else full[sku]
-                    scores.append((sku, float(np.dot(query, vec))))
+                    pool = [
+                        v
+                        for j, v in enumerate(skus[sku])
+                        if sku != true_sku or j != i
+                    ]
+                    if not pool:
+                        continue
+                    scores.append((sku, float(np.dot(query, unit(np.mean(np.stack(pool), axis=0))))))
                 scores.sort(key=lambda x: -x[1])
 
                 rank = next(r for r, (sku, _) in enumerate(scores, 1) if sku == true_sku)
@@ -167,6 +181,9 @@ def main() -> None:
                     misses.append((true_sku, f"img{i + 1}", scores[0][0], scores[0][1]))
 
         n = len(ranks)
+        if not n:
+            print(f"  [skip] {category}: no queryable products (all single-image)")
+            continue
         per_category[category] = {
             "n": n,
             "products": len(sku_list),

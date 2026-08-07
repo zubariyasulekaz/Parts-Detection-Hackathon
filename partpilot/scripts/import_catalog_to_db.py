@@ -19,9 +19,11 @@ is not:
   image_paths           filled from the files actually on disk rather than the
                         CSV's image_folder, so the stored list reflects reality.
 
-manufacturer_part_number has no column in the products table, so it is not
-imported. That loses the original part numbers (BP-1001 was DE1439), which is
-worth a migration if the catalog ever needs to be searched by part number.
+  attributes            a JSON string in the CSV, stored as JSONB. Written by
+                        scripts/extract_product_attributes.py; a blank or
+                        unparseable cell imports as {} rather than failing the
+                        run, since the attributes are an enrichment and not
+                        something the catalog is broken without.
 
 Run:
     python scripts/import_catalog_to_db.py
@@ -31,6 +33,7 @@ Run:
 import argparse
 import asyncio
 import csv
+import json
 import os
 import re
 import sys
@@ -55,6 +58,26 @@ VEHICLE_ONE_YEAR_RE = re.compile(r"^(.*?)\s*\((\d{4})\)")
 def split_list(value: str) -> list[str]:
     """Split a pipe-separated cell into a clean list."""
     return [part.strip() for part in (value or "").split("|") if part.strip()]
+
+
+def parse_attributes(value: str, sku: str) -> dict:
+    """Read the `attributes` JSON cell, tolerating a blank or malformed one.
+
+    The attributes enrich matching; a bad cell should cost that one product its
+    extras, not abort an import of the whole catalog.
+    """
+    text = (value or "").strip()
+    if not text:
+        return {}
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        print(f"  [warn] {sku}: attributes cell is not valid JSON; importing as {{}}")
+        return {}
+    if not isinstance(parsed, dict):
+        print(f"  [warn] {sku}: attributes is {type(parsed).__name__}, expected object; importing as {{}}")
+        return {}
+    return parsed
 
 
 def parse_vehicles(value: str) -> tuple[list[dict], list[str]]:
@@ -127,6 +150,11 @@ def build_rows() -> tuple[list[dict], list[tuple[str, str]]]:
                 "brand": (record.get("brand") or "").strip() or "Unknown",
                 "category": (record.get("category") or "").strip(),
                 "description": (record.get("description") or "").strip() or None,
+                "manufacturer_part_number": (
+                    record.get("manufacturer_part_number") or ""
+                ).strip()
+                or None,
+                "attributes": parse_attributes(record.get("attributes", ""), sku),
                 "image_paths": image_paths_for(sku, (record.get("image_folder") or "").strip()),
                 "replacement_sku": (record.get("replacement_sku") or "").strip() or None,
                 "alternative_skus": split_list(record.get("alternative_sku", "")),
@@ -146,6 +174,7 @@ async def upsert(rows: list[dict]) -> None:
             column: statement.excluded[column]
             for column in (
                 "product_name", "brand", "category", "description", "image_paths",
+                "manufacturer_part_number", "attributes",
                 "replacement_sku", "alternative_skus", "accessory_skus",
                 "compatible_vehicles",
             )

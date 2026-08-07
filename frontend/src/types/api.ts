@@ -28,6 +28,14 @@ export interface PredictionResponseDTO {
   confidence: number
   search_time_ms: number
   results: SearchResultDTO[]
+  /** Server-side verdict: no result cleared the no-match threshold; `results` are context, not an answer. */
+  no_match: boolean
+  /** The similarity threshold the verdict was made against (per embedding backend). */
+  no_match_threshold: number | null
+  /** Embedding model that actually produced the scores (recorded on the index searched). */
+  embedding_backend: string | null
+  /** More than one entry means the classifier was uncertain and the runner-up category was searched too. */
+  searched_categories: string[]
 }
 
 /** Mirrors `backend.schemas.catalog.VehicleCompatibility`. */
@@ -44,6 +52,9 @@ export interface ProductResponseDTO {
   brand: string
   category: string
   description: string | null
+  manufacturer_part_number: string | null
+  /** Free-form per-category visual facts; keys differ by category. */
+  attributes: Record<string, string>
   image_paths: string[]
   replacement_sku: string | null
   alternative_skus: string[]
@@ -71,6 +82,8 @@ export interface PredictionResultDTO {
   product: ProductResponseDTO | null
   recommendation: RecommendationDTO | null
   explanation: string | null
+  /** Audit-trail row id for this run; POST the user's confirmed SKU to `/predict/{audit_id}/confirm`. */
+  audit_id: number | null
 }
 
 /** Mirrors `backend.schemas.audit.AuditCandidate` — a `SearchResult` plus the rank it held, stored rather than derived. */
@@ -97,6 +110,11 @@ export interface AuditEntryResponseDTO {
   embedding_backend: string | null
   explanation: string | null
   thumbnail: string | null
+  /** SKU the user settled on, when they told us. Differing from `top_sku` marks a correction. */
+  confirmed_sku: string | null
+  confirmed_at: string | null
+  /** Guided-question answers (facet -> chosen value) that led to the confirmation. */
+  disambiguation: Record<string, string> | null
 }
 
 export interface ProductListQuery {

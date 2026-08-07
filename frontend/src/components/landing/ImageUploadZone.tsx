@@ -1,7 +1,7 @@
 import { Upload, X } from 'lucide-react'
-import { useRef, type DragEvent, type KeyboardEvent } from 'react'
-import { HERO_PART_SVG_MARKUP } from '@/assets/illustrations'
+import { useRef, type DragEvent } from 'react'
 import { ScanFrame } from '@/components/common/ScanFrame'
+import type { PartSample } from '@/services/sampleImage'
 import { MAX_UPLOAD_SIZE_MB } from '@/services/uploadPolicy'
 
 interface ImageUploadZoneProps {
@@ -9,6 +9,10 @@ interface ImageUploadZoneProps {
   fileSizeLabel?: string
   error: string | null
   isDragActive: boolean
+  /** One sample photo per category the classifier knows; cycled while the zone is empty. */
+  samples: PartSample[]
+  activeSampleIndex: number
+  onSelectSample: (index: number) => void
   onDragActiveChange: (active: boolean) => void
   onFileDropped: (file: File) => void
   onBrowseClick: () => void
@@ -21,12 +25,17 @@ export function ImageUploadZone({
   fileSizeLabel,
   error,
   isDragActive,
+  samples,
+  activeSampleIndex,
+  onSelectSample,
   onDragActiveChange,
   onFileDropped,
   onBrowseClick,
   onRemove,
   onIdentify,
 }: ImageUploadZoneProps) {
+  const activeSample = samples[activeSampleIndex]
+
   const dragDepth = useRef(0)
 
   function handleDragEnter(event: DragEvent<HTMLDivElement>) {
@@ -56,21 +65,14 @@ export function ImageUploadZone({
     if (dropped) onFileDropped(dropped)
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      onBrowseClick()
-    }
-  }
-
   return (
     <div className="flex flex-col gap-3">
+      {/* Mouse-only convenience surface: the real, focusable control is the
+          "Browse Files" button inside. A role="button" wrapper here would
+          nest the browse button and ten carousel dots inside another button,
+          which assistive tech reads as one broken widget. */}
       <div
-        role="button"
-        tabIndex={0}
-        aria-label="Upload a part image. JPG, PNG or WEBP, maximum 10 megabytes."
         onClick={previewUrl ? undefined : onBrowseClick}
-        onKeyDown={previewUrl ? undefined : handleKeyDown}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -104,18 +106,76 @@ export function ImageUploadZone({
         ) : (
           <>
             <div
-              className="animate-float absolute inset-0 opacity-90 [&>svg]:h-full [&>svg]:w-full"
-              dangerouslySetInnerHTML={{ __html: HERO_PART_SVG_MARKUP }}
-            />
-            <div
               aria-hidden="true"
-              className="animate-scan-line pointer-events-none absolute inset-x-6 top-1/4 h-0.5 bg-linear-to-r from-transparent via-accent-soft to-transparent shadow-[0_0_18px_3px_rgba(47,128,237,0.65)]"
+              className="pointer-events-none absolute inset-x-0 top-0 h-2/3 bg-[radial-gradient(ellipse_at_center,rgba(47,128,237,0.22),transparent_70%)]"
             />
-            <div className="relative mt-auto flex flex-col items-center gap-3 bg-linear-to-t from-background/95 via-background/75 to-transparent px-6 pt-20 pb-7 text-center">
+
+            {/* The tile takes the leftover space above the caption block rather
+                than being absolutely placed, so it never collides with the copy
+                at narrow widths. Every sample renders into that one frame, so
+                photos of differing aspect ratios cross-fade in place instead of
+                the tile resizing on each rotation. */}
+            <div className="relative flex min-h-0 flex-1 items-center justify-center px-6 pt-7 pb-2">
+              <div className="animate-float relative h-full w-[66%] max-w-64 rounded-xl border border-white/15 bg-white/95 p-3 shadow-[0_20px_45px_-14px_rgba(0,0,0,0.75)]">
+                <div className="relative h-full w-full">
+                  {samples.map((sample, index) => (
+                    <img
+                      key={sample.slug}
+                      src={sample.src}
+                      alt={index === activeSampleIndex ? `${sample.category} sample photo` : ''}
+                      aria-hidden={index !== activeSampleIndex}
+                      className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-700 ${
+                        index === activeSampleIndex ? 'opacity-100' : 'opacity-0'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <div
+                  aria-hidden="true"
+                  className="animate-scan-line pointer-events-none absolute inset-x-0 top-1/4 h-0.5 bg-linear-to-r from-transparent via-accent-soft to-transparent shadow-[0_0_18px_3px_rgba(47,128,237,0.65)]"
+                />
+              </div>
+            </div>
+
+            {activeSample && (
+              <span className="absolute top-3 left-3 rounded-full border border-accent/30 bg-surface/85 px-2.5 py-1 text-xs font-bold tracking-wide text-accent-soft uppercase backdrop-blur">
+                Sample · {activeSample.category}
+              </span>
+            )}
+
+            <div className="relative flex flex-col items-center gap-2 px-6 pb-6 text-center">
+              {samples.length > 1 && (
+                <div className="flex flex-wrap items-center justify-center">
+                  {samples.map((sample, index) => (
+                    // Padding, not margin: it makes each dot a ~24px target
+                    // without spreading ten of them across the whole card.
+                    <button
+                      key={sample.slug}
+                      type="button"
+                      aria-label={`Show the ${sample.category} sample`}
+                      aria-current={index === activeSampleIndex}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onSelectSample(index)
+                      }}
+                      className="group/dot p-1.5"
+                    >
+                      <span
+                        className={`block h-1.5 rounded-full transition-all ${
+                          index === activeSampleIndex
+                            ? 'w-5 bg-accent-soft'
+                            : 'w-1.5 bg-border-strong group-hover/dot:bg-muted'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
               <p className="text-sm font-semibold text-foreground">Drop a part image here</p>
               <p className="text-xs text-muted">JPG, PNG or WEBP · Maximum {MAX_UPLOAD_SIZE_MB} MB</p>
               <button
                 type="button"
+                aria-label="Browse files to upload a part image. JPG, PNG or WEBP, maximum 10 megabytes."
                 onClick={(event) => {
                   event.stopPropagation()
                   onBrowseClick()

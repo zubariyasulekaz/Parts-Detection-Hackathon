@@ -20,6 +20,22 @@ class SimilarityMatch:
         self.similarity_score = similarity_score
 
 
+class SearchOutcome:
+    """A similarity search's matches plus how they were produced.
+
+    `backend` is the embedding model that actually embedded the query
+    (which follows the index/rows, not the configured default), so callers
+    — the no-match threshold and the audit trail — can act on what really
+    ran rather than what the config says.
+    """
+
+    __slots__ = ("matches", "backend")
+
+    def __init__(self, matches: list[SimilarityMatch], backend: str | None = None) -> None:
+        self.matches = matches
+        self.backend = backend
+
+
 class EmbeddingGeneratorInterface(ABC):
     """Contract for turning an image into a fixed-size embedding vector."""
 
@@ -48,17 +64,23 @@ class SimilaritySearchInterface(ABC):
         category: str,
         image: Image,
         top_k: int = 10,
-    ) -> list[SimilarityMatch]:
+        raw_image: Image | None = None,
+    ) -> SearchOutcome:
         """Find the top-K most visually similar SKUs within a category.
 
         Args:
             category: Predicted category from Brain 1, used to select
                 which FAISS index to query.
-            image: The source part image.
+            image: The source part image, background-removed upstream.
             top_k: Number of matches to return.
+            raw_image: The image before background removal. Used instead
+                of `image` when the index records that it was built from
+                raw images, so query preprocessing always matches the
+                stored vectors.
 
         Returns:
-            Matches ordered by descending similarity score.
+            A `SearchOutcome` with matches ordered by descending
+            similarity score and the embedding backend that produced them.
 
         Raises:
             backend.core.exceptions.SearchError: If the search fails

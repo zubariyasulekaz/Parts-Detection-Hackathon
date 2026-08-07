@@ -61,7 +61,15 @@ class Settings(BaseSettings):
 
     # --- Brain 1: classifier ---------------------------------------------------------------
     CLASSIFIER_INPUT_SIZE: int = 224
+    # Below this softmax confidence the orchestrator also searches the
+    # runner-up category instead of trusting a single hard gate.
     CLASSIFIER_CONFIDENCE_THRESHOLD: float = 0.5
+    # Pad to a square (white, matching the rembg fill) before resizing,
+    # instead of distorting the aspect ratio. Must match how the deployed
+    # checkpoint was trained: the current Colab-trained weights saw
+    # squashed images, so this stays off until a checkpoint trained with
+    # padding replaces them.
+    CLASSIFIER_PAD_TO_SQUARE: bool = False
 
     # --- Brain 2: similarity search ---------------------------------------------------------------
     # Which model turns an image into a vector. One of: openclip, siglip,
@@ -85,6 +93,46 @@ class Settings(BaseSettings):
     OPENCLIP_MODEL_NAME: str = "ViT-B-32"
     OPENCLIP_PRETRAINED: str = "openai"
     FAISS_TOP_K: int = 10
+    # Average the embedding of the image and its mirror at query/build time.
+    # Cheap test-time augmentation; both sides must use the same setting, so
+    # rebuild indexes after changing it.
+    EMBEDDING_TTA: bool = True
+    # Below this top similarity the pipeline reports "no catalog match" and
+    # skips catalog resolution, instead of confidently naming the nearest
+    # wrong part. Scores are cosine against a per-SKU centroid (see
+    # FaissIndex.search), keyed per embedding backend because the two models
+    # compress cosine space very differently — an out-of-catalog image tops
+    # out around 0.83 on dinov2 but 0.92 on openclip, so one global value
+    # cannot serve both.
+    #
+    # Calibrated with scripts/analyze_index_vectors.py over the stored
+    # index vectors (rembg + TTA, leave-one-out). Policy: refusing is
+    # better than guessing, so these sit at ~1.5% correct-match rejection
+    # rather than 0% — the honest trade measured on this catalog:
+    #
+    #   dinov2   0.45 -> 0.0% rejected / 90.0% impostors caught
+    #            0.48 -> 1.3% rejected / 93.1% caught   <- chosen
+    #   openclip 0.84 -> 0.0% rejected / 43.9% caught
+    #            0.86 -> 1.5% rejected / 62.1% caught   <- chosen
+    #
+    # (openclip's correct/impostor distributions genuinely overlap more —
+    # a known cost of keeping it for the three categories where it ranks
+    # far better than dinov2.)
+    NO_MATCH_THRESHOLDS: dict[str, float] = {
+        "openclip": 0.86,
+        "dinov2": 0.48,
+    }
+    NO_MATCH_THRESHOLD_DEFAULT: float = 0.48
+    # Added to the threshold when Brain 1 was itself unsure of the category
+    # (confidence below CLASSIFIER_CONFIDENCE_THRESHOLD). Two weak signals
+    # — "not sure what kind of part this is" and "nothing especially close
+    # in that category" — should not add up to a confident answer.
+    NO_MATCH_UNCERTAIN_MARGIN: float = 0.04
+
+    # --- startup ---------------------------------------------------------------
+    # Load Brain 1/2 weights and FAISS indexes during startup instead of
+    # inside the first request (which otherwise pays a 30-60s cold start).
+    WARM_MODELS_ON_STARTUP: bool = True
 
     # --- Brain 4: reasoning ---------------------------------------------------------------
     HF_TOKEN: str | None = None

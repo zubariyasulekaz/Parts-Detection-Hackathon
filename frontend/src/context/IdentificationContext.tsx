@@ -1,6 +1,47 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from 'react'
 import { identify as runPipeline } from '@/services/identificationService'
+import { fileToDataUrl } from '@/utils/imageDataUrl'
 import type { IdentificationResult, IdentificationStatus, ProcessingStageKey } from '@/types/identification'
+
+/**
+ * The last finished run survives a refresh via sessionStorage (the uploaded
+ * image as a small data URL — object URLs die with the document). Session,
+ * not local: a result should outlive an accidental F5, not the tab.
+ */
+const STORAGE_KEY = 'partpilot:last-result'
+
+interface StoredRun {
+  result: IdentificationResult
+  selectedSku: string | null
+}
+
+function loadStoredRun(): StoredRun | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as StoredRun
+    if (!parsed?.result?.candidates || !parsed.result.uploadedImageUrl) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function saveStoredRun(run: StoredRun): void {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(run))
+  } catch {
+    // Quota or privacy mode — persistence is a convenience, never a requirement.
+  }
+}
+
+function clearStoredRun(): void {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY)
+  } catch {
+    /* see saveStoredRun */
+  }
+}
 
 /**
  * Owns the state the primary user journey must survive across route
@@ -37,6 +78,19 @@ const initialState: State = {
   result: null,
   selectedSku: null,
   error: null,
+}
+
+/** Rehydrate the last finished run (if any) so a refresh on /results keeps its content. */
+function initState(base: State): State {
+  const stored = loadStoredRun()
+  if (!stored) return base
+  return {
+    ...base,
+    status: stored.result.requiresConfirmation && !stored.selectedSku ? 'ambiguous' : 'success',
+    uploadedImageUrl: stored.result.uploadedImageUrl,
+    result: stored.result,
+    selectedSku: stored.selectedSku,
+  }
 }
 
 function reducer(state: State, action: Action): State {
@@ -77,12 +131,13 @@ interface IdentificationContextValue extends State {
 const IdentificationContext = createContext<IdentificationContextValue | null>(null)
 
 export function IdentificationProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState)
+  const [state, dispatch] = useReducer(reducer, initialState, initState)
   const objectUrlRef = useRef<string | null>(null)
   const stateRef = useRef(state)
   stateRef.current = state
 
   const setPendingUpload = useCallback((file: File, isSample = false) => {
+    clearStoredRun() // a new upload supersedes the persisted run
     dispatch({ type: 'SET_PENDING', file, isSample })
   }, [])
 
@@ -103,6 +158,15 @@ export function IdentificationProvider({ children }: { children: ReactNode }) {
         onStage: (stage) => dispatch({ type: 'STAGE', stage }),
       })
       dispatch({ type: 'SUCCESS', result })
+      // Persist with a self-contained copy of the image; the object URL
+      // above dies on refresh.
+      const storableUrl = await fileToDataUrl(pendingFile)
+      if (storableUrl) {
+        saveStoredRun({
+          result: { ...result, uploadedImageUrl: storableUrl },
+          selectedSku: result.selectedSku,
+        })
+      }
       return result
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Identification failed. Please try again.'
@@ -111,11 +175,16 @@ export function IdentificationProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const selectCandidate = useCallback((sku: string) => dispatch({ type: 'SELECT', sku }), [])
+  const selectCandidate = useCallback((sku: string) => {
+    dispatch({ type: 'SELECT', sku })
+    const stored = loadStoredRun()
+    if (stored) saveStoredRun({ ...stored, selectedSku: sku })
+  }, [])
 
   const reset = useCallback(() => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
     objectUrlRef.current = null
+    clearStoredRun()
     dispatch({ type: 'RESET' })
   }, [])
 

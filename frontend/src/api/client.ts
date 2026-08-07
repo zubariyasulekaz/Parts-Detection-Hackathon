@@ -35,6 +35,9 @@ interface ErrorBody {
 
 type QueryParams = Record<string, string | number | boolean | undefined>
 
+/** Most calls are catalog/history reads that should fail fast. */
+const DEFAULT_TIMEOUT_MS = 15_000
+
 function buildUrl(path: string, params?: QueryParams): string {
   const url = new URL(`${BASE_URL}${API_PREFIX}${path}`)
   if (params) {
@@ -43,6 +46,24 @@ function buildUrl(path: string, params?: QueryParams): string {
     }
   }
   return url.toString()
+}
+
+/**
+ * `fetch` with a deadline. Without one, a hung backend leaves the UI on a
+ * pulsing spinner forever — a timeout turns that into a retryable error.
+ */
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) })
+  } catch (error) {
+    if (error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+      throw new ApiError(
+        `The PartPilot backend did not respond within ${Math.round(timeoutMs / 1000)}s. It may still be starting up — try again.`,
+        0,
+      )
+    }
+    throw new ApiError('Could not reach the PartPilot backend. Confirm it is running and reachable.', 0)
+  }
 }
 
 async function unwrap<T>(response: Response): Promise<T> {
@@ -70,34 +91,42 @@ async function unwrap<T>(response: Response): Promise<T> {
 }
 
 export async function apiGet<T>(path: string, params?: QueryParams): Promise<T> {
-  let response: Response
-  try {
-    response = await fetch(buildUrl(path, params), { headers: { Accept: 'application/json' } })
-  } catch {
-    throw new ApiError('Could not reach the PartPilot backend. Confirm it is running and reachable.', 0)
-  }
+  const response = await fetchWithTimeout(
+    buildUrl(path, params),
+    { headers: { Accept: 'application/json' } },
+    DEFAULT_TIMEOUT_MS,
+  )
   return unwrap<T>(response)
 }
 
-export async function apiPostForm<T>(path: string, formData: FormData, params?: QueryParams): Promise<T> {
-  let response: Response
-  try {
-    response = await fetch(buildUrl(path, params), { method: 'POST', body: formData })
-  } catch {
-    throw new ApiError('Could not reach the PartPilot backend. Confirm it is running and reachable.', 0)
-  }
+export async function apiPostForm<T>(
+  path: string,
+  formData: FormData,
+  params?: QueryParams,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+): Promise<T> {
+  const response = await fetchWithTimeout(buildUrl(path, params), { method: 'POST', body: formData }, timeoutMs)
+  return unwrap<T>(response)
+}
+
+export async function apiPostJson<T>(path: string, body: unknown, params?: QueryParams): Promise<T> {
+  const response = await fetchWithTimeout(
+    buildUrl(path, params),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    },
+    DEFAULT_TIMEOUT_MS,
+  )
   return unwrap<T>(response)
 }
 
 export async function apiDelete<T>(path: string, params?: QueryParams): Promise<T> {
-  let response: Response
-  try {
-    response = await fetch(buildUrl(path, params), {
-      method: 'DELETE',
-      headers: { Accept: 'application/json' },
-    })
-  } catch {
-    throw new ApiError('Could not reach the PartPilot backend. Confirm it is running and reachable.', 0)
-  }
+  const response = await fetchWithTimeout(
+    buildUrl(path, params),
+    { method: 'DELETE', headers: { Accept: 'application/json' } },
+    DEFAULT_TIMEOUT_MS,
+  )
   return unwrap<T>(response)
 }

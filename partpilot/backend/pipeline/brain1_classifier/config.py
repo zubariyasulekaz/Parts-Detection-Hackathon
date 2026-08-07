@@ -21,6 +21,7 @@ class Brain1Config:
     model_path: str
     input_size: int
     confidence_threshold: float
+    pad_to_square: bool = False
 
     @classmethod
     def from_settings(cls) -> "Brain1Config":
@@ -30,4 +31,5 @@ class Brain1Config:
             model_path=settings.MODEL_PATH,
             input_size=settings.CLASSIFIER_INPUT_SIZE,
             confidence_threshold=settings.CLASSIFIER_CONFIDENCE_THRESHOLD,
+            pad_to_square=settings.CLASSIFIER_PAD_TO_SQUARE,
         )

@@ -66,9 +66,6 @@ export function HistoryTable({
               Top Match
             </th>
             <th scope="col" className="px-4 py-3">
-              Candidates
-            </th>
-            <th scope="col" className="px-4 py-3">
               Model
             </th>
             <th scope="col" className="px-4 py-3">
@@ -78,7 +75,7 @@ export function HistoryTable({
               Recorded
             </th>
             <th scope="col" className="px-4 py-3 text-right">
-              <span className="sr-only">AI explanation</span>
+              AI Explanation
             </th>
             <th scope="col" className="px-4 py-3 text-right">
               <span className="sr-only">Delete run</span>
@@ -125,16 +122,25 @@ export function HistoryTable({
                           images={skuImages.get(entry.topSku) ? [skuImages.get(entry.topSku)!] : []}
                           className="h-12 w-12 shrink-0 rounded-lg border border-border-strong"
                         />
-                        <span className="font-mono whitespace-nowrap text-muted">{entry.topSku}</span>
+                        <div className="flex flex-col gap-1">
+                          <span className="font-mono whitespace-nowrap text-muted">{entry.topSku}</span>
+                          {/* The feedback loop, visible: what the user settled on. A
+                              correction names the SKU the pipeline should have picked. */}
+                          {entry.confirmedSku &&
+                            (entry.confirmedSku === entry.topSku ? (
+                              <StatusBadge variant="success">Confirmed</StatusBadge>
+                            ) : (
+                              <StatusBadge variant="warning">Corrected → {entry.confirmedSku}</StatusBadge>
+                            ))}
+                        </div>
                       </div>
                     ) : (
                       <StatusBadge variant="warning">No match</StatusBadge>
                     )}
                   </td>
-                  <td className="px-4 py-3 font-mono text-muted">{entry.candidates.length}</td>
                   <td className="px-4 py-3">
                     {entry.embeddingBackend ? (
-                      <span className="rounded-full border border-border-strong bg-surface-2 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-subtle uppercase">
+                      <span className="rounded-full border border-border-strong bg-surface-2 px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-subtle uppercase">
                         {entry.embeddingBackend}
                       </span>
                     ) : (
@@ -144,7 +150,7 @@ export function HistoryTable({
                   <td className="px-4 py-3 font-mono whitespace-nowrap text-muted">{formatSearchTime(entry.searchTimeMs)}</td>
                   <td className="px-4 py-3 font-mono whitespace-nowrap text-muted">{formatRecordedAt(entry.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
-                    {entry.explanation ? (
+                    {entry.explanation && (
                       <button
                         type="button"
                         onClick={() => onToggleExplanation(entry.id)}
@@ -156,8 +162,6 @@ export function HistoryTable({
                         {isExpanded ? 'Hide' : 'Show'}
                         <span className="sr-only"> AI explanation for the {entry.category} run</span>
                       </button>
-                    ) : (
-                      <span className="font-mono text-subtle">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -181,7 +185,7 @@ export function HistoryTable({
 
                 {isExpanded && entry.explanation && (
                   <tr className="bg-surface-2/40">
-                    <td colSpan={9} className="px-4 py-4">
+                    <td colSpan={8} className="px-4 py-4">
                       <p
                         id={`history-explanation-${entry.id}`}
                         className="border-l-2 border-accent/30 pl-3 text-sm leading-relaxed whitespace-pre-line text-foreground/90"

@@ -18,7 +18,7 @@ export function AIExplanationPanel({ explanation }: AIExplanationPanelProps) {
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
         </span>
         <h2 className="text-sm font-bold text-foreground">AI Explanation</h2>
-        <span className="ml-auto rounded-full border border-border-strong bg-surface-2 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-subtle uppercase">
+        <span className="ml-auto rounded-full border border-border-strong bg-surface-2 px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-subtle uppercase">
           Brain 4 · Qwen
         </span>
       </div>

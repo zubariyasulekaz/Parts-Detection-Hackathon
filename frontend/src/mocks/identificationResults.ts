@@ -43,7 +43,7 @@ export const IDENTIFICATION_SCENARIOS: IdentificationScenario[] = [
       { sku: 'EXM002', similarity: 0.77 },
     ],
     explanation:
-      "The uploaded photo matches EXM001 (Walker Exhaust Manifold Assembly, Driver Side) with 94% visual similarity and 97% category confidence — well ahead of the next candidate. This is a clear, unambiguous match, so no further confirmation is needed.",
+      "The uploaded photo matches EXM001 (Walker Exhaust Manifold Assembly, Driver Side) with 94% visual similarity and 97% category confidence - well ahead of the next candidate. This is a clear, unambiguous match, so no further confirmation is needed.",
   },
   {
     id: 'brake-pads-high-confidence',
@@ -57,7 +57,7 @@ export const IDENTIFICATION_SCENARIOS: IdentificationScenario[] = [
       { sku: 'BP-1044', similarity: 0.74 },
     ],
     explanation:
-      "The uploaded photo matches BP-1042 (Bosch QuietCast Ceramic Disc Brake Pad Set) with 95% visual similarity and 97% category confidence — well ahead of the next candidate. This is a clear, unambiguous match, so no further confirmation is needed.",
+      "The uploaded photo matches BP-1042 (Bosch QuietCast Ceramic Disc Brake Pad Set) with 95% visual similarity and 97% category confidence - well ahead of the next candidate. This is a clear, unambiguous match, so no further confirmation is needed.",
   },
   {
     id: 'brake-pads-ambiguous',
@@ -71,7 +71,7 @@ export const IDENTIFICATION_SCENARIOS: IdentificationScenario[] = [
       { sku: 'BP-1044', similarity: 0.83 },
     ],
     explanation:
-      "This looks like a front ceramic disc brake pad set, but the top three catalog candidates — Bosch BP-1042, ACDelco BP-1043, and Brembo BP-1044 — are visually similar and score within a few points of each other. A few details would help narrow it down: Is there a brand stamp visible on the backing plate? Is this for a Toyota Camry/RAV4 or a Honda Accord? Are wear-indicator clips already fitted to the pad?",
+      "This looks like a front ceramic disc brake pad set, but the top three catalog candidates - Bosch BP-1042, ACDelco BP-1043, and Brembo BP-1044 - are visually similar and score within a few points of each other. A few details would help narrow it down: Is there a brand stamp visible on the backing plate? Is this for a Toyota Camry/RAV4 or a Honda Accord? Are wear-indicator clips already fitted to the pad?",
   },
   {
     id: 'oil-filter-high-confidence',
@@ -111,7 +111,7 @@ export const IDENTIFICATION_SCENARIOS: IdentificationScenario[] = [
       { sku: 'SP-6611', similarity: 0.855 },
     ],
     explanation:
-      "This appears to be an iridium or platinum spark plug, but NGK SP-6610 and Denso SP-6611 are nearly tied in visual similarity — spark plugs from different brands can look almost identical in a photo. Can you read any text or part number stamped on the hex or ceramic insulator? Do you know which brand was originally installed in the vehicle?",
+      "This appears to be an iridium or platinum spark plug, but NGK SP-6610 and Denso SP-6611 are nearly tied in visual similarity - spark plugs from different brands can look almost identical in a photo. Can you read any text or part number stamped on the hex or ceramic insulator? Do you know which brand was originally installed in the vehicle?",
   },
   {
     id: 'shock-absorbers-high-confidence',
@@ -142,7 +142,7 @@ export const IDENTIFICATION_SCENARIOS: IdentificationScenario[] = [
       { sku: 'AF-2211', similarity: 0.39 },
     ],
     explanation:
-      "This looks like an air filter, but nothing in the catalog comes close visually — the nearest entry scores 43% similarity, well under the level at which a match is trustworthy. The most likely explanation is that this exact part isn't stocked. If you can, try a straight-on photo against a plain background, or share any part number printed on the filter frame.",
+      "This looks like an air filter, but nothing in the catalog comes close visually - the nearest entry scores 43% similarity, well under the level at which a match is trustworthy. The most likely explanation is that this exact part isn't stocked. If you can, try a straight-on photo against a plain background, or share any part number printed on the filter frame.",
   },
 ]
 

@@ -77,8 +77,18 @@ export function ImageUploadZone({
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        className={`shadow-glow-accent group relative flex aspect-4/3 w-full flex-col overflow-hidden rounded-2xl border transition-all ${
-          isDragActive ? 'border-accent bg-accent/10' : 'border-accent/20 bg-surface'
+        // Square rather than 4:3. The caption block below the photo has a
+        // fixed height, so a wide-but-short card leaves the sample tile only
+        // ~170px of vertical room; a square product shot then renders at 170px
+        // inside a 256px-wide tile and the difference shows up as dead white
+        // space either side. Height is the lever here, not width.
+        // Frosted glass rather than an opaque panel, so the 3D rotor behind the
+        // hero reads through the card. The tint still carries most of the way
+        // to `--color-surface` - over bright machined metal, anything thinner
+        // loses the caption text - and the blur keeps the backdrop from
+        // competing with it for attention.
+        className={`shadow-glow-accent group relative flex aspect-square w-full flex-col overflow-hidden rounded-2xl border backdrop-blur-xl transition-all ${
+          isDragActive ? 'border-accent bg-accent/15' : 'border-accent/25 bg-surface/60'
         } ${previewUrl ? 'cursor-default' : 'cursor-pointer'}`}
       >
         {previewUrl ? (
@@ -115,8 +125,8 @@ export function ImageUploadZone({
                 at narrow widths. Every sample renders into that one frame, so
                 photos of differing aspect ratios cross-fade in place instead of
                 the tile resizing on each rotation. */}
-            <div className="relative flex min-h-0 flex-1 items-center justify-center px-6 pt-7 pb-2">
-              <div className="animate-float relative h-full w-[66%] max-w-64 rounded-xl border border-white/15 bg-white/95 p-3 shadow-[0_20px_45px_-14px_rgba(0,0,0,0.75)]">
+            <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 pt-7 pb-3">
+              <div className="animate-float relative h-full w-[88%] max-w-72 rounded-xl border border-white/15 bg-white/95 p-2.5 shadow-[0_20px_45px_-14px_rgba(0,0,0,0.75)]">
                 <div className="relative h-full w-full">
                   {samples.map((sample, index) => (
                     <img

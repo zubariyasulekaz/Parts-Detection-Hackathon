@@ -19,7 +19,7 @@ interface ProductThumbnailProps {
  * A product's photo where one exists, falling back to the category glyph.
  *
  * Catalog photos are hosted absolute URLs (see `isDisplayableImageUrl`), so a
- * product with none — or one whose photo 404s — still renders a tile the same
+ * product with none - or one whose photo 404s - still renders a tile the same
  * size rather than a broken image.
  */
 export function ProductThumbnail({ category, images = [], fit = 'contain', className = '' }: ProductThumbnailProps) {
@@ -36,7 +36,7 @@ export function ProductThumbnail({ category, images = [], fit = 'contain', class
       {/* Absolutely positioned so the photo never contributes to layout height.
           In flow, a portrait photo's natural height becomes the automatic
           minimum height of a flex item and overrides an `aspect-*` class on the
-          wrapper — which made one tall product stretch its card taller than the
+          wrapper - which made one tall product stretch its card taller than the
           rest of the row. Out of flow, the wrapper's own sizing always wins. */}
       <img
         src={src}

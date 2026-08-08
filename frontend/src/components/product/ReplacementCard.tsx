@@ -1,5 +1,6 @@
 import { EmptyState } from '@/components/common/EmptyState'
 import { ProductThumbnail } from '@/components/common/ProductThumbnail'
+import { Tilt3D } from '@/components/common/Tilt3D'
 import type { Product } from '@/types/product'
 
 interface ReplacementCardProps {
@@ -18,7 +19,13 @@ export function ReplacementCard({ product, onView }: ReplacementCardProps) {
   }
 
   return (
-    <div className="shadow-card flex flex-col gap-5 rounded-xl border border-border bg-surface p-6 sm:flex-row sm:items-center">
+    // A wide row, so the camera stays at the default distance - the `near`
+    // perspective used on grid tiles would visibly warp something this broad.
+    <Tilt3D
+      intensity="subtle"
+      glare
+      className="shadow-depth flex flex-col gap-5 rounded-xl border border-border bg-surface p-6 sm:flex-row sm:items-center"
+    >
       <ProductThumbnail
         category={product.category}
         images={product.images}
@@ -37,6 +44,6 @@ export function ReplacementCard({ product, onView }: ReplacementCardProps) {
       >
         View Replacement
       </button>
-    </div>
+    </Tilt3D>
   )
 }

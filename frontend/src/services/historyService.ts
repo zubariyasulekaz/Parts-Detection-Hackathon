@@ -27,7 +27,7 @@ export async function listPredictionHistory(params: PredictionHistoryParams = {}
 /**
  * Catalog photo for each SKU a run matched, keyed by SKU.
  *
- * An audit row records the SKU it matched but not that product's photo — it is a
+ * An audit row records the SKU it matched but not that product's photo - it is a
  * snapshot of the run, and the catalog's photography can change after the fact.
  * The whole catalog is small enough to resolve in one request, so this fetches it
  * once for the page rather than one lookup per row.

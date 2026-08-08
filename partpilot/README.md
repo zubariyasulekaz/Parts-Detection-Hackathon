@@ -1,22 +1,31 @@
+---
+title: PartPilot
+emoji: 🔧
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # PartPilot
 
 **PartPilot** is an AI-powered automobile parts identification platform. A
 user uploads a photo of a vehicle part; the system identifies its category,
 finds visually similar catalog products, resolves the exact SKU, and
-recommends alternatives and accessories — with catalogs of 100,000+ products
+recommends alternatives and accessories - with catalogs of 100,000+ products
 in mind.
 
-> **Status:** This repository currently contains the **architecture
-> skeleton only**. All AI logic (model loading, inference, embeddings,
-> FAISS search, LLM reasoning) is stubbed with `NotImplementedError` and
-> `TODO` markers, ready for incremental implementation. See
-> [Development Roadmap](#development-roadmap) below.
+> **Status:** All four brains are implemented and `POST /predict` runs the
+> real pipeline end-to-end. Trained classifier weights and the per-category
+> FAISS indexes are committed, so there is nothing to train before running.
+> See [Status](#status) below for what is done and what is still open.
 
 ---
 
 ## Project Overview
 
-Given an image of a vehicle part, PartPilot is designed to:
+Given an image of a vehicle part, PartPilot:
 
 1. **Predict the product category** (e.g. oil filter, brake pad, air filter).
 2. **Search visually similar products** within that category.
@@ -65,10 +74,10 @@ partpilot/
 │   │   ├── brain2_similarity/    # Category + image -> similar SKUs (OpenCLIP + FAISS)
 │   │   ├── brain3_catalog/       # SKU -> catalog metadata + recommendations (PostgreSQL)
 │   │   │   ├── models.py         # SQLAlchemy `Product` ORM model
-│   │   │   ├── repository.py     # `ProductRepository` — the only DB access point
-│   │   │   ├── product_service.py# `ProductService` — business-facing catalog API
+│   │   │   ├── repository.py     # `ProductRepository` - the only DB access point
+│   │   │   ├── product_service.py# `ProductService` - business-facing catalog API
 │   │   │   └── recommendation_service.py
-│   │   ├── brain4_reasoning/     # (future) LLM explanation — interfaces only
+│   │   ├── brain4_reasoning/     # (future) LLM explanation - interfaces only
 │   │   └── orchestrator.py       # Chains Brain 1 -> 2 -> 3 -> 4
 │   ├── schemas/                  # Pydantic v2 request/response models
 │   ├── core/                     # Logging, exceptions, constants, security, startup, database
@@ -131,32 +140,36 @@ independently (dependency inversion).
 
 ### How each Brain works
 
-- **Brain 1 — Image Classification** (`pipeline/brain1_classifier/`)
+- **Brain 1 - Image Classification** (`pipeline/brain1_classifier/`)
   Receives a raw part image and predicts its category using an
   EfficientNet model. Training, evaluation, and inference are split into
   `train.py`, `evaluate.py`, and `predict.py` respectively.
 
-- **Brain 2 — Similarity Search** (`pipeline/brain2_similarity/`)
+- **Brain 2 - Similarity Search** (`pipeline/brain2_similarity/`)
   Given the predicted category and the source image, generates an
   OpenCLIP embedding (`embedding_generator.py`) and searches a
   category-scoped FAISS index (`faiss_index.py`, managed by
   `index_manager.py`) for the top-K most visually similar SKUs.
 
-- **Brain 3 — Catalog Intelligence** (`pipeline/brain3_catalog/`)
+- **Brain 3 - Catalog Intelligence** (`pipeline/brain3_catalog/`)
   Resolves a SKU to full catalog metadata (brand, description,
   compatible vehicles, replacement/alternative/accessory SKUs), backed
   by PostgreSQL. `models.py` defines the `products` table (SQLAlchemy
   ORM); `repository.py` (`ProductRepository`) is the only module that
   talks to the database; `product_service.py` (`ProductService`) is the
-  business-facing API everything else — including future AI modules —
+  business-facing API everything else - including future AI modules -
   should call. Exposed over HTTP via `GET/POST/PUT/DELETE /products`.
-  Alternative/accessory recommendation resolution
-  (`recommendation_service.py`) is still a `TODO` stub.
+  `recommendation_service.py` resolves `replacement_sku`,
+  `alternative_skus` and `accessory_skus` to full product records, which is
+  what the results page renders.
 
-- **Brain 4 — Reasoning** (`pipeline/brain4_reasoning/`) *(future)*
-  Will use a Hugging Face LLM to turn the structured pipeline output into
-  a natural-language explanation. Only `ReasoningInterface` exists today
-  — no implementation, by design.
+- **Brain 4 - Reasoning** (`pipeline/brain4_reasoning/`) *(optional)*
+  Uses Qwen2.5-1.5B-Instruct to turn the structured pipeline output into a
+  natural-language explanation, and to ask clarifying questions when the match
+  is ambiguous. Controlled per request by the `explain` query parameter. It is
+  deliberately the only stage allowed to fail quietly: if the weights cannot be
+  loaded, the request still returns the Brain 1-3 answer with
+  `explanation: null`.
 
 ---
 
@@ -187,7 +200,7 @@ at `/docs` (Swagger UI) and `/redoc`.
 ### Database migrations (Alembic)
 
 `DATABASE_URL` (see `.env.example`) is the single source of truth for the
-DB connection — both the app (async, via `asyncpg`) and Alembic
+DB connection - both the app (async, via `asyncpg`) and Alembic
 (sync, via `psycopg2`) read it from `Settings`, so nothing needs to be
 duplicated in `alembic.ini`.
 
@@ -199,36 +212,37 @@ alembic downgrade -1              # roll back the last migration
 
 ---
 
-## Development Roadmap
+## Status
 
-This skeleton compiles and runs end-to-end with **dummy data**. Endpoint
-handlers currently return placeholder responses rather than invoking the
-(unimplemented) pipeline, so the API contract can be validated and
-consumed by a frontend before any model exists.
+All four brains are implemented and wired. `POST /predict` runs the real
+pipeline end-to-end: background removal, classification, per-category vector
+search, catalog resolution, and an optional LLM explanation. Nothing in the
+request path returns placeholder data.
 
-Suggested implementation order:
+| | State |
+|---|---|
+| **Brain 1** - Classifier | Fine-tuned EfficientNet, checkpoint committed under `backend/models/classifier/` |
+| **Brain 2** - Similarity search | DINOv2 by default, OpenCLIP for the three categories that benchmark better on it; per-category FAISS indexes committed |
+| **Brain 3** - Catalog | `ProductRepository`/`ProductService` against PostgreSQL, CRUD at `/products`, recommendations resolved to full product records |
+| **Brain 4** - Reasoning | Qwen2.5-1.5B-Instruct, optional; degrades to no explanation when the weights are unreachable |
+| Orchestrator | `PipelineOrchestrator.run()` drives all four stages and the no-match decision |
+| Audit trail | Every run recorded and readable back via `/history` |
 
-1. **Brain 1 — Classifier**: implement `preprocess.py`, `model_loader.py`,
-   `predict.py`, then `train.py`/`evaluate.py` once a labeled dataset is
-   available in `datasets/`.
-2. **Brain 3 — Catalog**: done — `ProductRepository`/`ProductService` are
-   fully implemented against PostgreSQL, with full CRUD exposed at
-   `/products`. Remaining work: implement
-   `RecommendationService.recommend` (resolve `replacement_sku`/
-   `alternative_skus`/`accessory_skus` to full product records).
-3. **Brain 2 — Similarity Search**: implement `clip_model.py`,
-   `embedding_generator.py`, `faiss_index.py`, and `index_manager.py`;
-   build per-category indexes from the catalog.
-4. **Wire the orchestrator**: replace the dummy response in
-   `api/routers/prediction.py` with a real call to
-   `PipelineOrchestrator.run()` once Brain 1/2 exist (Brain 3 is already
-   wired in).
-5. **Brain 4 — Reasoning** *(future)*: implement `llm_service.py` and
-   `prompt_builder.py` against a chosen Hugging Face model/endpoint.
-6. **Hardening**: replace the permissive `verify_api_key` no-op with real
-   auth, add request-id middleware, add structured metrics/tracing, and
-   add real `ProductRepository`/`ProductService` integration tests against
-   a (containerized) PostgreSQL instance.
+Known gaps, roughly in priority order:
+
+1. **Latency.** A steady-state prediction is around 7s, of which roughly half
+   is database round trips rather than model time - the audit write is awaited
+   inline on the response path, and a remote Postgres costs about 1.1s per
+   round trip. A local database and a backgrounded audit write are the two
+   levers.
+2. **Catalog size.** 56 products across 10 categories is enough to calibrate
+   against, not enough to prove the retrieval story at scale.
+3. **Domain gap.** Every indexed image is a studio shot on white; real uploads
+   are phone photos. Thresholds calibrated leave-one-out on studio images run
+   optimistic against what users actually send.
+4. **Hardening.** `verify_api_key` is still a permissive no-op; no request-id
+   middleware, structured metrics or tracing; no integration tests against a
+   containerized PostgreSQL.
 
 ## Future Improvements
 

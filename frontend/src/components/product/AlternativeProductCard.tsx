@@ -1,4 +1,5 @@
 import { ProductThumbnail } from '@/components/common/ProductThumbnail'
+import { Tilt3D } from '@/components/common/Tilt3D'
 import type { Product } from '@/types/product'
 
 interface AlternativeProductCardProps {
@@ -8,7 +9,13 @@ interface AlternativeProductCardProps {
 
 export function AlternativeProductCard({ product, onView }: AlternativeProductCardProps) {
   return (
-    <div className="shadow-card group flex flex-col overflow-hidden rounded-xl border border-border-strong bg-surface transition-all hover:-translate-y-0.5 hover:shadow-glow-accent">
+    <Tilt3D
+      intensity="subtle"
+      near
+      glare
+      sceneClassName="h-full"
+      className="shadow-depth group flex h-full flex-col overflow-hidden rounded-xl border border-border-strong bg-surface hover:shadow-depth-lift"
+    >
       <ProductThumbnail category={product.category} images={product.images} className="aspect-4/3" />
       <div className="flex flex-1 flex-col gap-1 p-4">
         <span className="text-xs font-semibold tracking-wide text-muted uppercase">{product.brand}</span>
@@ -24,6 +31,6 @@ export function AlternativeProductCard({ product, onView }: AlternativeProductCa
           View Product
         </button>
       </div>
-    </div>
+    </Tilt3D>
   )
 }

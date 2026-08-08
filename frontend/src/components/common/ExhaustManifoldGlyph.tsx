@@ -2,7 +2,7 @@ interface ExhaustManifoldGlyphProps {
   className?: string
 }
 
-/** A lucide-style line glyph for the "Exhaust Manifold" category — no equivalent exists in the icon set. */
+/** A lucide-style line glyph for the "Exhaust Manifold" category - no equivalent exists in the icon set. */
 export function ExhaustManifoldGlyph({ className }: ExhaustManifoldGlyphProps) {
   return (
     <svg

@@ -5,7 +5,7 @@ import type { IdentificationCandidate } from '@/types/identification'
  * Turns "these three look identical, you pick" into a short series of answerable
  * questions.
  *
- * Visual similarity cannot separate parts that genuinely look alike — two brake
+ * Visual similarity cannot separate parts that genuinely look alike - two brake
  * pad sets for different cars are the same object photographed twice. But the
  * catalog already knows what does separate them: fitment and brand. So instead of
  * asking the user to compare photos they have no way to judge, ask what they
@@ -18,7 +18,7 @@ import type { IdentificationCandidate } from '@/types/identification'
 
 /**
  * `attr:<key>` facets come from the product's `attributes` bag, whose keys vary
- * by category — a filter has `filter_style`, a pad has `friction_material`.
+ * by category - a filter has `filter_style`, a pad has `friction_material`.
  */
 export type FacetKey = 'make' | 'model' | 'year' | 'brand' | 'mpn' | `attr:${string}`
 
@@ -26,7 +26,7 @@ export type FacetKey = 'make' | 'model' | 'year' | 'brand' | 'mpn' | `attr:${str
  * The fitment rows an answer keeps in play.
  *
  * A product can fit several vehicles, so answering "Honda" must not only drop
- * Toyota-only candidates — it must also stop a surviving candidate's Toyota rows
+ * Toyota-only candidates - it must also stop a surviving candidate's Toyota rows
  * from feeding the next question, or picking Honda would still offer "Camry".
  */
 export interface RowFilter {
@@ -48,7 +48,7 @@ export interface DisambiguationOption {
 export interface DisambiguationQuestion {
   facet: FacetKey
   prompt: string
-  /** Shown under the prompt — why this question is being asked. */
+  /** Shown under the prompt - why this question is being asked. */
   hint: string
   options: DisambiguationOption[]
 }
@@ -163,7 +163,7 @@ function filterRows(rows: FitmentRow[], answers: DisambiguationAnswer[]): Fitmen
  * Year options as ranges rather than one chip per year.
  *
  * A year only distinguishes candidates where their coverage differs, so
- * consecutive years matching the same SKU set collapse into a single chip —
+ * consecutive years matching the same SKU set collapse into a single chip -
  * "2018–2022" and "2023–2024" rather than seven chips that mostly do nothing.
  */
 function yearOptions(rows: FitmentRow[]): DisambiguationOption[] {
@@ -248,7 +248,7 @@ function isUseful(options: DisambiguationOption[], candidateCount: number): bool
  * How readily a typical user can answer, lowest first.
  *
  * Ranking purely by elimination power puts brand first, because brand usually
- * splits the candidates perfectly — but someone photographing a part to find out
+ * splits the candidates perfectly - but someone photographing a part to find out
  * what it is is exactly the person who does not know its brand.
  *
  * The ordering follows what the user has in front of them. Visual attributes
@@ -266,7 +266,7 @@ function answerability(facet: FacetKey): number {
 
 /**
  * The next question to ask, or null when the candidates are already resolved (or
- * nothing left can separate them — the caller should fall back to manual choice).
+ * nothing left can separate them - the caller should fall back to manual choice).
  *
  * Pass the answers given so far (not just their facets) so vehicle questions stay
  * consistent with each other, plus any facets the user skipped with "Not sure".

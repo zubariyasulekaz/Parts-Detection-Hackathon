@@ -14,12 +14,14 @@ export function ProcessingPipeline({ currentStage, isComplete }: ProcessingPipel
     : -1
 
   return (
-    <div className="relative" aria-live="polite">
+    // The rail stays pinned at z=0 while the steps move in front of and behind
+    // it, so the running stage visibly lifts off the track it's travelling.
+    <div className="perspective-scene-near relative" aria-live="polite">
       <div
         aria-hidden="true"
         className="absolute top-3.5 bottom-3.5 left-3.5 w-px bg-linear-to-b from-accent/50 via-border-strong to-border"
       />
-      <div className="relative flex flex-col">
+      <div className="relative flex transform-3d flex-col">
         {PROCESSING_STAGE_DEFINITIONS.map((definition, index) => {
           const status: ProcessingStageStatus = isComplete
             ? 'complete'

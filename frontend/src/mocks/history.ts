@@ -49,7 +49,7 @@ export const MOCK_PREDICTION_HISTORY: PredictionHistoryEntry[] = [
     ],
     embeddingBackend: 'dinov2',
     explanation:
-      'This looks like a front ceramic disc brake pad set, but the top three catalog candidates — Bosch BP-1042, ACDelco BP-1043, and Brembo BP-1044 — are visually similar and score within a few points of each other. Is there a brand stamp visible on the backing plate? Is this for a Toyota Camry/RAV4 or a Honda Accord?',
+      'This looks like a front ceramic disc brake pad set, but the top three catalog candidates - Bosch BP-1042, ACDelco BP-1043, and Brembo BP-1044 - are visually similar and score within a few points of each other. Is there a brand stamp visible on the backing plate? Is this for a Toyota Camry/RAV4 or a Honda Accord?',
     thumbnail: null,
   },
   {
@@ -59,7 +59,7 @@ export const MOCK_PREDICTION_HISTORY: PredictionHistoryEntry[] = [
     confidence: 0.93,
     searchTimeMs: 176,
     topSku: 'OF-3978',
-    // The user picked rank 2 in the guided flow — a recorded correction.
+    // The user picked rank 2 in the guided flow - a recorded correction.
     confirmedSku: 'OF-45011',
     candidates: [
       { sku: 'OF-3978', similarity: 0.9, rank: 1 },
@@ -67,7 +67,7 @@ export const MOCK_PREDICTION_HISTORY: PredictionHistoryEntry[] = [
       { sku: 'OF-45023', similarity: 0.7, rank: 3 },
     ],
     embeddingBackend: 'dinov2',
-    // Ran with explain=false — the common shape when Brain 4's weights are unavailable.
+    // Ran with explain=false - the common shape when Brain 4's weights are unavailable.
     explanation: null,
     thumbnail: null,
   },
@@ -101,7 +101,7 @@ export const MOCK_PREDICTION_HISTORY: PredictionHistoryEntry[] = [
     ],
     embeddingBackend: 'dinov2',
     explanation:
-      'The uploaded photo matches EXM001 (Walker Exhaust Manifold Assembly, Driver Side) with 94% visual similarity and 97% category confidence — well ahead of the next candidate. This is a clear, unambiguous match, so no further confirmation is needed.',
+      'The uploaded photo matches EXM001 (Walker Exhaust Manifold Assembly, Driver Side) with 94% visual similarity and 97% category confidence - well ahead of the next candidate. This is a clear, unambiguous match, so no further confirmation is needed.',
     thumbnail: null,
   },
   {

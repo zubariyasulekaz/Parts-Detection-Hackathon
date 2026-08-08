@@ -5,7 +5,7 @@ interface AIExplanationPanelProps {
 }
 
 /**
- * Brain 4's (Qwen LLM) free-form output, rendered verbatim — never parsed
+ * Brain 4's (Qwen LLM) free-form output, rendered verbatim - never parsed
  * or restructured into fabricated UI (e.g. fake "question" chips). Styled
  * distinctly from AIMatchSummary so it reads as generated commentary, not
  * a computed fact from the similarity/confidence scores.

@@ -31,7 +31,7 @@ function formatRecordedAt(iso: string): string {
 
 /**
  * The orchestrator records a raw `perf_counter` delta, so a live row's search time arrives as
- * something like 1873.4241000004112 — sixteen digits of noise that would also blow the column open.
+ * something like 1873.4241000004112 - sixteen digits of noise that would also blow the column open.
  */
 function formatSearchTime(ms: number): string {
   return `${Math.round(ms)} ms`
@@ -144,7 +144,7 @@ export function HistoryTable({
                         {entry.embeddingBackend}
                       </span>
                     ) : (
-                      <span className="font-mono text-muted">—</span>
+                      <span className="font-mono text-muted">-</span>
                     )}
                   </td>
                   <td className="px-4 py-3 font-mono whitespace-nowrap text-muted">{formatSearchTime(entry.searchTimeMs)}</td>

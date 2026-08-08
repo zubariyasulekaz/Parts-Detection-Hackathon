@@ -7,7 +7,7 @@ import type { IdentificationCandidate, IdentificationResult, ProcessingStageKey 
 
 const API_MODE = import.meta.env.VITE_API_MODE
 const TOP_K = Number(import.meta.env.VITE_PREDICTION_TOP_K) || 5
-/** Opt out of Brain 4 when its weights are unavailable — the LLM load otherwise stalls the request. */
+/** Opt out of Brain 4 when its weights are unavailable - the LLM load otherwise stalls the request. */
 const EXPLAIN = import.meta.env.VITE_PREDICTION_EXPLAIN !== 'false'
 
 /**
@@ -30,7 +30,7 @@ export const STRONG_SEPARATION_GAP = 0.08
  * MOCK MODE ONLY. In live mode the verdict is made server-side (per
  * embedding backend, calibrated with scripts/calibrate_no_match.py against
  * the per-image max-over-images scoring) and arrives as
- * `prediction.no_match` — the UI must not second-guess it, or any other API
+ * `prediction.no_match` - the UI must not second-guess it, or any other API
  * consumer would see a different answer than the app shows.
  */
 export const NO_CATALOG_MATCH_THRESHOLD = 0.5
@@ -63,7 +63,7 @@ export interface ProcessingStageDefinition {
   completedLabel: string
 }
 
-/** Stage order + copy for the processing UI — corresponds 1:1 to the real pipeline (see docs/architecture). */
+/** Stage order + copy for the processing UI - corresponds 1:1 to the real pipeline (see docs/architecture). */
 export const PROCESSING_STAGE_DEFINITIONS: ProcessingStageDefinition[] = [
   { key: 'validate', activeLabel: 'Validating image quality', completedLabel: 'Image quality validated' },
   { key: 'normalize', activeLabel: 'Normalizing image', completedLabel: 'Image normalized' },
@@ -89,9 +89,9 @@ const MOCK_STAGE_DELAYS_MS: Record<ProcessingStageKey, number> = {
 }
 
 export interface IdentifyOptions {
-  /** Called once per pipeline stage as it completes, in order — drives the processing UI. */
+  /** Called once per pipeline stage as it completes, in order - drives the processing UI. */
   onStage?: (stage: ProcessingStageKey) => void
-  /** True when the request came from "Try Sample Image" — always resolves to the golden-path scenario. */
+  /** True when the request came from "Try Sample Image" - always resolves to the golden-path scenario. */
   useSampleScenario?: boolean
 }
 
@@ -102,8 +102,8 @@ function delay(ms: number): Promise<void> {
 /**
  * Resolves the two flags the results UI branches on. Kept together because the
  * "no catalog match" verdict outranks the ambiguity one: when nothing matched
- * closely enough, asking the user to pick between three bad candidates — or
- * quietly pre-selecting the least bad — would both be misleading.
+ * closely enough, asking the user to pick between three bad candidates - or
+ * quietly pre-selecting the least bad - would both be misleading.
  *
  * `noMatch` is the server's verdict in live mode; mock mode derives it from
  * the local threshold.

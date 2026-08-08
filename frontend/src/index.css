@@ -3,11 +3,11 @@
 @theme {
   --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", monospace;
-  /* Display face for headings and hero moments — geometric and slightly
+  /* Display face for headings and hero moments - geometric and slightly
      technical, which is the product's whole personality. Body stays Inter. */
   --font-display: "Space Grotesk Variable", "Space Grotesk", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 
-  /* Surfaces — indigo-leaning darks rather than neutral near-blacks: the
+  /* Surfaces - indigo-leaning darks rather than neutral near-blacks: the
      page should read as deep space with light in it, not a black slab.
      The aurora washes on `body` (see @layer base) provide the color; these
      stay desaturated enough that content panels sit calmly on top. */
@@ -16,17 +16,17 @@
   --color-surface-2: #192338;
   --color-surface-3: #24304a;
   --color-surface-4: #303e5c;
-  /* Decorative nebula violet — background glows only, never UI controls. */
+  /* Decorative nebula violet - background glows only, never UI controls. */
   --color-nebula: #7c5cfa;
 
   /* Text. `subtle` must stay dimmer than `muted` but still clear 4.5:1 on
-     surface-2, where it labels chips and secondary lines at small sizes —
+     surface-2, where it labels chips and secondary lines at small sizes -
      the old #5f6b78 sat near 2.6:1 and washed out. */
   --color-foreground: #f5f7fa;
   --color-muted: #9aa4af;
   --color-subtle: #8792a0;
 
-  /* Brand accent. `accent-2` is the cyan end of the brand gradient —
+  /* Brand accent. `accent-2` is the cyan end of the brand gradient -
      always paired with the blue, never used alone as a UI control color. */
   --color-accent: #2f80ed;
   --color-accent-soft: #5fa4f7;
@@ -56,6 +56,12 @@
   --animate-scan-lock: scan-lock 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-pop-in: pop-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-float: float 5s ease-in-out infinite;
+  --animate-float-3d: float-3d 9s ease-in-out infinite;
+  --animate-drift-3d: drift-3d 16s linear infinite;
+
+  /* Shared easing for every 3D settle. Overshoots slightly, so a card
+     released from a tilt reads as sprung rather than mechanically eased. */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 
   @keyframes scan-line {
     0% {
@@ -150,6 +156,35 @@
       transform: translateY(-10px);
     }
   }
+
+  /* Idle motion for a 3D object nobody is pointing at: a slow bob paired
+     with a shallow yaw/pitch wobble, so the thing reads as suspended in
+     space rather than pasted flat on the page. */
+  @keyframes float-3d {
+    0%,
+    100% {
+      transform: translateY(0) rotateX(0deg) rotateY(0deg);
+    }
+    25% {
+      transform: translateY(-9px) rotateX(3deg) rotateY(-5deg);
+    }
+    50% {
+      transform: translateY(-13px) rotateX(0deg) rotateY(0deg);
+    }
+    75% {
+      transform: translateY(-9px) rotateX(-3deg) rotateY(5deg);
+    }
+  }
+
+  /* Continuous yaw for decorative rings/frames orbiting a hero object. */
+  @keyframes drift-3d {
+    from {
+      transform: rotateY(0deg);
+    }
+    to {
+      transform: rotateY(360deg);
+    }
+  }
 }
 
 @layer base {
@@ -161,8 +196,8 @@
     color-scheme: dark;
   }
 
-  /* The page atmosphere: fixed aurora washes — accent blue high left,
-     cyan high right, nebula violet low — over the deep base. Painted on
+  /* The page atmosphere: fixed aurora washes - accent blue high left,
+     cyan high right, nebula violet low - over the deep base. Painted on
      `body` (the app shell is transparent) so every route shares one
      continuous sky instead of per-page black slabs. */
   body {
@@ -184,10 +219,10 @@
 
   /* Scattered star-field behind the app (body's ::before paints under
      #root). Absolute, not fixed: stars belong to the page and scroll with
-     it — a fixed layer made them visibly slide against the content.
+     it - a fixed layer made them visibly slide against the content.
      Three overlapping tiles with co-prime dimensions, each contributing
      one differently-sized, differently-tinted star, so no row/column
-     alignment is ever visible — a night sky, not graph paper. Faded out
+     alignment is ever visible - a night sky, not graph paper. Faded out
      entirely past the first ~1300px so content-dense areas stay calm. */
   body::before {
     content: "";
@@ -248,7 +283,7 @@
   }
 }
 
-/* Fine line grid — reserved for small product-illustration tiles. */
+/* Fine line grid - reserved for small product-illustration tiles. */
 @utility bg-grid {
   background-image:
     linear-gradient(to right, rgba(245, 247, 250, 0.06) 1px, transparent 1px),
@@ -256,7 +291,7 @@
   background-size: 40px 40px;
 }
 
-/* Dot grid — the page-level background texture. Reads as engineering
+/* Dot grid - the page-level background texture. Reads as engineering
    blueprint / precision instrumentation rather than a spreadsheet grid. */
 @utility bg-dot-grid {
   background-image: radial-gradient(rgba(245, 247, 250, 0.16) 1px, transparent 1px);
@@ -268,7 +303,7 @@
   background-size: 20px 20px;
 }
 
-/* Perspective "floor" grid — a real 3D CSS transform, not a flat pattern.
+/* Perspective "floor" grid - a real 3D CSS transform, not a flat pattern.
    Apply to a bottom-anchored element with a fade mask; gives the hero its
    dimensional, precision-instrument depth without any particle/canvas lib. */
 @utility bg-perspective-grid {
@@ -280,7 +315,21 @@
   transform-origin: bottom center;
 }
 
-/* Ambient radial glow — used behind hero content and other "hero moments".
+/* The floor grid's mirror image overhead. On its own the floor reads as a
+   plane the content sits on; paired with this one it closes into a corridor
+   receding to the same horizon, which is what gives the hero its sense of
+   being a space rather than a surface. Keep it dimmer than the floor - a
+   ceiling as bright as the ground reads as a reflection, not a room. */
+@utility bg-perspective-grid-top {
+  background-image:
+    linear-gradient(rgba(95, 164, 247, 0.32) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(95, 164, 247, 0.32) 1px, transparent 1px);
+  background-size: 64px 64px;
+  transform: perspective(600px) rotateX(-62deg);
+  transform-origin: top center;
+}
+
+/* Ambient radial glow - used behind hero content and other "hero moments".
    Position with a wrapping absolutely-positioned element, not this utility. */
 @utility bg-spotlight-accent {
   background: radial-gradient(closest-side, rgba(47, 128, 237, 0.32), transparent 70%);
@@ -297,11 +346,18 @@
   filter: blur(60px);
 }
 
-/* Colored elevation shadows — the primary lever for "premium" depth on a
+/* Colored elevation shadows - the primary lever for "premium" depth on a
    near-monochrome dark theme. Use in place of plain black shadows on
    interactive or emphasized surfaces. */
+/* The lit top bevel is baked in rather than composed from `edge-3d`: both
+   utilities write `box-shadow`, so stacking them silently drops whichever
+   loses the cascade. Anything glowing is by definition raised, so it wants
+   the bevel anyway - carrying it here means every glow surface gets the
+   thickness for free and no call site has to remember. */
 @utility shadow-glow-accent {
   box-shadow:
+    inset 0 1px 0 0 rgba(245, 247, 250, 0.14),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.28),
     0 0 0 1px rgba(47, 128, 237, 0.18),
     0 12px 32px -12px rgba(47, 128, 237, 0.45),
     0 4px 12px -4px rgba(0, 0, 0, 0.4);
@@ -309,6 +365,8 @@
 
 @utility shadow-glow-accent-lg {
   box-shadow:
+    inset 0 1px 0 0 rgba(245, 247, 250, 0.18),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.32),
     0 0 0 1px rgba(47, 128, 237, 0.22),
     0 24px 60px -16px rgba(47, 128, 237, 0.5),
     0 8px 24px -8px rgba(0, 0, 0, 0.5);
@@ -339,8 +397,163 @@
     0 20px 48px -20px rgba(0, 0, 0, 0.65);
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   3D depth system
+
+   Three cooperating pieces; a card needs all three or it looks skewed
+   rather than tilted:
+
+     1. `perspective-scene` on the PARENT establishes the vanishing
+        point. Without it, rotateX/rotateY are orthographic - corners
+        shear instead of receding, which is the classic "fake 3D" tell.
+     2. `tilt-3d` on the CHILD consumes --tilt-x / --tilt-y, which the
+        `useTilt` hook writes from pointer position.
+     3. `tilt-glare` on an inset overlay adds the specular sweep that
+        sells the surface as physical rather than just rotated.
+
+   Tailwind v4 already ships `transform-3d`, `translate-z-*`,
+   `rotate-x-*` and `backface-hidden` - those are used directly and are
+   deliberately not redefined here. Only the pointer-reactive parts,
+   which need custom properties, live below.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Scene depth. Larger perspective = subtler, more expensive-looking
+   rotation. `-near` is for small tiles, where the same tilt angle needs
+   a shallower camera to be legible at all. */
+@utility perspective-scene {
+  perspective: 1200px;
+  perspective-origin: center;
+}
+
+@utility perspective-scene-near {
+  perspective: 700px;
+  perspective-origin: center;
+}
+
+/* The tilting surface itself. At rest the custom properties are unset
+   and this collapses to identity, so an untouched card is pixel-identical
+   to the flat version - no layout or blur cost for the default state.
+
+   While the pointer is down/over, `useTilt` sets data-tilting="true" and
+   the transition shortens to a smoothing filter (120ms linear) so the
+   card tracks the cursor instead of lagging a third of a second behind
+   it. On release the long spring takes over and it settles. */
+@utility tilt-3d {
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateZ(var(--tilt-lift, 0px))
+    scale(var(--tilt-scale, 1));
+  transition:
+    transform 600ms var(--ease-spring),
+    box-shadow 600ms var(--ease-spring);
+
+  &[data-tilting="true"] {
+    transition:
+      transform 120ms linear,
+      box-shadow 300ms ease-out;
+  }
+}
+
+/* Pointer-tracking specular highlight. Put on an inset, pointer-events-none
+   overlay inside a `tilt-3d`; `useTilt` drives the position and opacity.
+   Screen blend keeps it reading as light on the surface rather than a
+   white film over the content. */
+@utility tilt-glare {
+  background: radial-gradient(
+    circle at var(--glare-x, 50%) var(--glare-y, 50%),
+    rgba(245, 247, 250, 0.18),
+    rgba(95, 164, 247, 0.07) 32%,
+    transparent 62%
+  );
+  mix-blend-mode: screen;
+  opacity: var(--glare-opacity, 0);
+  transition: opacity 350ms ease-out;
+}
+
+/* Cast shadows for elements sitting *above* the page in the z-axis. The
+   long, soft, downward-offset umbra is what makes a tilted card read as
+   floating; `-lift` is its hover/active counterpart. Colored glow stays
+   in the `shadow-glow-*` family - these two are pure depth. */
+@utility shadow-depth {
+  box-shadow:
+    inset 0 1px 0 0 rgba(245, 247, 250, 0.06),
+    0 1px 2px 0 rgba(0, 0, 0, 0.4),
+    0 16px 36px -18px rgba(0, 0, 0, 0.75);
+}
+
+@utility shadow-depth-lift {
+  box-shadow:
+    inset 0 1px 0 0 rgba(245, 247, 250, 0.1),
+    0 2px 4px 0 rgba(0, 0, 0, 0.45),
+    0 30px 60px -24px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(95, 164, 247, 0.16);
+}
+
+/* Extruded edge - a lit top bevel and a dark bottom one, so a panel has
+   visible thickness at its boundary instead of being a zero-depth plane.
+   Cheap, and it survives at any size (unlike a shadow, which vanishes on
+   small elements). */
+@utility edge-3d {
+  box-shadow:
+    inset 0 1px 0 0 rgba(245, 247, 250, 0.12),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.5),
+    inset 1px 0 0 0 rgba(245, 247, 250, 0.04),
+    inset -1px 0 0 0 rgba(0, 0, 0, 0.28);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Machined-panel silhouette - two opposite corners cut at 45°.
+
+   `clip-path` cuts everything the element paints, which rules out the two
+   things a card normally relies on:
+
+     - `border` is sliced off along the bevel, so the outline vanishes
+       exactly where the shape is most distinctive. Cards instead stack a
+       1px-padded colour layer *under* the surface; the parent shows
+       through as a hairline that follows the cut.
+     - `box-shadow` is clipped away entirely. Elevation has to come from
+       `filter: drop-shadow`, which is computed from the clipped alpha and
+       so traces the bevel - see the `drop-*` utilities below.
+
+   Anything that must sit outside the card (the path's anchor dot) has to
+   live outside the clipped element, not merely be positioned outside it.
+   ───────────────────────────────────────────────────────────────────── */
+@utility clip-bevel {
+  clip-path: polygon(
+    var(--bevel, 18px) 0,
+    100% 0,
+    100% calc(100% - var(--bevel, 18px)),
+    calc(100% - var(--bevel, 18px)) 100%,
+    0 100%,
+    0 var(--bevel, 18px)
+  );
+}
+
+/* Mirrored cut, for the cards on the other side of the serpentine - the two
+   columns then lean into the path rather than all leaning the same way. */
+@utility clip-bevel-mirror {
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--bevel, 18px)) 0,
+    100% var(--bevel, 18px),
+    100% 100%,
+    var(--bevel, 18px) 100%,
+    0 calc(100% - var(--bevel, 18px))
+  );
+}
+
+/* Elevation for clipped shapes. Two stacked drop-shadows rather than one:
+   a tight contact shadow plus a wide ambient one, the same pairing the
+   `shadow-*` utilities use, since a single blur reads as a halo. */
+@utility drop-depth {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)) drop-shadow(0 14px 22px rgba(0, 0, 0, 0.5));
+}
+
+@utility drop-glow-accent {
+  filter: drop-shadow(0 0 10px rgba(47, 128, 237, 0.35)) drop-shadow(0 14px 24px rgba(47, 128, 237, 0.22));
+}
+
 /* Gradient text for the one or two words per page that should carry
-   emphasis — never the whole headline. Blue -> cyan is the brand gradient;
+   emphasis - never the whole headline. Blue -> cyan is the brand gradient;
    it appears here, in eyebrow ticks, and in the primary CTA, nowhere else. */
 @utility text-gradient-accent {
   background-image: linear-gradient(100deg, var(--color-accent-soft) 10%, var(--color-accent-2) 90%);
@@ -374,5 +587,19 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Belt-and-braces for the 3D layer. `useTilt` already refuses to attach
+     its listeners under reduced motion, but pinning the custom properties
+     here means any element that renders a stale --tilt-* value (a card
+     mid-tilt when the OS setting flips) snaps flat instead of freezing at
+     an angle. Depth shadows and bevels stay - those are static, and it is
+     the *movement* that's being opted out of, not the dimensionality. */
+  :root {
+    --tilt-x: 0deg;
+    --tilt-y: 0deg;
+    --tilt-lift: 0px;
+    --tilt-scale: 1;
+    --glare-opacity: 0;
   }
 }

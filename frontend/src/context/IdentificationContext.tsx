@@ -5,7 +5,7 @@ import type { IdentificationResult, IdentificationStatus, ProcessingStageKey } f
 
 /**
  * The last finished run survives a refresh via sessionStorage (the uploaded
- * image as a small data URL — object URLs die with the document). Session,
+ * image as a small data URL - object URLs die with the document). Session,
  * not local: a result should outlive an accidental F5, not the tab.
  */
 const STORAGE_KEY = 'partpilot:last-result'
@@ -31,7 +31,7 @@ function saveStoredRun(run: StoredRun): void {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(run))
   } catch {
-    // Quota or privacy mode — persistence is a convenience, never a requirement.
+    // Quota or privacy mode - persistence is a convenience, never a requirement.
   }
 }
 

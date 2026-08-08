@@ -23,7 +23,7 @@ interface StatusBadgeProps {
   className?: string
 }
 
-/** Icon + label together carry status — never color alone. */
+/** Icon + label together carry status - never color alone. */
 export function StatusBadge({ variant, children, className = '' }: StatusBadgeProps) {
   const Icon = VARIANT_ICONS[variant]
   return (

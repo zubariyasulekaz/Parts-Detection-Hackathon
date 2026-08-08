@@ -2,7 +2,7 @@
  * Thin fetch wrapper around the FastAPI backend's `StandardResponse[T]` /
  * `ErrorResponse` envelope (see `backend/schemas/response.py`). This is the
  * only module that should reference `VITE_API_BASE_URL` / `VITE_API_PREFIX`
- * directly — everything else goes through `partpilotApi.ts`.
+ * directly - everything else goes through `partpilotApi.ts`.
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')
@@ -50,7 +50,7 @@ function buildUrl(path: string, params?: QueryParams): string {
 
 /**
  * `fetch` with a deadline. Without one, a hung backend leaves the UI on a
- * pulsing spinner forever — a timeout turns that into a retryable error.
+ * pulsing spinner forever - a timeout turns that into a retryable error.
  */
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   try {
@@ -58,7 +58,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   } catch (error) {
     if (error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
       throw new ApiError(
-        `The PartPilot backend did not respond within ${Math.round(timeoutMs / 1000)}s. It may still be starting up — try again.`,
+        `The PartPilot backend did not respond within ${Math.round(timeoutMs / 1000)}s. It may still be starting up - try again.`,
         0,
       )
     }

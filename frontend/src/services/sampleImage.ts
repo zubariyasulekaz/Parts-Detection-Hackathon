@@ -18,7 +18,7 @@ function sampleSrc(slug: string): string {
 }
 
 /**
- * One real catalog photo per category the classifier can predict — the landing
+ * One real catalog photo per category the classifier can predict - the landing
  * page cycles through these, and "Try Sample Image" submits whichever is
  * showing. Real photos rather than an illustration so a sample run exercises
  * the same path a user's own upload would, and actually matches the catalog.
@@ -110,7 +110,7 @@ async function fetchSampleFile(sample: PartSample): Promise<File> {
   return new File([blob], `${SAMPLE_FILE_PREFIX}${sample.slug}.jpg`, { type: 'image/jpeg' })
 }
 
-/** Real JPEG bytes for "Try Sample Image" — cached per sample after the first fetch. */
+/** Real JPEG bytes for "Try Sample Image" - cached per sample after the first fetch. */
 export function getSampleImageFile(sample: PartSample): Promise<File> {
   const cached = cache.get(sample.slug)
   if (cached) return cached

@@ -95,7 +95,7 @@ takes a few seconds.
 
 - **Brain 1** - the trained classifier is committed (`backend/models/classifier/`)
 - **Brain 2** - the FAISS indexes are committed (`backend/models/faiss/`)
-- **Brain 3** - the 55 products are already in the shared database
+- **Brain 3** - the 56 products are already in the shared database
 
 So do **not** run `alembic upgrade head` or `scripts/import_catalog_to_db.py`.
 The table exists and is populated; running the import again would simply
@@ -149,6 +149,21 @@ If you have other virtual environments around, `alembic` on PATH may not be
 this one. Use `python -m alembic.config ...`, or just don't run alembic - the
 table already exists.
 
+**A script dies with `ModuleNotFoundError: No module named 'faiss'` (or
+`transformers`, or `rembg`)**
+The virtual environment is not active. FAISS, PyTorch, transformers and rembg
+are installed into `.venv`, never system-wide, so a bare `python
+scripts/...` picks up an interpreter that has none of them. Activate first, or
+call the interpreter by path:
+
+```powershell
+.venv\Scripts\python.exe scripts/build_faiss_indexes.py --remove-bg
+```
+
+The failure is noisy but harmless: the script logs `rembg is not installed;
+skipping background removal` for every image before it eventually crashes, and
+writes nothing.
+
 **A prediction returns a SKU but no product details**
 The FAISS indexes and the database have drifted apart. Check that a SKU in
 `backend/models/faiss/*.ids.json` also exists in the `products` table.
@@ -194,5 +209,15 @@ python scripts/build_faiss_indexes.py --remove-bg    # rebuild
 python scripts/evaluate_brain2.py --remove-bg        # measure accuracy
 ```
 
-Current accuracy is 77.5% top-1 and 94.7% top-3, measured leave-one-out across
-55 products in 10 categories.
+`analyze_index_vectors.py` is usually the one you want: it measures the vectors
+already in the built indexes, so it reports what the running system will do and
+finishes in milliseconds instead of re-embedding everything.
+
+```bash
+python scripts/analyze_index_vectors.py             # accuracy + threshold sweep
+```
+
+Current accuracy is **85.0% top-1, 96.7% top-3, MRR 0.911**, measured
+leave-one-out across 56 products in 10 categories (240 queries). Leave-one-out
+here means the query image is excluded from its own product's centroid, so a
+photo is never matched against itself.

@@ -22,7 +22,7 @@ export interface Product {
   /** The number stamped on the part / printed on the box. Null when unrecorded. */
   manufacturerPartNumber: string | null
   /**
-   * Visual facts that separate look-alike SKUs — `filter_style`, `position`,
+   * Visual facts that separate look-alike SKUs - `filter_style`, `position`,
    * `primary_colour`, and so on. Keys vary by category, so treat this as an
    * open bag: read what is there, never assume a key exists.
    */

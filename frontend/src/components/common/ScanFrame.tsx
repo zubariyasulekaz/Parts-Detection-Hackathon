@@ -1,5 +1,5 @@
 interface ScanFrameProps {
-  /** Shows the moving scan sweep and brighter, pulsing corners — the "actively analyzing" state. */
+  /** Shows the moving scan sweep and brighter, pulsing corners - the "actively analyzing" state. */
   active?: boolean
   /** Optional floating readout chip, e.g. "SHOCK ABSORBERS · 94%". */
   label?: string
@@ -16,7 +16,7 @@ const LABEL_TONE_CLASS: Record<NonNullable<ScanFrameProps['labelTone']>, string>
 }
 
 /**
- * A computer-vision "detection frame" — corner brackets, an optional
+ * A computer-vision "detection frame" - corner brackets, an optional
  * scanning sweep, and an optional locked-on label chip. This is PartPilot's
  * recurring signature motif: it appears over the uploaded image at every
  * stage (upload preview, processing, results) so the whole journey reads

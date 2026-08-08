@@ -1,7 +1,7 @@
 /**
  * Wire-format DTOs mirroring `partpilot/backend/schemas/*.py` exactly
  * (field names included). Nothing outside `src/api` and `src/services`
- * should import these directly — everything else consumes the adapted
+ * should import these directly - everything else consumes the adapted
  * domain types in `src/types/product.ts` and `src/types/identification.ts`.
  */
 
@@ -71,10 +71,10 @@ export interface RecommendationDTO {
 }
 
 /**
- * Mirrors `backend.schemas.prediction.PredictionResult` — the actual shape
+ * Mirrors `backend.schemas.prediction.PredictionResult` - the actual shape
  * `POST /predict` returns. `product`/`recommendation` are already resolved
  * server-side for the top-ranked SKU only; `explanation` is Brain 4's
- * (Qwen LLM) free-form natural-language output — present only when the
+ * (Qwen LLM) free-form natural-language output - present only when the
  * `explain` query param was true and the model loaded successfully.
  */
 export interface PredictionResultDTO {
@@ -86,7 +86,7 @@ export interface PredictionResultDTO {
   audit_id: number | null
 }
 
-/** Mirrors `backend.schemas.audit.AuditCandidate` — a `SearchResult` plus the rank it held, stored rather than derived. */
+/** Mirrors `backend.schemas.audit.AuditCandidate` - a `SearchResult` plus the rank it held, stored rather than derived. */
 export interface AuditCandidateDTO {
   sku: string
   similarity_score: number
@@ -94,7 +94,7 @@ export interface AuditCandidateDTO {
 }
 
 /**
- * Mirrors `backend.schemas.audit.AuditEntryResponse` — one recorded
+ * Mirrors `backend.schemas.audit.AuditEntryResponse` - one recorded
  * `POST /predict` run. `thumbnail` is a self-contained base64 data URL of the
  * downscaled upload (there is no object storage yet), null when the row was
  * written without one.

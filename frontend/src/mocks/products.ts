@@ -11,7 +11,7 @@ export const MOCK_PRODUCTS: Product[] = [
   // --- Exhaust Manifold ---------------------------------------------------
   {
     sku: 'EXM001',
-    productName: 'Exhaust Manifold Assembly — Driver Side, Cast Iron',
+    productName: 'Exhaust Manifold Assembly - Driver Side, Cast Iron',
     brand: 'Walker Exhaust',
     category: 'Exhaust Manifold',
     description:
@@ -31,7 +31,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     sku: 'EXM001R',
-    productName: 'Exhaust Manifold Assembly — Driver Side, Cast Iron (Revised)',
+    productName: 'Exhaust Manifold Assembly - Driver Side, Cast Iron (Revised)',
     brand: 'Walker Exhaust',
     category: 'Exhaust Manifold',
     description:
@@ -50,7 +50,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     sku: 'EXM002',
-    productName: 'Performance Exhaust Manifold — Stainless Steel',
+    productName: 'Performance Exhaust Manifold - Stainless Steel',
     brand: 'MagnaFlow',
     category: 'Exhaust Manifold',
     description:
@@ -135,7 +135,7 @@ export const MOCK_PRODUCTS: Product[] = [
   // --- Brake Pads -----------------------------------------------------------
   {
     sku: 'BP-1042',
-    productName: 'QuietCast Ceramic Disc Brake Pad Set — Front',
+    productName: 'QuietCast Ceramic Disc Brake Pad Set - Front',
     brand: 'Bosch',
     category: 'Brake Pads',
     description:
@@ -154,7 +154,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     sku: 'BP-1058',
-    productName: 'QuietCast Ceramic Disc Brake Pad Set — Front (Gen 2)',
+    productName: 'QuietCast Ceramic Disc Brake Pad Set - Front (Gen 2)',
     brand: 'Bosch',
     category: 'Brake Pads',
     description: 'Updated friction formulation of BP-1042 with reduced break-in fade.',
@@ -169,7 +169,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     sku: 'BP-1043',
-    productName: 'Professional Ceramic Brake Pad Set — Front',
+    productName: 'Professional Ceramic Brake Pad Set - Front',
     brand: 'ACDelco',
     category: 'Brake Pads',
     description: 'OE-style ceramic pad set with chamfered and slotted design to reduce noise and vibration.',
@@ -187,7 +187,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     sku: 'BP-1044',
-    productName: 'Ceramic Performance Brake Pad Set — Front',
+    productName: 'Ceramic Performance Brake Pad Set - Front',
     brand: 'Brembo',
     category: 'Brake Pads',
     description: 'Track-oriented ceramic compound with a higher friction coefficient across a wide temperature range.',
@@ -234,7 +234,7 @@ export const MOCK_PRODUCTS: Product[] = [
   // --- Oil Filter -------------------------------------------------------------
   {
     sku: 'OF-3978',
-    productName: 'Engine Oil Filter — Spin-On',
+    productName: 'Engine Oil Filter - Spin-On',
     brand: 'Mahle',
     category: 'Oil Filter',
     description: 'Full-flow spin-on filter with a silicone anti-drain-back valve and 99% filtration efficiency at 20 microns.',
@@ -252,7 +252,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     sku: 'OF-45011',
-    productName: 'Engine Oil Filter — Spin-On (Extended Life)',
+    productName: 'Engine Oil Filter - Spin-On (Extended Life)',
     brand: 'Bosch',
     category: 'Oil Filter',
     description: 'Extended-service-interval filter with a synthetic-blend media rated for up to 10,000 miles.',
@@ -267,7 +267,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     sku: 'OF-45023',
-    productName: 'Engine Oil Filter — Spin-On',
+    productName: 'Engine Oil Filter - Spin-On',
     brand: 'Fram',
     category: 'Oil Filter',
     description: 'Standard-service spin-on filter with a metal end cap and silicone valve.',
@@ -299,7 +299,7 @@ export const MOCK_PRODUCTS: Product[] = [
   // --- Air Filter -------------------------------------------------------------
   {
     sku: 'AF-2210',
-    productName: 'Engine Air Filter — Panel',
+    productName: 'Engine Air Filter - Panel',
     brand: 'Denso',
     category: 'Air Filter',
     description: 'Pleated-paper panel filter sized for the factory airbox, rated for 15,000-mile service intervals.',
@@ -317,7 +317,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     sku: 'AF-2211',
-    productName: 'High-Flow Engine Air Filter — Panel',
+    productName: 'High-Flow Engine Air Filter - Panel',
     brand: 'K&N',
     category: 'Air Filter',
     description: 'Reusable cotton-gauze panel filter engineered for increased airflow over a paper-media equivalent.',
@@ -384,7 +384,7 @@ export const MOCK_PRODUCTS: Product[] = [
   // --- Cabin Filter -----------------------------------------------------------
   {
     sku: 'CF-1180',
-    productName: 'Cabin Air Filter — Activated Carbon',
+    productName: 'Cabin Air Filter - Activated Carbon',
     brand: 'Mahle',
     category: 'Cabin Filter',
     description: 'Activated-carbon media filters particulates and reduces odor intrusion through the HVAC intake.',
@@ -402,7 +402,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     sku: 'CF-1181',
-    productName: 'Cabin Air Filter — Standard Particulate',
+    productName: 'Cabin Air Filter - Standard Particulate',
     brand: 'Bosch',
     category: 'Cabin Filter',
     description: 'Standard particulate media sized for the factory HVAC housing.',
@@ -419,7 +419,7 @@ export const MOCK_PRODUCTS: Product[] = [
   // --- Shock Absorbers ---------------------------------------------------------
   {
     sku: 'SA-2210',
-    productName: 'Excel-G Gas Shock Absorber — Rear',
+    productName: 'Excel-G Gas Shock Absorber - Rear',
     brand: 'KYB',
     category: 'Shock Absorbers',
     description:
@@ -438,7 +438,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     sku: 'SA-2211',
-    productName: 'OESpectrum Shock Absorber — Rear',
+    productName: 'OESpectrum Shock Absorber - Rear',
     brand: 'Monroe',
     category: 'Shock Absorbers',
     description:

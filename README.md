@@ -39,6 +39,45 @@ The cost is explicit and measured: the thresholds sit at roughly 1.5% of correct
 matches rejected, in exchange for catching most impostors. Recommending the
 wrong part is worse than admitting the catalog does not have it.
 
+## Accuracy
+
+Measured leave-one-out over the stored index vectors: each image is excluded
+from its own product before that product is scored, so nothing is ever matched
+against itself and the numbers reflect an unseen photo arriving.
+
+| | |
+|---|---|
+| Correct SKU ranked first | **85.0%** |
+| Correct SKU in the top three | **96.7%** |
+| MRR | 0.911 |
+
+```bash
+cd partpilot && python scripts/analyze_index_vectors.py
+```
+
+Reads the built indexes rather than re-embedding, so it reproduces the table
+below in seconds.
+
+| Category | Backend | Top-1 | Top-3 |
+|---|---|---|---|
+| Power Steering Pump | DINOv2 | 100.0% | 100.0% |
+| Shock Absorber | OpenCLIP | 95.8% | 95.8% |
+| Fuel Injector | DINOv2 | 93.1% | 100.0% |
+| Air Filter | OpenCLIP | 90.9% | 100.0% |
+| Oil Filter | DINOv2 | 85.0% | 100.0% |
+| Suspension Bushing | DINOv2 | 83.3% | 95.8% |
+| Throttle Body | DINOv2 | 82.8% | 93.1% |
+| Brake Pads | DINOv2 | 77.4% | 96.8% |
+| Wheel Hub Assembly | OpenCLIP | 76.2% | 100.0% |
+| Exhaust Manifold | DINOv2 | 70.8% | 87.5% |
+
+The gap between the two columns is the whole argument for returning a ranked
+answer rather than a single one. Where a category scores poorly at rank 1 but
+near-perfectly by rank 3, the correct SKU was found and merely mis-ordered —
+several exhaust manifolds are the same stainless assembly photographed from a
+different side, and four wheel hubs differ only in how many studs they carry.
+No embedding separates what a photograph does not distinguish.
+
 ## Repository layout
 
 ```

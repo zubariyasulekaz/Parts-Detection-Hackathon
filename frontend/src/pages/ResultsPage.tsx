@@ -1,5 +1,5 @@
 import { ArrowLeft } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ConfidenceGauge } from '@/components/common/ConfidenceGauge'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -10,12 +10,16 @@ import { PageContainer } from '@/components/layout/PageContainer'
 import { AIExplanationPanel } from '@/components/results/AIExplanationPanel'
 import { AIMatchSummary } from '@/components/results/AIMatchSummary'
 import { CandidateCard } from '@/components/results/CandidateCard'
-import { ConfirmationPanel } from '@/components/results/ConfirmationPanel'
 import { GuidedDisambiguation } from '@/components/results/GuidedDisambiguation'
 import { IdentificationSummary } from '@/components/results/IdentificationSummary'
 import { NoCatalogMatchPanel } from '@/components/results/NoCatalogMatchPanel'
 import { useIdentification } from '@/context/IdentificationContext'
-import { canDisambiguate, type DisambiguationAnswer } from '@/services/disambiguation'
+import {
+  canDisambiguate,
+  detectVisualMismatch,
+  isDecisiveVisualMatch,
+  type DisambiguationAnswer,
+} from '@/services/disambiguation'
 import { HIGH_CONFIDENCE_THRESHOLD, reportConfirmation } from '@/services/identificationService'
 import { formatPercent, formatSearchTime } from '@/utils/format'
 
@@ -36,15 +40,46 @@ export function ResultsPage() {
   // meaning "everything is still in play".
   const [remainingSkus, setRemainingSkus] = useState<string[] | null>(null)
   // The guided Q&A trail, lifted here so Confirm Match can report how the
-  // final pick was reached.
-  const answersRef = useRef<DisambiguationAnswer[]>([])
+  // final pick was reached, and so the match summary can explain itself
+  // ("confirmed by 2 answers" / visual-mismatch warning) once revealed.
+  const [answers, setAnswers] = useState<DisambiguationAnswer[]>([])
   const headingRef = useRef<HTMLHeadingElement>(null)
+
+  // Whether there is anything worth asking about the top candidates before
+  // showing their photos. False (nothing to ask) starts the page already
+  // revealed; true holds images back until the guided questions finish.
+  const needsQuestions = Boolean(
+    result && !result.noMatch && result.candidates.length > 1 && canDisambiguate(result.candidates),
+  )
+  // Gates the catalog-match comparison, summary and image grid. Starts
+  // revealed only when there is nothing to ask; otherwise the guided
+  // questions must finish first (see `handleFinished`).
+  const [revealed, setRevealed] = useState(!needsQuestions)
+  // Whether the answer trail has ruled out the candidate the photo itself
+  // most strongly favored - drives the match summary's caution copy.
+  const mismatch = useMemo(
+    () => (result ? detectVisualMismatch(result.candidates, answers) : null),
+    [result, answers],
+  )
 
   // Announce arrival: without moving focus, a screen-reader user is still
   // sitting on the previous page's button after navigate('/results').
   useEffect(() => {
     headingRef.current?.focus()
   }, [])
+
+  // Once the page has something to show, default to the closest visual match
+  // rather than leaving the user with nothing selected - the person who
+  // uploaded a photo may not know the product details, so "Not sure"/"Skip
+  // questions" (or scores too close to auto-pick from the start) should
+  // still land on the system's best guess. This only decides what's shown as
+  // the suggestion; "Confirm Match" is still the only thing that finalizes it.
+  useEffect(() => {
+    if (!result || result.noMatch || selectedSku || !revealed) return
+    const pool = remainingSkus ?? result.candidates.map((candidate) => candidate.sku)
+    const closest = result.candidates.find((candidate) => pool.includes(candidate.sku))
+    if (closest) selectCandidate(closest.sku)
+  }, [result, selectedSku, revealed, remainingSkus, selectCandidate])
 
   if (!result || !uploadedImageUrl) {
     return (
@@ -74,13 +109,28 @@ export function ResultsPage() {
   // "we don't stock this" answer rather than a ranked recommendation. The
   // verdict is the server's (mock mode derives it locally).
   const noCatalogMatch = result.noMatch
-  const awaitingConfirmation = result.requiresConfirmation && !selectedSku
   const selectedCandidate = candidates.find((candidate) => candidate.sku === selectedSku) ?? null
   const isHighConfidence =
     !noCatalogMatch && !result.requiresConfirmation && result.category.confidence >= HIGH_CONFIDENCE_THRESHOLD
+  // Whether the pick is the photo's own decisive favorite - independent of
+  // Brain 1's category confidence, so a 98% visual match doesn't read as
+  // "unconfirmed" just because the classifier itself was unsure.
+  const isDecisiveMatch = Boolean(selectedCandidate && isDecisiveVisualMatch(candidates, selectedCandidate.sku))
+  // Whether the *current* pick is actually what the answer trail narrowed
+  // down to - not just "some answers were given". The candidate grid keeps
+  // ruled-out cards pickable, so a manual click after answering can select
+  // something the answers themselves excluded; "Your Match" shouldn't claim
+  // that pick was "confirmed by your answers" when it wasn't.
+  const confirmedByAnswers = Boolean(
+    answers.length > 0 &&
+      remainingSkus !== null &&
+      remainingSkus.length === 1 &&
+      selectedCandidate?.sku === remainingSkus[0],
+  )
   // What the upload gets compared against: whatever the user picked, else the
-  // top-ranked candidate. Nothing to compare when nothing matched closely enough.
-  const comparisonCandidate = noCatalogMatch ? null : (selectedCandidate ?? candidates[0] ?? null)
+  // top-ranked candidate. Nothing to compare while the guided questions are
+  // still running - that comparison IS the reveal the questions lead up to.
+  const comparisonCandidate = !revealed || noCatalogMatch ? null : (selectedCandidate ?? candidates[0] ?? null)
 
   function handleNewSearch() {
     reset()
@@ -93,7 +143,7 @@ export function ResultsPage() {
 
   /** Confirm = record the user's final answer on the audit trail, then show the product. */
   function confirmAndView(sku: string) {
-    reportConfirmation(auditId, sku, answersToRecord(answersRef.current))
+    reportConfirmation(auditId, sku, answersToRecord(answers))
     goToProduct(sku)
   }
 
@@ -112,6 +162,12 @@ export function ResultsPage() {
       const fallback = candidates.find((candidate) => skus.includes(candidate.sku))
       if (fallback) selectCandidate(fallback.sku)
     }
+  }
+
+  /** Nothing left to ask - resolved, exhausted, or skipped. Time to reveal images. */
+  function handleFinished(skus: string[]) {
+    setRemainingSkus(skus)
+    setRevealed(true)
   }
 
   return (
@@ -175,13 +231,9 @@ export function ResultsPage() {
                 label={
                   noCatalogMatch
                     ? 'NOT RECOGNIZED'
-                    : awaitingConfirmation
-                      ? undefined
-                      : `${result.category.name.toUpperCase()} · ${formatPercent(result.category.confidence)}`
+                    : `${result.category.name.toUpperCase()} · ${formatPercent(result.category.confidence)}`
                 }
-                labelTone={
-                  isHighConfidence ? 'success' : awaitingConfirmation || noCatalogMatch ? 'warning' : 'accent'
-                }
+                labelTone={isHighConfidence ? 'success' : noCatalogMatch ? 'warning' : 'accent'}
               />
             </div>
             <figcaption className="text-center text-xs font-semibold tracking-wide text-subtle uppercase">
@@ -226,86 +278,90 @@ export function ResultsPage() {
         </div>
       </section>
 
-      <div className="mt-6">
-        {noCatalogMatch ? (
-          <NoCatalogMatchPanel
-            category={result.category}
-            closestCandidate={candidates[0] ?? null}
-            threshold={result.noMatchThreshold}
-            onNewSearch={handleNewSearch}
-          />
-        ) : (
-          <IdentificationSummary
-            category={result.category}
-            selectedCandidate={selectedCandidate}
-            isHighConfidence={isHighConfidence}
-            onViewProduct={() => selectedCandidate && goToProduct(selectedCandidate.sku)}
-            onConfirmMatch={() => selectedCandidate && confirmAndView(selectedCandidate.sku)}
-          />
-        )}
-      </div>
-
-      {/* Stays mounted once resolved - gating on `awaitingConfirmation` would
-          unmount the panel the instant its last answer set the selection,
-          taking the answer trail and the "change this" buttons with it. */}
-      {result.requiresConfirmation && (
+      {/* Runs before any product image is shown, not just as a tie-breaker -
+          the catalog's own attributes (and, failing that, the full product
+          descriptions) can tell the top candidates apart, so ask rather than
+          make the user guess from photos of look-alike parts. Sits above the
+          match summary below: this is where a mismatch actually gets
+          resolved (the "Yes, use X" / "Show me Y instead" choice), so the
+          summary can point up to it instead of re-explaining the same
+          conflict. Stays mounted once finished so the answer trail and
+          "change this" buttons survive into the revealed page below. */}
+      {needsQuestions && (
         <div className="mt-6 animate-fade-slide-up">
-          {/* Questions where the catalog can answer them; the plain "compare
-              these yourself" panel only when nothing distinguishes the tie. */}
-          {canDisambiguate(candidates) ? (
-            <GuidedDisambiguation
-              candidates={candidates}
-              onRemainingChange={handleRemainingChange}
-              onResolved={handleResolved}
-              onAnswersChange={(answers) => {
-                answersRef.current = answers
-              }}
+          <GuidedDisambiguation
+            candidates={candidates}
+            onRemainingChange={handleRemainingChange}
+            onResolved={handleResolved}
+            onAnswersChange={setAnswers}
+            onFinished={handleFinished}
+            onOverrideSelection={selectCandidate}
+            selectedSku={selectedSku}
+          />
+        </div>
+      )}
+
+      {/* Held back until the guided questions above finish - a summary of
+          "the" match is exactly what those questions exist to avoid
+          presupposing. No-match skips the questions entirely, so its panel
+          is never gated. */}
+      {(noCatalogMatch || revealed) && (
+        <div className="mt-6">
+          {noCatalogMatch ? (
+            <NoCatalogMatchPanel
+              category={result.category}
+              closestCandidate={candidates[0] ?? null}
+              threshold={result.noMatchThreshold}
+              onNewSearch={handleNewSearch}
             />
           ) : (
-            <ConfirmationPanel reason={result.confirmationReason} />
+            <IdentificationSummary
+              selectedCandidate={selectedCandidate}
+              isHighConfidence={isHighConfidence}
+              isDecisiveMatch={isDecisiveMatch}
+              answeredQuestions={answers.length}
+              confirmedByAnswers={confirmedByAnswers}
+              mismatch={mismatch}
+              onConfirmMatch={() => selectedCandidate && confirmAndView(selectedCandidate.sku)}
+            />
           )}
         </div>
       )}
 
-      {/* Nothing cleared the threshold, so there is no candidate list at all -
-          not a collapsed one, not a labelled-for-reference one. A ranked grid
-          under a "we couldn't recognise this" verdict invites the user to
-          overrule a refusal the pipeline made on purpose, and the refusal panel
-          above already names the closest entry and its score for anyone who
-          wants the number. */}
-      {!noCatalogMatch && (
+      {/* Held back until the questions above finish, and empty on a no-match -
+          there is no candidate list at all. Every original candidate stays
+          visible even after the guided questions narrow things down: the
+          answers are the user's own input, not an infallible filter, so a
+          card they ruled out (accidentally, or because they changed their
+          mind) is marked "Ruled out" rather than removed - still there,
+          still pickable, just not the assumed choice. */}
+      {!noCatalogMatch && revealed && (
         <div className="mt-8">
           <h2 className="heading-eyebrow text-sm font-bold tracking-wide text-muted uppercase">Top Candidates</h2>
           <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {candidates.map((candidate, index) => {
-              // Ruled-out candidates stay on screen, dimmed, rather than
-              // disappearing - seeing what an answer eliminated is what makes the
-              // questions feel like narrowing rather than a black box.
-              const ruledOut = remainingSkus !== null && !remainingSkus.includes(candidate.sku)
-              return (
-                <div
-                  key={candidate.sku}
-                  className={`animate-pop-in transition-opacity ${ruledOut ? 'opacity-40 grayscale' : ''}`}
-                  style={{ animationDelay: `${index * 90}ms` }}
-                >
-                  <CandidateCard
-                    candidate={candidate}
-                    isSelected={candidate.sku === selectedSku}
-                    isPrimaryAction={awaitingConfirmation && !ruledOut}
-                    isRuledOut={ruledOut}
-                    onSelect={() => selectCandidate(candidate.sku)}
-                  />
-                </div>
-              )
-            })}
+            {candidates.map((candidate, index) => (
+              <div key={candidate.sku} className="animate-pop-in" style={{ animationDelay: `${index * 90}ms` }}>
+                <CandidateCard
+                  candidate={candidate}
+                  isSelected={candidate.sku === selectedSku}
+                  isPrimaryAction={!selectedSku}
+                  isRuledOut={remainingSkus !== null && !remainingSkus.includes(candidate.sku)}
+                  onSelect={() => selectCandidate(candidate.sku)}
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      <div className="mt-8 grid max-w-4xl gap-5 lg:grid-cols-2">
-        <AIMatchSummary result={result} />
-        {result.aiExplanation && <AIExplanationPanel explanation={result.aiExplanation} />}
-      </div>
+      {/* Brain 4's explanation names the top match by design, so it waits for
+          the same reveal as the rest of the answer. */}
+      {(noCatalogMatch || revealed) && (
+        <div className="mt-8 grid max-w-4xl gap-5 lg:grid-cols-2">
+          <AIMatchSummary result={result} />
+          {result.aiExplanation && <AIExplanationPanel explanation={result.aiExplanation} />}
+        </div>
+      )}
     </PageContainer>
   )
 }

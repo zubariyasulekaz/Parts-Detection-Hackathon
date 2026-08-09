@@ -1,4 +1,5 @@
 import { formatAttributeLabel, formatAttributeValue } from '@/utils/attributes'
+import { STRONG_SEPARATION_GAP } from './identificationService'
 import type { IdentificationCandidate } from '@/types/identification'
 
 /**
@@ -95,8 +96,6 @@ const ATTRIBUTE_PROMPTS: Record<string, { prompt: string; hint: string }> = {
   position: { prompt: 'Where does it fit on the vehicle?', hint: 'Front or rear axle.' },
   material: { prompt: 'What is it made of?', hint: '' },
   friction_material: { prompt: 'What is the friction material?', hint: 'Usually printed on the pad edge or box.' },
-  damper_style: { prompt: 'Which of these does it look like?', hint: '' },
-  manifold_style: { prompt: 'Which of these does it look like?', hint: '' },
   injector_type: { prompt: 'Which type of injector is it?', hint: '' },
   pump_style: { prompt: 'Which type of pump is it?', hint: '' },
   throttle_control: { prompt: 'Is it cable-operated or electronic?', hint: 'Look for a cable pulley or a plug.' },
@@ -111,10 +110,26 @@ const ATTRIBUTE_PROMPTS: Record<string, { prompt: string; hint: string }> = {
 
 
 
-function promptFor(facet: FacetKey): { prompt: string; hint: string } {
+/**
+ * Attribute keys that name a sub-type of the part itself (e.g. "air strut" vs
+ * "shock absorber" vs "strut assembly") rather than an independent trait.
+ * These overlap with the classification the app exists to do - asking the
+ * user to tell them apart would just outsource that job back to them, so
+ * they never become a question no matter how well they'd otherwise narrow
+ * the field.
+ */
+const IDENTITY_ATTRIBUTE_KEYS = new Set(['damper_style', 'manifold_style'])
+
+/** Exposed so the results UI can replay a past answer's question text. */
+export function promptFor(facet: FacetKey): { prompt: string; hint: string } {
   if (!facet.startsWith('attr:')) return PROMPTS[facet]
   const key = facet.slice('attr:'.length)
-  return ATTRIBUTE_PROMPTS[key] ?? { prompt: `${formatAttributeLabel(key)}?`, hint: '' }
+  return (
+    ATTRIBUTE_PROMPTS[key] ?? {
+      prompt: `What's the ${formatAttributeLabel(key).toLowerCase()}?`,
+      hint: 'Compare against the part in your photo.',
+    }
+  )
 }
 
 function fitmentRows(candidates: IdentificationCandidate[]): FitmentRow[] {
@@ -295,11 +310,14 @@ function questionFor(
 
   const built: { facet: FacetKey; options: DisambiguationOption[] }[] = []
 
-  // Every attribute key any candidate carries is a candidate question.
-  // `?? {}` guards a candidate built before `attributes` existed (a cached API
-  // response, say). Crashing the whole results page over a missing enrichment
-  // would be a poor trade.
-  const attributeKeys = uniqueSorted(candidates.flatMap((c) => Object.keys(c.attributes ?? {})))
+  // Every attribute key any candidate carries is a candidate question,
+  // except the ones that just rename the part's own category (see
+  // `IDENTITY_ATTRIBUTE_KEYS`). `?? {}` guards a candidate built before
+  // `attributes` existed (a cached API response, say). Crashing the whole
+  // results page over a missing enrichment would be a poor trade.
+  const attributeKeys = uniqueSorted(candidates.flatMap((c) => Object.keys(c.attributes ?? {}))).filter(
+    (key) => !IDENTITY_ATTRIBUTE_KEYS.has(key),
+  )
   for (const key of attributeKeys) {
     built.push({ facet: `attr:${key}`, options: attributeOptions(candidates, key) })
   }
@@ -342,9 +360,61 @@ export function applyAnswers(
 }
 
 /**
- * True when questions could help at all. Used to decide between the guided flow
- * and the plain "compare them yourself" panel.
+ * True when questions could help at all. Used to decide whether the guided
+ * flow runs before images are revealed, or there is nothing to ask and the
+ * results page can reveal them immediately.
  */
 export function canDisambiguate(candidates: IdentificationCandidate[]): boolean {
   return nextQuestion(candidates) !== null
+}
+
+/**
+ * Rank-1, but only when its lead over rank 2 is decisive (the same
+ * `STRONG_SEPARATION_GAP` bar the AI match summary uses for "strong
+ * separation"). A single scan of top two, not "does anything separate the
+ * whole field" - a photo can have a clear favorite even when three other
+ * candidates are bunched close together further down the list.
+ */
+function decisiveVisualLeader(candidates: IdentificationCandidate[]): IdentificationCandidate | null {
+  if (candidates.length < 2) return null
+  const [leader, runnerUp] = candidates
+  return leader.similarity - runnerUp.similarity >= STRONG_SEPARATION_GAP ? leader : null
+}
+
+/**
+ * True when `sku` is the photo's own decisive pick - i.e. presenting it as a
+ * confident match doesn't overstate what the image search actually found.
+ * Used to tell "98% and clearly ahead of everything else" apart from "98%,
+ * but so is the runner-up" - a raw similarity number alone can't.
+ */
+export function isDecisiveVisualMatch(candidates: IdentificationCandidate[], sku: string): boolean {
+  return decisiveVisualLeader(candidates)?.sku === sku
+}
+
+export interface VisualMismatch {
+  /** The candidate the photo alone would pick - rank 1, when its lead over rank 2 is decisive. */
+  visualLeader: IdentificationCandidate
+  /** Highest-similarity candidate still possible after the current answer trail. */
+  bestSurvivor: IdentificationCandidate
+}
+
+/**
+ * True when the answer trail has ruled out the candidate the photo most
+ * strongly favored - the guided flow should not silently let a user's
+ * answers overrule what the image itself suggested.
+ *
+ * Only fires when the photo had a decisive opinion in the first place.
+ * Without that gate, this would fire on almost every ordinary
+ * disambiguation session, since close scores are exactly why the flow
+ * exists - the warning would drown itself out.
+ */
+export function detectVisualMismatch(
+  candidates: IdentificationCandidate[],
+  answers: DisambiguationAnswer[],
+): VisualMismatch | null {
+  const leader = decisiveVisualLeader(candidates)
+  if (!leader) return null
+  const survivors = applyAnswers(candidates, answers)
+  if (survivors.length === 0 || survivors.some((c) => c.sku === leader.sku)) return null
+  return { visualLeader: leader, bestSurvivor: survivors[0] }
 }

@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     # Below this softmax confidence the orchestrator also searches the
     # runner-up category instead of trusting a single hard gate.
     CLASSIFIER_CONFIDENCE_THRESHOLD: float = 0.5
+    # Below this confidence, a no-match result states no category at all.
+    # When neither model stood behind the image, the winning class is just
+    # the least-wrong of ten options, and naming it reads as "we think your
+    # living room is a suspension bushing". Mirrors CATEGORY_TRUST_THRESHOLD
+    # in frontend/src/components/results/NoCatalogMatchPanel.tsx: the panel
+    # and Brain 4 must withhold the same claim, or the page contradicts
+    # itself in two places at once.
+    CATEGORY_TRUST_THRESHOLD: float = 0.75
     # Pad to a square (white, matching the rembg fill) before resizing,
     # instead of distorting the aspect ratio. Must match how the deployed
     # checkpoint was trained: the current Colab-trained weights saw

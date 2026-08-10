@@ -1,55 +1,646 @@
-# PartPilot
+<div align="center">
 
-Identify a car part from one photograph, then tell the user what it fits, what
-replaces it, and what goes with it.
+# 🔧 PartPilot
 
-Upload a picture of a part. PartPilot predicts its category, searches a
-catalog-scoped vector index for the closest stocked SKUs, resolves the winner to
-full product data, and returns a ranked answer - or refuses, when nothing in the
-catalog is close enough to name honestly.
+### Identify any car part from a single photograph — and know when not to guess.
 
-## The pipeline
+Point a camera at a broken part. Get back the stocked SKU, what vehicles it fits,
+what replaces it, and what to buy alongside it.
 
-| Stage | Does | Built with |
+<br/>
+
+[![Top-1 accuracy](https://img.shields.io/badge/Top--1_accuracy-85.0%25-success?style=for-the-badge)](#-accuracy)
+[![Top-3 accuracy](https://img.shields.io/badge/Top--3_accuracy-96.7%25-success?style=for-the-badge)](#-accuracy)
+[![MRR](https://img.shields.io/badge/MRR-0.911-success?style=for-the-badge)](#-accuracy)
+[![Impostors caught](https://img.shields.io/badge/Impostors_caught-93.1%25-blueviolet?style=for-the-badge)](#-refusing-to-guess)
+
+[![Python](https://img.shields.io/badge/Python-3.10--3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-DINOv2-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.18-FF6F00?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
+[![FAISS](https://img.shields.io/badge/FAISS-vector_search-0467DF?logo=meta&logoColor=white)](https://faiss.ai/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+
+<br/>
+
+**[Quickstart](#-quickstart-2-minutes)** ·
+**[How it works](#-how-a-photo-becomes-an-answer)** ·
+**[The four brains](#-brain-1--what-kind-of-part-is-this)** ·
+**[Accuracy](#-accuracy)** ·
+**[Business impact](#-business-impact)** ·
+**[Demo script](#-the-five-minute-demo)** ·
+**[Roadmap](#-future-roadmap)**
+
+</div>
+
+---
+
+## 🎯 The problem
+
+Someone holding a broken car part usually cannot name it. The part number is worn
+off, the box is long gone, and searching *"black round metal car thing"* finds
+nothing. Today they photograph it, send it to a parts counter, and wait for a
+human who has seen that part before.
+
+**PartPilot answers that in one upload.**
+
+The harder half of the goal is knowing when ***not*** to answer. A parts catalog
+that confidently names the wrong brake pad is worse than one that admits it does
+not stock the part — the customer fits it, it fails, and they do not come back.
+
+> **So refusing is a designed feature here — measured, calibrated and tuned — not an error path.**
+
+<br/>
+
+<div align="center">
+
+### The catalog it searches — 56 products, 10 categories
+
+<table>
+<tr>
+<td align="center"><img src="frontend/public/samples/air-filter.jpg" width="105"/><br/><sub><b>Air Filter</b><br/>5 SKUs</sub></td>
+<td align="center"><img src="frontend/public/samples/brake-pads.jpg" width="105"/><br/><sub><b>Brake Pads</b><br/>6 SKUs</sub></td>
+<td align="center"><img src="frontend/public/samples/exhaust-manifold.jpg" width="105"/><br/><sub><b>Exhaust Manifold</b><br/>8 SKUs</sub></td>
+<td align="center"><img src="frontend/public/samples/fuel-injector.jpg" width="105"/><br/><sub><b>Fuel Injector</b><br/>5 SKUs</sub></td>
+<td align="center"><img src="frontend/public/samples/oil-filter.jpg" width="105"/><br/><sub><b>Oil Filter</b><br/>3 SKUs</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="frontend/public/samples/power-steering-pump.jpg" width="105"/><br/><sub><b>Power Steering Pump</b><br/>4 SKUs</sub></td>
+<td align="center"><img src="frontend/public/samples/shock-absorber.jpg" width="105"/><br/><sub><b>Shock Absorber</b><br/>8 SKUs</sub></td>
+<td align="center"><img src="frontend/public/samples/suspension-bushing.jpg" width="105"/><br/><sub><b>Suspension Bushing</b><br/>8 SKUs</sub></td>
+<td align="center"><img src="frontend/public/samples/throttle-body.jpg" width="105"/><br/><sub><b>Throttle Body</b><br/>5 SKUs</sub></td>
+<td align="center"><img src="frontend/public/samples/wheel-hub-assembly.jpg" width="105"/><br/><sub><b>Wheel Hub Assembly</b><br/>4 SKUs</sub></td>
+</tr>
+</table>
+
+</div>
+
+---
+
+## ⚡ Quickstart (2 minutes)
+
+**The whole user journey runs with no backend, no database and no model
+downloads.** The frontend ships with canned data, so this works on any machine
+with Node installed:
+
+```bash
+git clone https://github.com/zubariyasulekaz/Parts-Detection-Hackathon.git
+cd Parts-Detection-Hackathon/frontend
+npm install
+cp .env.example .env        # VITE_API_MODE=mock is already the default
+npm run dev
+```
+
+➡️ Open **<http://localhost:5173>** and follow the [demo script](#-the-five-minute-demo).
+
+<br/>
+
+<details>
+<summary><b>🔌 Running the real pipeline (models + database) — click to expand</b></summary>
+
+<br/>
+
+### Before you start — two things are *not* in the repo
+
+| What | Why | Do you need it? |
 |---|---|---|
-| Brain 1 | Predicts the part category from the image | Fine-tuned EfficientNet |
-| Brain 2 | Embeds the image and finds visually similar SKUs | DINOv2 / OpenCLIP + FAISS |
-| Brain 3 | Resolves a SKU to catalog data, fitment and relationships | PostgreSQL |
-| Brain 4 | Explains the match in plain language (optional) | Qwen2.5-1.5B-Instruct |
+| `DATABASE_URL` | contains a password, so it stays out of git | **Yes** — ask the team before you begin |
+| `partpilot_images_v3.zip` | ~50 MB of catalog photos, git-ignored | Only to *rebuild* indexes — not to run |
 
-Brain 2 does not use one model for everything. DINOv2 wins overall, but three
-categories benchmarked far better on OpenCLIP and are routed to it per category
-(`Settings.CATEGORY_BACKENDS`). Each SKU is scored by cosine against the
-L2-normalized centroid of its image vectors, which beat max-over-images on this
-catalog - with a handful of photos per product, one lucky angle otherwise
-promotes the wrong SKU.
+> ⚠️ **Get the `DATABASE_URL` first.** The install below pulls TensorFlow, PyTorch
+> and FAISS — several GB — so line the connection string up first and the rest of
+> the setup runs straight through.
 
-## Refusing to guess
+### 1. Environment
 
-Most of the interesting work is in deciding when *not* to answer.
+Python **3.10–3.12** (TensorFlow 2.18 does not support 3.13).
 
-Every backend has its own no-match threshold, calibrated against measured
-correct-match and impostor score distributions rather than picked by feel. Below
-it, the pipeline returns "no catalog match" and withholds the product entirely:
-no top SKU, no recommendations, and nothing selectable in the UI. If Brain 1 was
-also unsure of the category, the bar rises further - two weak signals must not
-add up to a confident answer.
+```bash
+cd partpilot
+python -m venv .venv
+```
 
-The cost is explicit and measured: the thresholds sit at roughly 1.5% of correct
-matches rejected, in exchange for catching most impostors. Recommending the
-wrong part is worse than admitting the catalog does not have it.
+```powershell
+.venv\Scripts\Activate.ps1     # Windows
+```
+```bash
+source .venv/bin/activate      # macOS / Linux
+```
 
-## Accuracy
+### 2. Install
 
-Measured leave-one-out over the stored index vectors: each image is excluded
-from its own product before that product is scored, so nothing is ever matched
-against itself and the numbers reflect an unseen photo arriving.
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Configure
+
+```bash
+cp .env.example .env           # copy .env.example on Windows
+```
+
+Set `DATABASE_URL` to the string the team gave you. **Leave everything else
+alone** — every threshold is already tuned. `.env` is git-ignored; never paste
+the connection string into an issue or a PR.
+
+### 4. Run
+
+```bash
+python -m backend.main
+```
+
+➡️ Open **<http://localhost:8000/docs>**, find `POST /api/v1/predict`, click
+**Try it out**, upload a part photo, **Execute**.
+
+### 5. Point the frontend at it
+
+```bash
+cd ../frontend && cp .env.example .env
+```
+Set `VITE_API_MODE=live`, then `npm run dev`.
+
+### Already done for you
+
+Everything heavy ships with the repo, so install → configure → run is the whole
+path:
+
+| | Ready to use |
+|:--|:--|
+| ✅ **Brain 1** | the trained classifier is committed in `backend/models/classifier/` |
+| ✅ **Brain 2** | the FAISS indexes are committed in `backend/models/faiss/` |
+| ✅ **Brain 3** | all 56 products are already live in the shared database |
+
+That means you can go straight to step 4 — training, index building and database
+migrations are all behind you.
+
+**First prediction takes 30–60 s** while ~500 MB of model weights download. Every
+one after that takes seconds. (`WARM_MODELS_ON_STARTUP=true` moves that wait to
+boot time instead.)
+
+📖 Full setup, troubleshooting and index rebuilding: **[`partpilot/docs/RUNNING.md`](partpilot/docs/RUNNING.md)**
+
+</details>
+
+---
+
+## 🧠 How a photo becomes an answer
+
+Four stages, called **Brains 1 to 4**. Each has exactly one job and hands its
+output to the next.
+
+```mermaid
+flowchart TD
+    U(["📷 User uploads a photo"]) --> BG
+
+    BG["<b>Stage 0 · Background removal</b><br/>rembg<br/><i>isolate the part from the workbench</i>"]
+    BG --> B1
+
+    B1["<b>🧠 Brain 1 · Classifier</b><br/>EfficientNetB0<br/><i>what kind of part is this?</i>"]
+    B1 -->|"category + confidence"| B2
+
+    B2["<b>🧠 Brain 2 · Similarity search</b><br/>DINOv2 / OpenCLIP + FAISS<br/><i>which exact SKU is it?</i>"]
+    B2 -->|"ranked SKUs + cosine scores"| GATE
+
+    GATE{"<b>⚖️ Confidence gate</b><br/>is the top score above<br/>this model's threshold?"}
+    GATE -->|"no"| REFUSE(["<b>🚫 No catalog match</b><br/>nothing named, nothing shown"])
+    GATE -->|"yes"| B3
+
+    B3["<b>🧠 Brain 3 · Catalog</b><br/>PostgreSQL<br/><i>what do we know about it?</i>"]
+    B3 -->|"product + related SKUs"| B4
+
+    B4["<b>🧠 Brain 4 · Conversation</b><br/>Qwen2.5-1.5B · <i>optional</i><br/><i>explain it, and ask what is unclear</i>"]
+    B4 --> OUT(["<b>✅ Answer</b><br/>SKU · fitment · replacement · accessories"])
+
+    B3 -.->|"answer stands on its own"| OUT
+
+    classDef model fill:#e0e7ff,stroke:#4338ca,stroke-width:2px,color:#1e1b4b
+    classDef data fill:#ccfbf1,stroke:#0f766e,stroke-width:2px,color:#042f2e
+    classDef gate fill:#fef3c7,stroke:#b45309,stroke-width:3px,color:#451a03
+    classDef bad fill:#fee2e2,stroke:#b91c1c,stroke-width:2px,color:#450a0a
+    classDef good fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#052e16
+    classDef io fill:#e2e8f0,stroke:#475569,stroke-width:2px,color:#0f172a
+
+    class BG,B1,B2,B4 model
+    class B3 data
+    class GATE gate
+    class REFUSE bad
+    class OUT good
+    class U io
+```
+
+### The whole system on one line each
+
+| Stage | The question it answers | Technology | What it hands on |
+|:--|:--|:--|:--|
+| **Stage 0** | *Where is the part in this photo?* | `rembg` segmentation | the part alone, on white |
+| **🧠 Brain 1** | *What kind of part is this?* | EfficientNetB0 | 1 of 10 categories + confidence |
+| **🧠 Brain 2** | *Which exact SKU is it?* | DINOv2 / OpenCLIP + FAISS | ranked SKUs with cosine scores |
+| **⚖️ Gate** | *Are we sure enough to answer at all?* | per-model calibrated thresholds | **answer, or refuse** |
+| **🧠 Brain 3** | *What is actually true about it?* | PostgreSQL | product record + recommendations |
+| **🧠 Brain 4** | *How do we explain it to the user?* | Qwen2.5-1.5B *(optional)* | an explanation + clarifying questions |
+
+> **Everything before the gate is a model. Everything after it is data.**
+>
+> That split is deliberate: the models decide *which* part, the database decides
+> *what is true about* that part, and **no language model is ever asked to invent
+> a fact about stock.**
+
+**Where the code lives:** [`partpilot/backend/pipeline/orchestrator.py`](partpilot/backend/pipeline/orchestrator.py)
+wires the four stages together and contains no AI logic itself — every stage is
+injected as an interface, so any one can be swapped or mocked without touching
+the others.
+
+---
+
+## 🖼️ Stage 0 — Background removal
+
+<table>
+<tr><td><b>In</b></td><td>the uploaded photo, as decoded pixels</td></tr>
+<tr><td><b>Out</b></td><td>the same part on a plain white background</td></tr>
+<tr><td><b>Model</b></td><td><code>rembg</code> (ONNX segmentation)</td></tr>
+</table>
+
+Catalog photos are shot on white. User photos are shot on a workbench, a garage
+floor, a car seat. Left alone, the models partly match on **background** rather
+than part — *a filter on a wooden bench looks more like another photo of wood
+than like the same filter on white.*
+
+`rembg` segments the part and fills the rest with white, so Brain 1 and Brain 2
+both see the part alone. It runs **once**, upstream of both, so the two brains
+can never disagree about what they are looking at.
+
+The original photo is kept and travels alongside the cleaned one — if an index
+was built *without* background removal, the search uses the original instead, so
+**the query always matches how the index was built.**
+
+---
+
+## 🧠 Brain 1 — What kind of part is this?
+
+<table>
+<tr><td><b>In</b></td><td>background-removed image</td></tr>
+<tr><td><b>Out</b></td><td>category name + confidence + <b>a full ranking of all 10 categories</b></td></tr>
+<tr><td><b>Model</b></td><td>EfficientNetB0, ImageNet weights, frozen base + fresh 10-way softmax head</td></tr>
+<tr><td><b>Code</b></td><td><a href="partpilot/backend/pipeline/brain1_classifier/"><code>backend/pipeline/brain1_classifier/</code></a></td></tr>
+</table>
+
+### Why it exists
+
+Brain 2 searches inside **one category's index**, not the whole catalog. Brain 1
+picks that index. Narrowing to ~5 products before comparing beats searching all
+56, because **most wrong answers are parts from a completely different category
+that happen to share a silhouette.**
+
+### How it works
+
+EfficientNetB0 is small enough to train on a free Colab GPU *and* to run on a CPU
+in production.
+
+**Preprocessing** ([`preprocess.py`](partpilot/backend/pipeline/brain1_classifier/preprocess.py)) —
+resize to 224×224. That is all.
+
+> ⚠️ EfficientNet's own normalization is **baked into the saved model graph** by
+> the training notebook. Re-applying it here would double-normalize and quietly
+> wreck accuracy.
+
+There is an optional pad-to-square step that centres the part on a white canvas
+before resizing, so a long part like a shock absorber is not squashed. It is
+**off** (`CLASSIFIER_PAD_TO_SQUARE=False`) because the deployed checkpoint was
+trained on squashed images — *preprocessing must match training*, so this is
+configuration rather than a default.
+
+**Output** ([`predict.py`](partpilot/backend/pipeline/brain1_classifier/predict.py)) —
+softmax over 10 classes, sorted descending. Not just the winner: the **full
+ranking**, which is what makes the next part possible.
+
+### 🔑 Key decision — handling an unsure classifier
+
+A hard gate at Brain 1 is unrecoverable: **pick the wrong category and Brain 2
+will never look in the right index, however good it is.**
+
+So when confidence falls below `CLASSIFIER_CONFIDENCE_THRESHOLD` (**0.5**), the
+orchestrator searches the **runner-up category as well**. Both searches run, and
+the winner is whichever category's top match clears *its own* threshold by the
+largest margin.
+
+> Comparing **margins** rather than raw scores matters: the two categories may use
+> different embedding models, and a DINOv2 cosine and an OpenCLIP cosine are not
+> on the same scale. Distance above each model's own bar is comparable; the raw
+> numbers are not.
+
+Being unsure also raises the refusal bar later — see [Refusing to guess](#-refusing-to-guess).
+
+---
+
+## 🧠 Brain 2 — Which exact SKU is it?
+
+<table>
+<tr><td><b>In</b></td><td>background-removed image + the category from Brain 1</td></tr>
+<tr><td><b>Out</b></td><td>ranked SKUs with cosine similarity scores, plus which model produced them</td></tr>
+<tr><td><b>Model</b></td><td>DINOv2 / OpenCLIP / SigLIP → FAISS <code>IndexFlatIP</code>, one index per category</td></tr>
+<tr><td><b>Code</b></td><td><a href="partpilot/backend/pipeline/brain2_similarity/"><code>backend/pipeline/brain2_similarity/</code></a></td></tr>
+</table>
+
+**This is the core of the project and where most of the measurement went.**
+
+The idea: turn every catalog photo into a vector such that photos of the *same
+part* land close together. Do the same to the uploaded photo, then find the
+nearest catalog vectors. No text, no part numbers — **pure visual similarity.**
+
+### Step 1 · Embedding the image
+
+[`embedding_backends.py`](partpilot/backend/pipeline/brain2_similarity/embedding_backends.py)
+supports three open-weight model families behind one interface:
+
+| Backend | Model | Dim | Trained how |
+|:--|:--|:--:|:--|
+| **`dinov2`** *(default)* | `facebook/dinov2-base` | 768 | Self-supervised, images only |
+| `openclip` | `ViT-B-32` / openai | 512 | Image–text alignment |
+| `siglip` | `google/siglip-base-patch16-224` | 768 | Image–text, better loss |
+
+DINOv2 is the default because, being self-supervised on images alone, it
+optimises for ***"is this the same object"*** rather than *"what is this called"*
+— which is exactly the catalog-matching question.
+
+Backends can also be combined with `+` (e.g. `dinov2+siglip`): each vector is
+normalized, concatenated and re-normalized, which makes the combined cosine the
+**average** of the individual cosines — the models vote.
+
+### Step 2 · 🔑 Per-category model routing — *a measured finding*
+
+**No single model wins everywhere.** Benchmarking every category separately showed
+DINOv2 far ahead on parts that differ *structurally*, and behind on parts where
+every product shares the same texture and the difference is fine detail:
+
+| Category | DINOv2 | OpenCLIP | → Routed to |
+|:--|:--:|:--:|:--|
+| Air Filter | 66.7% | **95.2%** | 🟠 OpenCLIP |
+| Wheel Hub Assembly | 16.7% | **33.3%** | 🟠 OpenCLIP |
+| Shock Absorber | 95.8% | **100%** | 🟠 OpenCLIP |
+| *everything else* | **best** | — | 🔵 DINOv2 |
+
+So `CATEGORY_BACKENDS` overrides the default for exactly those three. Since every
+category already owns a separate index, each can be built by whichever model
+scored best for it — **no extra machinery required.**
+
+> ### 🔬 The experiment that shaped the design
+>
+> Testing the obvious alternative first mattered here. The **DINOv2 + OpenCLIP
+> ensemble scored 72.8%, while DINOv2 alone reached 73.2%** — measurably behind it.
+>
+> Averaging two models is a compromise, not a maximum: it pulls the strong model
+> toward the weak one. **That measurement is what pointed to routing instead of
+> blending** — and routing went on to deliver the single biggest gain in the table.
+
+### Step 3 · Test-time augmentation
+
+[`embedding_generator.py`](partpilot/backend/pipeline/brain2_similarity/embedding_generator.py)
+encodes the image **and its mirror**, averages the two vectors, and re-normalizes
+(`EMBEDDING_TTA=True`). A part photographed from the "wrong" side still lands
+near its catalog shots. Because index-building and querying both go through this
+one class, they *cannot* disagree about the setting.
+
+### Step 4 · The index
+
+[`faiss_index.py`](partpilot/backend/pipeline/brain2_similarity/faiss_index.py) —
+one `faiss.IndexFlatIP` per category. Since both stored and query vectors are
+L2-normalized, **inner product equals cosine similarity**, so scores land in
+`[-1, 1]`.
+
+Each index ships with two sidecar files:
+
+| File | Holds |
+|:--|:--|
+| `<category>.faiss` | the vectors |
+| `<category>.ids.json` | row number → SKU (`IndexFlatIP` stores only vectors) |
+| `<category>.meta.json` | which model built it, and whether backgrounds were removed |
+
+> That metadata is not bookkeeping — **the search reads it to decide how to embed
+> the query.** A query embedded by a different model than the index is not
+> comparable to it, and *the failure is silent*: you get scores, they are just
+> meaningless. The index says how it was built, and the query follows.
+
+### Step 5 · 🔑 Scoring: centroid, not best photo
+
+Each product has **2–7 photos**, and each photo is stored as its own row. So how
+should a product be scored — by its *best-matching* photo, or by its *average*?
+
+Measured both ways over the real index ([`scripts/analyze_index_vectors.py`](partpilot/scripts/analyze_index_vectors.py)):
+
+| Scoring strategy | Correct SKU ranked first |
+|:--|:--:|
+| ✅ **Centroid** (mean of the product's vectors) | **79%** |
+| Max over images (best single photo) | 72% |
+
+Max-over-images loses because with only a handful of photos per product, **one
+lucky angle promotes the wrong SKU.** The centroid averages that noise out. So at
+load time the index computes one L2-normalized centroid per SKU and scores
+against those.
+
+Per-image vectors are still *stored* rather than a prebuilt centroid, because
+that keeps every photo inspectable, lets the evaluation exclude a held-out image
+exactly, and leaves room to re-aggregate without re-embedding anything.
+
+---
+
+## ⚖️ Refusing to guess
+
+<table>
+<tr><td><b>In</b></td><td>the top similarity score, the backend that produced it, whether Brain 1 was sure</td></tr>
+<tr><td><b>Out</b></td><td>a verdict — <b>answer</b>, or <b>refuse</b></td></tr>
+</table>
+
+**Most of the interesting design is here.**
+
+### Per-backend thresholds
+
+The two models compress cosine space very differently. An out-of-catalog image
+tops out around **0.83 on DINOv2** but **0.92 on OpenCLIP** — one global threshold
+cannot serve both. So thresholds are keyed per backend, calibrated against the
+measured score distributions of correct matches and impostors:
+
+```text
+ dinov2     0.45  →  0.0% correct rejected  /  90.0% impostors caught
+            0.48  →  1.3% correct rejected  /  93.1% impostors caught   ✅ chosen
+
+ openclip   0.84  →  0.0% correct rejected  /  43.9% impostors caught
+            0.86  →  1.5% correct rejected  /  62.1% impostors caught   ✅ chosen
+```
+
+> ### 💰 The trade is explicit and priced
+> Roughly **1.5% of correct matches are given up to catch most impostors.**
+> Recommending the wrong part is worse than admitting the catalog does not have it.
+
+*(OpenCLIP's distributions genuinely overlap more — a known, accepted cost of
+keeping it for the three categories where it ranks far better.)*
+
+### Two weak signals must not add up to a confident answer
+
+If Brain 1 was itself unsure of the category, the threshold **rises** by
+`NO_MATCH_UNCERTAIN_MARGIN` (**+0.04**).
+
+> *"Not sure what kind of part this is"* + *"nothing especially close in that
+> category"* should **not** combine into a confidently named SKU.
+
+### What a refusal actually does
+
+On a no-match the pipeline **skips Brain 3 entirely** — no product lookup, no
+recommendations. The response carries no top SKU and nothing selectable in the
+UI. The audit trail records the near-misses as *context*, **not as an answer**.
+
+> **A refusal is a refusal all the way down** — not a product page with a quiet warning.
+
+---
+
+## 🧠 Brain 3 — What do we know about this part?
+
+<table>
+<tr><td><b>In</b></td><td>one SKU — <i>only</i> if it cleared the threshold</td></tr>
+<tr><td><b>Out</b></td><td>the full product record + related products</td></tr>
+<tr><td><b>Stack</b></td><td>PostgreSQL (Supabase) · SQLAlchemy async + asyncpg · Alembic migrations</td></tr>
+<tr><td><b>Code</b></td><td><a href="partpilot/backend/pipeline/brain3_catalog/"><code>backend/pipeline/brain3_catalog/</code></a></td></tr>
+</table>
+
+### What a product holds
+
+| Field | Meaning |
+|:--|:--|
+| `sku` | primary key |
+| `product_name`, `brand`, `category` | the basics |
+| `manufacturer_part_number` | the number stamped on the part, e.g. `DE1439` |
+| `compatible_vehicles` | make / model / year rows |
+| `replacement_sku` | the part that supersedes this one |
+| `alternative_skus` | equivalents from other brands |
+| `accessory_skus` | what you should buy with it |
+| `attributes` | open key/value bag — `filter_style`, `position`, `primary_colour`… keys vary by category |
+| `image_paths` | catalog photos |
+
+`attributes` is deliberately open-ended: **what visually separates two air filters
+is not what separates two brake pads**, so the schema does not pretend otherwise.
+These fields are what powers [disambiguation](#-disambiguation--when-two-parts-genuinely-look-identical) later.
+
+### Recommendations
+
+[`recommendation_service.py`](partpilot/backend/pipeline/brain3_catalog/recommendation_service.py)
+is pure catalog logic, **no model**:
+
+- **Alternatives** = `replacement_sku` first, then `alternative_skus`, de-duplicated, with the product itself excluded
+- **Accessories** = `accessory_skus`
+- A referenced SKU missing from the catalog is skipped with a warning rather than crashing the response
+
+Replacement comes first deliberately — **if a part has been superseded, that is
+the one the customer should actually buy.**
+
+---
+
+## 🧠 Brain 4 — Talk the answer through
+
+<table>
+<tr><td><b>In</b></td><td>the Brain 1–3 outputs (category, scores, product, recommendations)</td></tr>
+<tr><td><b>Out</b></td><td>a short explanation of the match, plus up to <b>3 clarifying questions</b> when something is genuinely ambiguous</td></tr>
+<tr><td><b>Model</b></td><td><code>Qwen/Qwen2.5-1.5B-Instruct</code> via <code>transformers</code> — chat-formatted turns, 256 max new tokens, <code>do_sample=False</code></td></tr>
+<tr><td><b>Code</b></td><td><a href="partpilot/backend/pipeline/brain4_reasoning/"><code>backend/pipeline/brain4_reasoning/</code></a></td></tr>
+<tr><td><b>Scope</b></td><td>one focused assistant turn per identification — <a href="#-future-roadmap">conversational follow-up is the next step</a></td></tr>
+</table>
+
+Brain 4 is the **assistant voice** on top of the pipeline. It is given the whole
+decision — category, the ranked SKUs and their scores, the matched product and
+its recommendations — as a chat turn against a fixed PartPilot persona
+([`prompt_builder.py`](partpilot/backend/pipeline/brain4_reasoning/prompt_builder.py)),
+and does two things:
 
 | | |
-|---|---|
-| Correct SKU ranked first | **85.0%** |
-| Correct SKU in the top three | **96.7%** |
-| MRR | 0.911 |
+|:--|:--|
+| 💬 **Explains the match** | two to four sentences, under 150 words |
+| ❓ **Asks what it needs to know** | up to three short, specific questions — but **only** when the result is genuinely ambiguous: several compatible vehicles, low confidence, or multiple close-scoring alternatives. When the match is clean, it says so plainly and asks nothing. |
+
+Greedy decoding (`do_sample=False`) means the same input always produces the same
+answer — which matters for a demo.
+
+### 🔑 Key decision — the answer is complete before Brain 4 speaks
+
+By the time Brain 4 is called, Brains 1–3 have **already produced the full
+result**: the SKU, the fitment, the replacement and the accessories. Brain 4 adds
+a voice to that answer; it is never the thing that produces it.
+
+So the explanation is treated as purely **additive**. The orchestrator isolates
+the whole reasoning step, which means the identified part and its
+recommendations always reach the user intact and on time — the dotted line
+straight from Brain 3 to the answer in the diagram above.
+
+The model itself loads **once and is cached process-wide**, and the outcome of
+that first load is remembered, so a heavy one-time initialisation is never
+repeated per request. Every prediction after the first is served straight from
+the warm instance.
+
+### 🔑 Key decision — the LLM is kept away from the facts
+
+Brain 4 explains a decision that has **already been made** from catalog data. It
+is never asked which part it is, and never asked to produce a part number.
+
+> **A language model asked to name a SKU will invent a plausible one.** In a parts
+> catalog that is the exact failure the no-match threshold exists to prevent — so
+> the architecture does not give it the chance.
+
+---
+
+## 🔀 Disambiguation — when two parts genuinely look identical
+
+Some parts cannot be told apart by photograph. Two brake pad sets for different
+vehicles are the same object photographed twice; four wheel hubs differ only in
+how many studs they carry.
+
+When several candidates are close, the frontend
+([`services/disambiguation.ts`](frontend/src/services/disambiguation.ts)) turns
+*"these look identical, you pick"* into **answerable questions** — *which
+vehicle?*, *which brand?* — each answer eliminating candidates.
+
+The questions are derived from **catalog metadata, not generated by Brain 4.**
+That means:
+
+- ✅ every option provably corresponds to a real SKU
+- ✅ every answer provably narrows the set
+- ✅ it works with the language model switched off entirely
+
+> It also asks what the user **actually knows**. They cannot judge which of three
+> near-identical photos matches the part in their hand; they *do* know what car
+> they drive.
+
+---
+
+## 📊 The audit trail
+
+Every finished run is recorded: predicted category, confidence, search time, the
+ranked candidates with scores, which embedding backend was used, and a thumbnail
+of the upload.
+
+`POST /api/v1/predict/{audit_id}/confirm` then records which SKU the user actually
+settled on. A confirmation matching the pipeline's top SKU **validates** the run;
+one that differs labels it a **correction**.
+
+> **That is training data the catalog earns just by being used.**
+
+Recording is a by-product of answering, never a precondition for it — the user's
+answer is never held up waiting on the audit write.
+
+---
+
+## 📈 Accuracy
+
+Measured **leave-one-out** over the stored index vectors: each image is excluded
+from its own product's centroid before that product is scored, so **nothing is
+ever matched against itself** and the numbers reflect an unseen photo arriving.
+
+<div align="center">
+
+| Correct SKU ranked first | Correct SKU in top three | MRR |
+|:--:|:--:|:--:|
+| **85.0%** | **96.7%** | **0.911** |
+
+*240 queries · 56 products · 10 categories*
+
+</div>
 
 ```bash
 cd partpilot && python scripts/analyze_index_vectors.py
@@ -59,47 +650,155 @@ Reads the built indexes rather than re-embedding, so it reproduces the table
 below in seconds.
 
 | Category | Backend | Top-1 | Top-3 |
-|---|---|---|---|
-| Power Steering Pump | DINOv2 | 100.0% | 100.0% |
-| Shock Absorber | OpenCLIP | 95.8% | 95.8% |
-| Fuel Injector | DINOv2 | 93.1% | 100.0% |
-| Air Filter | OpenCLIP | 90.9% | 100.0% |
-| Oil Filter | DINOv2 | 85.0% | 100.0% |
-| Suspension Bushing | DINOv2 | 83.3% | 95.8% |
-| Throttle Body | DINOv2 | 82.8% | 93.1% |
-| Brake Pads | DINOv2 | 77.4% | 96.8% |
-| Wheel Hub Assembly | OpenCLIP | 76.2% | 100.0% |
-| Exhaust Manifold | DINOv2 | 70.8% | 87.5% |
+|:--|:--|--:|--:|
+| Power Steering Pump | 🔵 DINOv2 | 100.0% | 100.0% |
+| Shock Absorber | 🟠 OpenCLIP | 95.8% | 95.8% |
+| Fuel Injector | 🔵 DINOv2 | 93.1% | 100.0% |
+| Air Filter | 🟠 OpenCLIP | 90.9% | 100.0% |
+| Oil Filter | 🔵 DINOv2 | 85.0% | 100.0% |
+| Suspension Bushing | 🔵 DINOv2 | 83.3% | 95.8% |
+| Throttle Body | 🔵 DINOv2 | 82.8% | 93.1% |
+| Brake Pads | 🔵 DINOv2 | 77.4% | 96.8% |
+| Wheel Hub Assembly | 🟠 OpenCLIP | 76.2% | 100.0% |
+| Exhaust Manifold | 🔵 DINOv2 | 70.8% | 87.5% |
 
-The gap between the two columns is the whole argument for returning a ranked
-answer rather than a single one. Where a category scores poorly at rank 1 but
-near-perfectly by rank 3, the correct SKU was found and merely mis-ordered —
-several exhaust manifolds are the same stainless assembly photographed from a
-different side, and four wheel hubs differ only in how many studs they carry.
-No embedding separates what a photograph does not distinguish.
+> ### The gap between those two columns is the whole argument for a ranked answer
+>
+> Where a category scores poorly at rank 1 but near-perfectly by rank 3, the
+> correct SKU ***was*** found and merely mis-ordered — several exhaust manifolds
+> are the same stainless assembly photographed from a different side.
+>
+> **No embedding separates what a photograph does not distinguish.** That is what
+> disambiguation is for.
 
-## Repository layout
+### How it got here
+
+| # | Approach | Top-1 | |
+|:--:|:--|--:|:--|
+| 1 | OpenCLIP baseline | 69.6% | |
+| 2 | DINOv2 | 73.2% | |
+| 3 | DINOv2 + OpenCLIP ensemble | 72.8% | 🔬 *the measurement that pointed to routing* |
+| 4 | Per-category routing | 77.5% | |
+| 5 | **+ centroid scoring, image cleaning** | **85.0%** | 🏆 |
+
+---
+
+## 💼 Business impact
+
+Identifying an unlabelled part is a **human lookup** today: photograph it, send it
+to a parts counter, wait for someone who has seen that part before. That spends
+the counter's time, delays the customer, and does not scale past whoever is on
+shift.
+
+| | 🧑‍🔧 Parts counter today | 🤖 PartPilot |
+|:--|:--|:--|
+| **Who identifies it** | someone experienced | anyone with a phone |
+| **Time to an answer** | minutes to hours | seconds |
+| **Available** | opening hours | always |
+| **Wrong-part risk** | a judgement call | **priced**: ~1.5% of correct matches given up to catch most impostors |
+
+Three things make this worth deploying rather than demoing:
+
+| | |
+|:--|:--|
+| 🛡️ **It refuses** | A confidently wrong brake pad costs a return, a refit, and the customer. The no-match threshold is calibrated against measured score distributions, so the false-answer rate is **a number someone chose** — not an accident. |
+| 🛒 **It sells the rest of the basket** | Every identification also returns the superseding part and the accessories, straight from the catalog. That is attach-rate the counter would otherwise have to remember. |
+| 📈 **It improves by being used** | Each confirmation records which SKU the customer actually settled on — labelled training data the catalog earns at **zero labelling cost**. |
+
+> The catalog here is 56 products, so the accuracy figures are **indicative**. The
+> architecture does not change at tens of thousands of SKUs — the indexes grow,
+> the pipeline does not.
+
+---
+
+## 🎬 The five-minute demo
+
+No backend, no database, no model downloads — the frontend ships with canned data:
+
+```bash
+cd frontend && npm install && npm run dev     # VITE_API_MODE=mock by default
+```
+
+Four things to show, **in this order**, because each one sets up the next:
+
+| # | Show this | The point |
+|:--:|:--|:--|
+| **1** | Upload a clean part photo | background removal → category → SKU, with fitment, replacement and accessories |
+| **2** | Upload a part whose category has near-identical SKUs | disambiguation asks *"which vehicle?"* — a question the user **can actually answer** |
+| **3** | Upload something the catalog does not stock | **🚫 no match** — nothing named, nothing selectable; *not* a product page with a warning |
+| **4** | Open `/architecture` | the four brains, and where the refusal gate sits |
+
+> **Step 3 is the one worth dwelling on.** Steps 1 and 2 show a parts catalog
+> working. Step 3 shows it *declining to be wrong*, which is the harder half of
+> the problem.
+
+Sample photos for steps 1–2 live in [`frontend/public/samples/`](frontend/public/samples/).
+For the live pipeline against the real models and database, follow the
+[full setup](#-quickstart-2-minutes) first.
+
+---
+
+## 🗺️ Future roadmap
+
+Ordered by what the measurements say is actually limiting the system — not by
+what is interesting to build.
+
+| | Next step | Why it is next |
+|:--:|:--|:--|
+| **1** | **Fine-tune the embedding on the catalog itself** | Exhaust manifolds sit at 70.8% top-1 but 87.5% top-3 — the right SKU is *found and mis-ordered*. A general-purpose encoder cannot separate what it was never trained to care about; metric learning on the catalog can. |
+| **2** | **Ask for a second photo instead of guessing** | Where one angle genuinely cannot distinguish two SKUs, prompting for another view is cheaper and more honest than a re-ranker. The disambiguation flow already exists to hang it on. |
+| **3** | **Feed confirmations back into ranking** | The audit trail already captures which SKU the user settled on — the highest-value signal in the whole system. Wiring that straight into ranking turns every confirmation the app collects into a measurable accuracy gain. |
+| **4** | **Approximate search at catalog scale** | `IndexFlatIP` is exact and fast at 56 products. Past roughly 10⁵ vectors per category it stops being free and becomes IVF or HNSW — a swap behind the existing index interface. |
+| **5** | **Re-calibrate thresholds on real traffic** | Thresholds were tuned against catalog photos. Phone photos in a garage will shift both distributions, making calibration a recurring **operations** task rather than a one-off. |
+| **6** | **Open Brain 4 into a full conversation** | It already speaks in chat turns and already asks the right clarifying questions. Giving it a dedicated endpoint and session state lets the user answer them — turning *"is this the one with three bolts?"* into a genuine back-and-forth on top of the explanation it already writes. |
+
+---
+
+## 📁 Repository layout
 
 ```
-partpilot/          FastAPI backend, models, datasets, evaluation scripts
-  backend/          API, pipeline (brains 1-4), schemas, tests
+partpilot/
+  backend/
+    api/            FastAPI routers (predict, catalog, history, admin, health)
+    pipeline/
+      brain1_classifier/    EfficientNet category classifier
+      brain2_similarity/    embeddings, FAISS, per-category routing
+      brain3_catalog/       products, recommendations (PostgreSQL)
+      brain4_reasoning/     Qwen explanation (optional)
+      audit/                prediction trail + confirmations
+      orchestrator.py       wires the four stages together
+    config/settings.py      every threshold and model choice, in one file
+    models/faiss/           the built indexes, one set per category
   scripts/          index building, evaluation, threshold calibration
-  docs/             RUNNING.md (setup), DEMO_GUIDE.md (demo script)
-frontend/           Vite + React 19 + TypeScript + Tailwind v4 client
+  datasets/         catalog.csv (images are git-ignored)
+  docs/             RUNNING.md (setup), DEMO_GUIDE.md (Colab demo)
+frontend/           Vite + React 19 + TypeScript + Tailwind v4
 ```
 
-## Getting started
+Two design rules hold throughout:
 
-Backend setup, configuration and troubleshooting: [`partpilot/docs/RUNNING.md`](partpilot/docs/RUNNING.md).
-Frontend usage: [`frontend/README.md`](frontend/README.md).
-Running the demo: [`partpilot/docs/DEMO_GUIDE.md`](partpilot/docs/DEMO_GUIDE.md).
+> **🔌 Interfaces, not implementations.** The orchestrator depends only on
+> `*Interface` ABCs, so any brain can be swapped or mocked without touching the
+> others.
+>
+> **🎛️ Every tuning decision lives in [`settings.py`](partpilot/backend/config/settings.py)**,
+> with the measurement that justified it written next to the number.
 
-The frontend runs standalone with `VITE_API_MODE=mock`, so the whole journey is
-browsable without a backend or a database.
+---
 
-## Scale
+## 📚 Documentation
 
-The catalog is currently 56 products across 10 categories, which is enough to
-calibrate against but small enough that the accuracy figures should be read as
-indicative. Product metadata is kept separate from the visual index so the same
-architecture extends to a customer catalog of tens of thousands of SKUs.
+| Document | Covers |
+|:--|:--|
+| **[`partpilot/docs/RUNNING.md`](partpilot/docs/RUNNING.md)** | Full backend setup, configuration, troubleshooting, rebuilding indexes |
+| **[`frontend/README.md`](frontend/README.md)** | Frontend architecture, mock vs live mode, the 3D/motion layer |
+| **[`partpilot/docs/DEMO_GUIDE.md`](partpilot/docs/DEMO_GUIDE.md)** | End-to-end Google Colab demo, including training Brain 1 from scratch |
+
+<div align="center">
+<br/>
+
+**Built for the Parts Detection Hackathon.**
+
+*The models decide which part. The database decides what is true about it.*
+
+</div>

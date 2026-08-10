@@ -27,6 +27,7 @@ what replaces it, and what to buy alongside it.
 **[Quickstart](#-quickstart-2-minutes)** ·
 **[How it works](#-how-a-photo-becomes-an-answer)** ·
 **[The four brains](#-brain-1--what-kind-of-part-is-this)** ·
+**[Guided chat](#-guided-chat--the-machine-asks-the-user-picks)** ·
 **[Accuracy](#-accuracy)** ·
 **[Business impact](#-business-impact)** ·
 **[Demo script](#-the-five-minute-demo)** ·
@@ -207,12 +208,17 @@ flowchart TD
     GATE -->|"yes"| B3
 
     B3["<b>🧠 Brain 3 · Catalog</b><br/>PostgreSQL<br/><i>what do we know about it?</i>"]
-    B3 -->|"product + related SKUs"| B4
+    B3 --> TIE
+
+    TIE{"<b>are the top candidates<br/>too close to call?</b>"}
+    TIE -->|"yes"| CHAT["<b>💬 Guided chat</b><br/>catalog metadata · <i>no model</i><br/><i>ask what the photo cannot tell us</i>"]
+    CHAT -->|"user narrows it to one"| B4
+    TIE -->|"no"| B4
 
     B4["<b>🧠 Brain 4 · Conversation</b><br/>Qwen2.5-1.5B · <i>optional</i><br/><i>explain it, and ask what is unclear</i>"]
     B4 --> OUT(["<b>✅ Answer</b><br/>SKU · fitment · replacement · accessories"])
 
-    B3 -.->|"answer stands on its own"| OUT
+    TIE -.->|"answer stands on its own"| OUT
 
     classDef model fill:#e0e7ff,stroke:#4338ca,stroke-width:2px,color:#1e1b4b
     classDef data fill:#ccfbf1,stroke:#0f766e,stroke-width:2px,color:#042f2e
@@ -222,8 +228,8 @@ flowchart TD
     classDef io fill:#e2e8f0,stroke:#475569,stroke-width:2px,color:#0f172a
 
     class BG,B1,B2,B4 model
-    class B3 data
-    class GATE gate
+    class B3,CHAT data
+    class GATE,TIE gate
     class REFUSE bad
     class OUT good
     class U io
@@ -238,7 +244,8 @@ flowchart TD
 | **🧠 Brain 2** | *Which exact SKU is it?* | DINOv2 / OpenCLIP + FAISS | ranked SKUs with cosine scores |
 | **⚖️ Gate** | *Are we sure enough to answer at all?* | per-model calibrated thresholds | **answer, or refuse** |
 | **🧠 Brain 3** | *What is actually true about it?* | PostgreSQL | product record + recommendations |
-| **🧠 Brain 4** | *How do we explain it to the user?* | Qwen2.5-1.5B *(optional)* | an explanation + clarifying questions |
+| **💬 Guided chat** | *Which of these look-alikes is it?* | catalog metadata — **no model** | one narrowing question at a time |
+| **🧠 Brain 4** | *How do we explain it to the user?* | Qwen2.5-1.5B via llama.cpp *(optional)* | an explanation + clarifying questions |
 
 > **Everything before the gate is a model. Everything after it is data.**
 >
@@ -518,7 +525,8 @@ UI. The audit trail records the near-misses as *context*, **not as an answer**.
 
 `attributes` is deliberately open-ended: **what visually separates two air filters
 is not what separates two brake pads**, so the schema does not pretend otherwise.
-These fields are what powers [disambiguation](#-disambiguation--when-two-parts-genuinely-look-identical) later.
+These fields are what the [guided chat](#-guided-chat--the-machine-asks-the-user-picks)
+turns into questions later.
 
 ### Recommendations
 
@@ -539,9 +547,10 @@ the one the customer should actually buy.**
 <table>
 <tr><td><b>In</b></td><td>the Brain 1–3 outputs (category, scores, product, recommendations)</td></tr>
 <tr><td><b>Out</b></td><td>a short explanation of the match, plus up to <b>3 clarifying questions</b> when something is genuinely ambiguous</td></tr>
-<tr><td><b>Model</b></td><td><code>Qwen/Qwen2.5-1.5B-Instruct</code> via <code>transformers</code> — chat-formatted turns, 256 max new tokens, <code>do_sample=False</code></td></tr>
+<tr><td><b>Model</b></td><td><code>Qwen2.5-1.5B-Instruct</code> — chat-formatted turns, 256 max new tokens, greedy decoding</td></tr>
+<tr><td><b>Runtime</b></td><td><b>llama.cpp</b> on a Q4 GGUF by default; Hugging Face <code>transformers</code> as the zero-extra-dependency fallback (<code>LLM_BACKEND</code>)</td></tr>
 <tr><td><b>Code</b></td><td><a href="partpilot/backend/pipeline/brain4_reasoning/"><code>backend/pipeline/brain4_reasoning/</code></a></td></tr>
-<tr><td><b>Scope</b></td><td>one focused assistant turn per identification — <a href="#-future-roadmap">conversational follow-up is the next step</a></td></tr>
+<tr><td><b>Scope</b></td><td>one focused assistant turn per identification — the multi-turn conversation is <a href="#-guided-chat--the-machine-asks-the-user-picks">Brain 3's job, not the LLM's</a></td></tr>
 </table>
 
 Brain 4 is the **assistant voice** on top of the pipeline. It is given the whole
@@ -555,8 +564,32 @@ and does two things:
 | 💬 **Explains the match** | two to four sentences, under 150 words |
 | ❓ **Asks what it needs to know** | up to three short, specific questions — but **only** when the result is genuinely ambiguous: several compatible vehicles, low confidence, or multiple close-scoring alternatives. When the match is clean, it says so plainly and asks nothing. |
 
-Greedy decoding (`do_sample=False`) means the same input always produces the same
-answer — which matters for a demo.
+Greedy decoding means the same input always produces the same answer — which
+matters for a demo.
+
+### 🔑 Key decision — the runtime was the bottleneck, not the model
+
+The first working version ran full-precision weights through `transformers` and
+took **23.5 seconds** per explanation on a CPU box. Unusable in front of a user.
+
+The instinct is to reach for a smaller model. That was measured, and it was the
+wrong lever — a 0.5B model was still slow *and* started inventing facts, claiming
+parts were "worn out" and describing a Bosch SKU as "another brand name for the
+same product" when it is a different manufacturer's part.
+
+Swapping the **runtime** rather than the model fixed both:
+
+| | `transformers`, 0.5B | **llama.cpp, 1.5B Q4** |
+|---|---:|---:|
+| Explanation time (warm) | 23.5s | **5.1s** |
+| File on disk | ~1 GB | **~1 GB** |
+| Invented facts in the test prompt | 2 | **0** |
+
+A 4-bit quantised 1.5B model is **smaller on disk than the 0.5B in full
+precision** and three times the parameters — better prose *and* faster, from the
+same catalog facts. Brain 4 is also warmed at startup
+(`WARM_BRAIN4_ON_STARTUP`), so the first upload after a restart does not pay the
+model load.
 
 ### 🔑 Key decision — the answer is complete before Brain 4 speaks
 
@@ -585,27 +618,84 @@ is never asked which part it is, and never asked to produce a part number.
 
 ---
 
-## 🔀 Disambiguation — when two parts genuinely look identical
+## 💬 Guided chat — the machine asks, the user picks
 
 Some parts cannot be told apart by photograph. Two brake pad sets for different
 vehicles are the same object photographed twice; four wheel hubs differ only in
 how many studs they carry.
 
-When several candidates are close, the frontend
-([`services/disambiguation.ts`](frontend/src/services/disambiguation.ts)) turns
-*"these look identical, you pick"* into **answerable questions** — *which
-vehicle?*, *which brand?* — each answer eliminating candidates.
+So when the visual search **cannot separate its top candidates**, PartPilot stops
+guessing and starts a conversation:
 
-The questions are derived from **catalog metadata, not generated by Brain 4.**
-That means:
+```
+🤖  Hi! Your photo is visually close to 3 parts in our catalog.
+🤖  What colour is it, mainly?
+                                                    Not sure  👤
+🤖  Which vehicle is this part for?
+                                                      Toyota  👤
+🤖  Which model?
+                                                      Altima  👤
+🤖  ✅ That leaves one match: SHK-1006 — OEM Front Strut Assembly
+```
 
-- ✅ every option provably corresponds to a real SKU
-- ✅ every answer provably narrows the set
-- ✅ it works with the language model switched off entirely
+### The user never types — and that is the design
 
-> It also asks what the user **actually knows**. They cannot judge which of three
-> near-identical photos matches the part in their hand; they *do* know what car
-> they drive.
+Every answer is a button, and **every button comes from a catalog row**. There is
+no free-text box and no language model in this loop, which is what makes three
+guarantees possible:
+
+- ✅ every option provably corresponds to real SKUs — nothing can be invented
+- ✅ every answer provably narrows the set — each option carries the SKUs it keeps
+- ✅ it works with the LLM switched off entirely
+
+### How a question gets chosen
+
+[`backend/pipeline/chat/engine.py`](partpilot/backend/pipeline/chat/engine.py)
+looks at the rows still in play and asks: *which column separates them?*
+
+| Facet | Example | Asked… |
+|:--|:--|:--|
+| Visual attributes | *"How many wheel studs?"*, *"Spin-on or cartridge?"* | **first** — answerable by looking at the part in hand |
+| Vehicle make / model / year | *"Which vehicle is this part for?"* | next — the user knows their own car |
+| Part number | *"Is one of these numbers on the part?"* | decisive, but means hunting for stamped text |
+| Brand | *"Do you know the part brand?"* | **last** |
+
+> Questions are ranked by **how easily a person can answer**, not by elimination
+> power. Brand usually splits the candidates perfectly — but someone
+> photographing a part to find out what it is is exactly the person who does not
+> know its brand.
+
+Two rules keep it honest: a question is skipped if **no answer would rule
+anything out**, and vehicle questions are never asked when any candidate has no
+fitment on record — missing data must not read as *"does not fit"*.
+
+### Server-side sessions
+
+[`backend/api/routers/chat.py`](partpilot/backend/api/routers/chat.py) —
+the conversation lives on the server, not in the browser:
+
+| Endpoint | |
+|:--|:--|
+| `POST /chat/start` | opens a session from the prediction's candidates |
+| `POST /chat/{id}/answer` | one turn — pick an option, or *"Not sure"* |
+| `POST /chat/{id}/undo` | rewind the transcript to any earlier turn |
+| `GET /chat/{id}` | current state, e.g. after a page reload |
+
+Only SKUs and similarity scores travel up; **every fact the chat asks about is
+fetched server-side from the catalog**, so the conversation cannot be fed
+invented product data. A skip is recorded as a turn like any other — it happened,
+it shapes what gets asked next, and it stays in the transcript.
+
+### When it appears
+
+Only when the photo genuinely could not decide — rank 1 and rank 2 within
+`CONFIRMATION_SIMILARITY_GAP` of each other. A clear winner goes straight to the
+answer.
+
+> Deliberately not gated on the raw score: a weak-but-clear match needs no
+> questions, while a **95% match with a 94% runner-up** is exactly when the
+> catalog must be asked. Measured across the sample photos, brake pads (gap 0.26)
+> skip the chat while wheel hubs (gap 0.04, top score 0.97) trigger it.
 
 ---
 
@@ -750,7 +840,7 @@ what is interesting to build.
 | **3** | **Feed confirmations back into ranking** | The audit trail already captures which SKU the user settled on — the highest-value signal in the whole system. Wiring that straight into ranking turns every confirmation the app collects into a measurable accuracy gain. |
 | **4** | **Approximate search at catalog scale** | `IndexFlatIP` is exact and fast at 56 products. Past roughly 10⁵ vectors per category it stops being free and becomes IVF or HNSW — a swap behind the existing index interface. |
 | **5** | **Re-calibrate thresholds on real traffic** | Thresholds were tuned against catalog photos. Phone photos in a garage will shift both distributions, making calibration a recurring **operations** task rather than a one-off. |
-| **6** | **Open Brain 4 into a full conversation** | It already speaks in chat turns and already asks the right clarifying questions. Giving it a dedicated endpoint and session state lets the user answer them — turning *"is this the one with three bolts?"* into a genuine back-and-forth on top of the explanation it already writes. |
+| **6** | **Persist chat sessions outside the process** | The [guided chat](#-guided-chat--the-machine-asks-the-user-picks) keeps its sessions in process memory, which is right for one worker and this catalog. Moving them behind Redis lets the conversation survive a restart and scale across workers — a swap behind the existing session store. |
 
 ---
 
@@ -759,12 +849,13 @@ what is interesting to build.
 ```
 partpilot/
   backend/
-    api/            FastAPI routers (predict, catalog, history, admin, health)
+    api/            FastAPI routers (predict, chat, catalog, history, admin, health)
     pipeline/
       brain1_classifier/    EfficientNet category classifier
       brain2_similarity/    embeddings, FAISS, per-category routing
       brain3_catalog/       products, recommendations (PostgreSQL)
-      brain4_reasoning/     Qwen explanation (optional)
+      brain4_reasoning/     Qwen explanation (llama.cpp or transformers, optional)
+      chat/                 guided-chat question engine + sessions (no model)
       audit/                prediction trail + confirmations
       orchestrator.py       wires the four stages together
     config/settings.py      every threshold and model choice, in one file

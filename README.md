@@ -19,6 +19,7 @@ what replaces it, and what to buy alongside it.
 [![PyTorch](https://img.shields.io/badge/PyTorch-DINOv2-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.18-FF6F00?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
 [![FAISS](https://img.shields.io/badge/FAISS-vector_search-0467DF?logo=meta&logoColor=white)](https://faiss.ai/)
+[![llama.cpp](https://img.shields.io/badge/llama.cpp-Qwen2.5_GGUF-lightgrey)](https://github.com/ggerganov/llama.cpp)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 
@@ -135,6 +136,17 @@ source .venv/bin/activate      # macOS / Linux
 pip install -r requirements.txt
 ```
 
+> ⚠️ `llama-cpp-python` (the Brain 4 runtime) may try to compile from source.
+> Install it from the project's own prebuilt wheels instead — no compiler needed:
+>
+> ```bash
+> pip install llama-cpp-python --prefer-binary \
+>   --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+> ```
+>
+> Or skip it entirely: set `LLM_BACKEND=transformers` in `.env`. Brain 4 is
+> optional either way — the answer never depends on it.
+
 ### 3. Configure
 
 ```bash
@@ -159,7 +171,16 @@ python -m backend.main
 ```bash
 cd ../frontend && cp .env.example .env
 ```
-Set `VITE_API_MODE=live`, then `npm run dev`.
+
+In `frontend/.env` set:
+
+```bash
+VITE_API_MODE=live     # call the real backend instead of the canned data
+VITE_CHAT_API=true     # run the guided chat through the server session API
+```
+
+then `npm run dev`. With `VITE_CHAT_API=false` the questions still work — they
+just run in the browser against the same logic, which is what mock mode uses.
 
 ### Already done for you
 
@@ -175,9 +196,10 @@ path:
 That means you can go straight to step 4 — training, index building and database
 migrations are all behind you.
 
-**First prediction takes 30–60 s** while ~500 MB of model weights download. Every
-one after that takes seconds. (`WARM_MODELS_ON_STARTUP=true` moves that wait to
-boot time instead.)
+**Startup takes ~50 s** while all four brains warm up — the log shows each one as
+it lands. That is deliberate: `WARM_MODELS_ON_STARTUP` (and
+`WARM_BRAIN4_ON_STARTUP`) pay the model load at boot rather than making whoever
+uploads first wait it out. The models themselves download once on first run.
 
 📖 Full setup, troubleshooting and index rebuilding: **[`partpilot/docs/RUNNING.md`](partpilot/docs/RUNNING.md)**
 
@@ -813,14 +835,25 @@ Four things to show, **in this order**, because each one sets up the next:
 
 | # | Show this | The point |
 |:--:|:--|:--|
-| **1** | Upload a clean part photo | background removal → category → SKU, with fitment, replacement and accessories |
-| **2** | Upload a part whose category has near-identical SKUs | disambiguation asks *"which vehicle?"* — a question the user **can actually answer** |
+| **1** | Upload `brake-pads.jpg` | one clear winner (26 points clear of rank 2) → straight to the answer. **No questions asked** — the photo decided. |
+| **2** | Upload `wheel-hub-assembly.jpg` | four hubs differing only in stud count, top two **4 points apart** → the [guided chat](#-guided-chat--the-machine-asks-the-user-picks) opens and narrows it to one |
 | **3** | Upload something the catalog does not stock | **🚫 no match** — nothing named, nothing selectable; *not* a product page with a warning |
 | **4** | Open `/architecture` | the four brains, and where the refusal gate sits |
 
-> **Step 3 is the one worth dwelling on.** Steps 1 and 2 show a parts catalog
+> **Steps 1 and 2 are a pair — show them back to back.** Same app, same upload
+> flow; the chat appears in one and not the other. That contrast *is* the point:
+> the questions are not a fixed step in a wizard, they are what happens when the
+> models report they could not separate the candidates.
+
+> **Step 3 is the one worth dwelling on.** The first two show a parts catalog
 > working. Step 3 shows it *declining to be wrong*, which is the harder half of
 > the problem.
+
+**If a judge asks whether the chat is AI-generated:** it is not, and that is
+provable on the spot — the questions and every option come from catalog rows, so
+the whole conversation still works with the language model switched off
+(`LLM_BACKEND` unset, or `VITE_PREDICTION_EXPLAIN=false`). Nothing in it can be
+invented.
 
 Sample photos for steps 1–2 live in [`frontend/public/samples/`](frontend/public/samples/).
 For the live pipeline against the real models and database, follow the

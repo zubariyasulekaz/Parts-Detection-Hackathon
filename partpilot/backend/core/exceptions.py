@@ -81,3 +81,16 @@ class ReasoningError(PartPilotError):
     """Raised when the Brain 4 LLM cannot be loaded or generation fails."""
 
     error_code = "REASONING_ERROR"
+
+
+class ChatSessionNotFound(PartPilotError):
+    """Raised when a chat session id is unknown or has expired."""
+
+    error_code = "CHAT_SESSION_NOT_FOUND"
+
+
+class ChatStateError(PartPilotError):
+    """Raised when a chat request does not fit the session's current state
+    (e.g. answering when no question is open, or an out-of-range option)."""
+
+    error_code = "CHAT_STATE_ERROR"

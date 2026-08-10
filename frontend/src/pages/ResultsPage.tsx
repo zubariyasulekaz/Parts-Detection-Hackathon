@@ -12,6 +12,7 @@ import { AIMatchSummary } from '@/components/results/AIMatchSummary'
 import { CandidateCard } from '@/components/results/CandidateCard'
 import { GuidedDisambiguation } from '@/components/results/GuidedDisambiguation'
 import { IdentificationSummary } from '@/components/results/IdentificationSummary'
+import { ServerChatPanel } from '@/components/results/ServerChatPanel'
 import { NoCatalogMatchPanel } from '@/components/results/NoCatalogMatchPanel'
 import { useIdentification } from '@/context/IdentificationContext'
 import {
@@ -26,6 +27,15 @@ import { formatPercent, formatSearchTime } from '@/utils/format'
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
+
+/**
+ * Whether the guided questions run through the backend chat API instead of
+ * the local logic. Server sessions only exist in live mode; mock mode always
+ * runs the local flow, which the API mirrors one-for-one.
+ */
+const USE_SERVER_CHAT =
+  import.meta.env.VITE_API_MODE === 'live' &&
+  String(import.meta.env.VITE_CHAT_API ?? '').toLowerCase() === 'true'
 
 /** `[{facet: "make", label: "Honda"}]` -> `{make: "Honda"}` for the audit trail. */
 function answersToRecord(answers: DisambiguationAnswer[]): Record<string, string> | undefined {
@@ -48,8 +58,19 @@ export function ResultsPage() {
   // Whether there is anything worth asking about the top candidates before
   // showing their photos. False (nothing to ask) starts the page already
   // revealed; true holds images back until the guided questions finish.
+  //
+  // `requiresConfirmation` is the gate that matters: it is set when rank 1 and
+  // rank 2 are too close to auto-pick from. Questions are for the case where
+  // the photo could not decide - two parts that are the same object shot
+  // twice - not for every result. Deliberately not gated on the absolute
+  // score: a weak-but-clear winner needs no questions, while a 95% match with
+  // a 94% runner-up is exactly when we must ask.
   const needsQuestions = Boolean(
-    result && !result.noMatch && result.candidates.length > 1 && canDisambiguate(result.candidates),
+    result &&
+      !result.noMatch &&
+      result.candidates.length > 1 &&
+      result.requiresConfirmation &&
+      canDisambiguate(result.candidates),
   )
   // Gates the catalog-match comparison, summary and image grid. Starts
   // revealed only when there is nothing to ask; otherwise the guided
@@ -289,15 +310,27 @@ export function ResultsPage() {
           "change this" buttons survive into the revealed page below. */}
       {needsQuestions && (
         <div className="mt-6 animate-fade-slide-up">
-          <GuidedDisambiguation
-            candidates={candidates}
-            onRemainingChange={handleRemainingChange}
-            onResolved={handleResolved}
-            onAnswersChange={setAnswers}
-            onFinished={handleFinished}
-            onOverrideSelection={selectCandidate}
-            selectedSku={selectedSku}
-          />
+          {USE_SERVER_CHAT ? (
+            <ServerChatPanel
+              candidates={candidates}
+              onRemainingChange={handleRemainingChange}
+              onResolved={handleResolved}
+              onAnswersChange={setAnswers}
+              onFinished={handleFinished}
+              onOverrideSelection={selectCandidate}
+              selectedSku={selectedSku}
+            />
+          ) : (
+            <GuidedDisambiguation
+              candidates={candidates}
+              onRemainingChange={handleRemainingChange}
+              onResolved={handleResolved}
+              onAnswersChange={setAnswers}
+              onFinished={handleFinished}
+              onOverrideSelection={selectCandidate}
+              selectedSku={selectedSku}
+            />
+          )}
         </div>
       )}
 

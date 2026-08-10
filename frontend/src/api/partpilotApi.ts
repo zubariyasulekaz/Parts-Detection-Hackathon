@@ -1,6 +1,7 @@
 import { apiDelete, apiGet, apiPostForm, apiPostJson } from './client'
 import type {
   AuditEntryResponseDTO,
+  ChatStateDTO,
   HistoryListQuery,
   PredictionResultDTO,
   ProductListQuery,
@@ -61,4 +62,29 @@ export async function fetchProducts(query: ProductListQuery = {}): Promise<Produ
 
 export async function fetchRecommendations(sku: string): Promise<RecommendationDTO> {
   return apiGet<RecommendationDTO>(`/products/${encodeURIComponent(sku)}/recommendations`)
+}
+
+/**
+ * Opens a guided-chat session over a prediction's candidates. The server
+ * fetches every fact it asks about from the catalog - only SKUs and
+ * similarity scores travel up.
+ */
+export async function startChat(
+  candidates: { sku: string; similarity: number }[],
+): Promise<ChatStateDTO> {
+  return apiPostJson<ChatStateDTO>('/chat/start', { candidates })
+}
+
+/** Applies one turn: pick an option of the open question, or skip it ("Not sure"). */
+export async function answerChat(
+  sessionId: string,
+  action: { optionIndex: number } | { skip: true },
+): Promise<ChatStateDTO> {
+  const body = 'skip' in action ? { skip: true } : { option_index: action.optionIndex }
+  return apiPostJson<ChatStateDTO>(`/chat/${sessionId}/answer`, body)
+}
+
+/** Rewinds the answer trail to its first `keep` entries; `keep: 0` restarts. */
+export async function undoChat(sessionId: string, keep: number): Promise<ChatStateDTO> {
+  return apiPostJson<ChatStateDTO>(`/chat/${sessionId}/undo`, { keep })
 }

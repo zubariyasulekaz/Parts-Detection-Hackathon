@@ -128,3 +128,52 @@ export interface HistoryListQuery {
   limit?: number
   offset?: number
 }
+
+/** Mirrors `backend.schemas.chat.ChatOptionOut` - one tappable answer. */
+export interface ChatOptionDTO {
+  label: string
+  skus: string[]
+}
+
+/** Mirrors `backend.schemas.chat.ChatQuestionOut`. */
+export interface ChatQuestionDTO {
+  facet: string
+  prompt: string
+  hint: string
+  options: ChatOptionDTO[]
+}
+
+/**
+ * Mirrors `backend.schemas.chat.ChatAnswerRecord` - one completed turn.
+ * Skips are turns too (`skipped: true`, label "Not sure"), so the transcript
+ * renders in the order the exchange actually happened.
+ */
+export interface ChatAnswerRecordDTO {
+  facet: string
+  prompt: string
+  label: string
+  skus: string[]
+  skipped: boolean
+}
+
+/** Mirrors `backend.schemas.chat.ChatMismatchOut`. */
+export interface ChatMismatchDTO {
+  visual_leader_sku: string
+  visual_leader_similarity: number
+  best_survivor_sku: string
+  best_survivor_similarity: number
+}
+
+/**
+ * Mirrors `backend.schemas.chat.ChatStateResponse` - the whole conversation
+ * as the server sees it, returned by every `/chat/*` endpoint.
+ */
+export interface ChatStateDTO {
+  session_id: string
+  status: 'asking' | 'resolved' | 'exhausted'
+  question: ChatQuestionDTO | null
+  answers: ChatAnswerRecordDTO[]
+  remaining_skus: string[]
+  resolved_sku: string | null
+  mismatch: ChatMismatchDTO | null
+}

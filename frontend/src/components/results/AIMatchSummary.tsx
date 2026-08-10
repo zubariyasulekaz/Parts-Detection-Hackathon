@@ -1,6 +1,6 @@
 import { CircleCheck, TriangleAlert } from 'lucide-react'
 import { NO_CATALOG_MATCH_THRESHOLD, STRONG_SEPARATION_GAP } from '@/services/identificationService'
-import { formatPercent } from '@/utils/format'
+import { formatPercent, formatPercentGap } from '@/utils/format'
 import type { IdentificationResult } from '@/types/identification'
 
 interface SummaryLine {
@@ -47,12 +47,12 @@ function buildSummaryLines(result: IdentificationResult): SummaryLine[] {
     if (gap >= STRONG_SEPARATION_GAP) {
       lines.push({
         tone: 'positive',
-        text: `Strong score separation from lower-ranked candidates (+${formatPercent(gap)})`,
+        text: `Strong score separation from lower-ranked candidates (+${formatPercentGap(gap)})`,
       })
     } else {
       lines.push({
         tone: 'caution',
-        text: `Close score separation from the next candidate (${formatPercent(gap)} apart), so confirmation is recommended`,
+        text: `Close score separation from the next candidate (${formatPercentGap(gap)} apart), so confirmation is recommended`,
       })
     }
   }

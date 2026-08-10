@@ -30,6 +30,14 @@ faiss-cpu==1.9.0.post1
 # --- Brain 4: reasoning (Qwen) + Brain 2 backends (DINOv2, SigLIP) ---------------------------------------------------------------
 transformers==4.46.3
 accelerate==1.1.1
+# Default Brain 4 runtime (LLM_BACKEND=llamacpp): runs a quantised GGUF
+# instead of full-precision weights. transformers took ~23s per explanation
+# on a CPU box here; llama.cpp is built for exactly this case. Prebuilt
+# wheels come from the project's own index, so no compiler is needed:
+#   pip install llama-cpp-python --prefer-binary \
+#     --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+# Set LLM_BACKEND=transformers to skip this dependency entirely.
+llama-cpp-python==0.3.34
 
 # --- image processing ---------------------------------------------------------------
 Pillow==11.0.0

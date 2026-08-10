@@ -42,12 +42,19 @@ def warm_models() -> None:
     singletons requests will use — warming private copies would heat
     nothing.
 
-    Brain 4 is deliberately left cold: it is optional, degrades to
-    "no explanation", and its weights are the largest of the lot.
+    Brain 4 is warmed only when `WARM_BRAIN4_ON_STARTUP` is set. It used to
+    be left cold unconditionally because the `transformers` path loads
+    several GB; the quantised GGUF the llama.cpp path reads is a fraction of
+    that and loads in seconds, which is worth paying at boot rather than
+    making whoever uploads first wait it out.
     """
     from PIL import Image  # noqa: PLC0415
 
-    from backend.api.dependencies import get_classifier, get_similarity_search  # noqa: PLC0415
+    from backend.api.dependencies import (  # noqa: PLC0415
+        get_classifier,
+        get_reasoning_service,
+        get_similarity_search,
+    )
     from backend.utils.image_utils import remove_background  # noqa: PLC0415
 
     dummy = Image.new("RGB", (224, 224), (128, 128, 128))
@@ -57,6 +64,8 @@ def warm_models() -> None:
         ("Brain 1 classifier", lambda: get_classifier().predict(dummy)),
         ("Brain 2 indexes + embedding models", lambda: _warm_similarity(get_similarity_search())),
     ]
+    if get_settings().WARM_BRAIN4_ON_STARTUP:
+        steps.append(("Brain 4 reasoning model", lambda: _warm_reasoning(get_reasoning_service())))
     for name, step in steps:
         started = perf_counter()
         try:
@@ -72,6 +81,18 @@ def _warm_similarity(service: object) -> None:
 
     The interface deliberately does not require `warm()` — a remote or
     test implementation has nothing to load.
+    """
+    warm = getattr(service, "warm", None)
+    if callable(warm):
+        warm()
+
+
+def _warm_reasoning(service: object) -> None:
+    """Warm a reasoning service if it supports warming.
+
+    Same optional contract as `_warm_similarity`: `ReasoningInterface` only
+    requires `explain`, so a backend with nothing to preload (or a test
+    double) is simply skipped.
     """
     warm = getattr(service, "warm", None)
     if callable(warm):

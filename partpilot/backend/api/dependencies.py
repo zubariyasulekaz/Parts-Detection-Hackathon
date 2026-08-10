@@ -107,7 +107,24 @@ def get_prediction_audit_service(
 
 @lru_cache
 def get_reasoning_service() -> ReasoningInterface:
-    """Dependency provider for the Brain 4 (Qwen) reasoning service."""
+    """Dependency provider for the Brain 4 reasoning service.
+
+    Both backends run the same instruction-tuned model against the same
+    prompt; only the runtime differs. `llamacpp` reads a quantised GGUF and
+    is several times faster on a CPU box, at the cost of an extra
+    dependency; `transformers` needs nothing beyond `requirements.txt`.
+    """
+    backend = get_settings().LLM_BACKEND.strip().lower()
+    if backend == "llamacpp":
+        from backend.pipeline.brain4_reasoning.llamacpp_service import (  # noqa: PLC0415
+            LlamaCppService,
+        )
+
+        return LlamaCppService()
+    if backend != "transformers":
+        raise ValueError(
+            f"Unknown LLM_BACKEND {backend!r}; expected 'llamacpp' or 'transformers'."
+        )
     return LLMService()
 
 

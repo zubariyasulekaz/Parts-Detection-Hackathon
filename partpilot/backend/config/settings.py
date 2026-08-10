@@ -134,10 +134,36 @@ class Settings(BaseSettings):
     # inside the first request (which otherwise pays a 30-60s cold start).
     WARM_MODELS_ON_STARTUP: bool = True
 
+    # Also preload Brain 4 at boot. Only meaningful with WARM_MODELS_ON_STARTUP.
+    # The llama.cpp GGUF loads in seconds, so paying that at startup beats
+    # making the first upload wait it out; the transformers path is far
+    # heavier, so turn this off if you switch LLM_BACKEND back to it.
+    WARM_BRAIN4_ON_STARTUP: bool = True
+
     # --- Brain 4: reasoning ---------------------------------------------------------------
     HF_TOKEN: str | None = None
     LLM_MODEL_NAME: str = "Qwen/Qwen2.5-1.5B-Instruct"
     LLM_MAX_NEW_TOKENS: int = 256
+
+    # Which Brain 4 implementation to use.
+    #
+    # "llamacpp" runs a quantised GGUF through llama.cpp; "transformers"
+    # runs the full-precision weights through Hugging Face `transformers`.
+    # Measured on this catalog's CPU box, transformers took ~23s per
+    # explanation, which is unusable in front of a user - llama.cpp runs the
+    # same size model several times faster from a smaller file. Both are
+    # optional: a failure in either returns the Brain 1-3 answer unchanged.
+    LLM_BACKEND: str = "llamacpp"
+
+    # GGUF repo/file for the llama.cpp backend. Q4_K_M is ~1.1 GB - smaller
+    # on disk than the 0.5B safetensors while being the stronger model.
+    LLM_GGUF_REPO: str = "Qwen/Qwen2.5-1.5B-Instruct-GGUF"
+    LLM_GGUF_FILE: str = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    #: Context window. The prompt is a short structured summary, so this is
+    #: sized for the prompt plus the capped response, not for long chats.
+    LLM_CONTEXT_TOKENS: int = 2048
+    #: 0 lets llama.cpp pick based on the machine's core count.
+    LLM_THREADS: int = 0
 
     # --- uploads ---------------------------------------------------------------
     MAX_UPLOAD_SIZE_MB: int = 10

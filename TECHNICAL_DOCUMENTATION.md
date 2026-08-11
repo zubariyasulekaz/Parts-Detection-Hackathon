@@ -5,7 +5,7 @@
 A four-stage computer-vision pipeline that identifies a car part from one photograph — SKU, fitment, replacement, and accessories — and is calibrated to refuse rather than guess when it isn't sure. The **live inference pipeline** runs entirely on **open-source, self-hostable AI models** — zero dependency on any proprietary LLM API at prediction time (see Section 17 for the one offline tool used during dataset preparation).
 
 **Headline metrics:** Top-1 accuracy 85.0% · Top-3 accuracy 96.7% · MRR 0.911 · Impostors caught 93.1%
-**Catalog:** 56 SKUs across 10 categories
+**Catalog:** 56 SKUs across 10 categories — Air Filter, Brake Pads, Exhaust Manifold, Fuel Injector, Oil Filter, Power Steering Pump, Shock Absorber, Suspension Bushing, Throttle Body, Wheel Hub Assembly. A photo of a part from one of these returns a match; a photo from outside them is correctly refused (Section 6) rather than matched to the nearest wrong part.
 
 ### Submission requirements — where to find each item
 
@@ -41,7 +41,7 @@ A direct walkthrough of how PartPilot satisfies the stated hackathon rules and b
 
 | # | Rule | How PartPilot satisfies it |
 |---|---|---|
-| 1 | Working prototype | Full running system: FastAPI backend + React frontend. A no-setup demo mode (canned data) and a live mode (real models + database) both work end-to-end today. |
+| 1 | Working prototype | Full running system: FastAPI backend + React frontend, running end-to-end against the real models and the live database today. |
 | 2 | AI must be core, not a chatbot wrapper | The identification itself — category classification + visual similarity search — **is** the AI. The optional LLM (Brain 4) only narrates a decision three other components already made; the product answer never depends on it. |
 | 3 | Any tech stack | Python/FastAPI backend, React/TypeScript frontend, PyTorch + TensorFlow for models, FAISS for search, PostgreSQL for data. See Section 4. |
 | 4 | ⭐ Open-source AI advantage | **Every model in the live prediction path is open-weight and self-hostable**: EfficientNetB0, DINOv2, OpenCLIP, and Qwen2.5-1.5B-Instruct via llama.cpp. (SigLIP is implemented as a supported backend in code but is not used by any of the 10 deployed category indexes — see Section 5.) No OpenAI, Anthropic, Gemini, or Azure OpenAI call exists anywhere in the inference pipeline. (Gemini was used once, offline, to help build the image dataset — see Section 9, disclosed in full in Section 17.) |
@@ -124,6 +124,7 @@ Orchestration code: `partpilot/backend/pipeline/orchestrator.py`
 | Catalog (Brain 3) | PostgreSQL (Supabase) · SQLAlchemy async + asyncpg · Alembic | Product records, fitment, recommendations, audit trail | Yes (Postgres) |
 | Config | pydantic-settings | Typed, validated configuration from `.env` | Yes |
 | Frontend | Vite · React 19 · TypeScript · Tailwind v4 | Upload flow, results, guided chat UI, architecture page | Yes |
+| 3D / motion | Three.js · React Three Fiber · React Three Drei | Hero part render, tilt interaction, and other 3D UI elements | Yes |
 
 **No proprietary AI service is called by the live inference pipeline** — every model a prediction actually runs through (Sections 5–7) is open weight and self-hostable. The one exception in the whole project is Google Gemini, used offline during dataset preparation to generate a minority of catalog images (Section 9); it plays no role at prediction time. Full model-by-model disclosure is in Section 17.
 
@@ -271,6 +272,8 @@ Base path `/api/v1` (configurable via `API_PREFIX`). Interactive docs are auto-g
 | POST | `/predict` | Upload a photo → full pipeline run → category, ranked candidates, matched product, recommendations, explanation, audit id |
 | POST | `/predict/{audit_id}/confirm` | Record which SKU the user actually settled on — validates or corrects the audit entry |
 
+A photo of a part from one of the 10 trained categories (listed in Section 1) returns a match; a photo from outside them is correctly refused rather than matched to the nearest wrong part (Section 6).
+
 **Chat**
 
 | Method | Path | Description |
@@ -411,18 +414,6 @@ frontend/             # Vite + React 19 + TypeScript + Tailwind v4
 
 ## 15. Setup & Run
 
-### Demo mode — no backend, no database, no model download
-
-The frontend ships with canned data, so the whole user journey runs on any machine with Node installed:
-
-```
-git clone https://github.com/zubariyasulekaz/Parts-Detection-Hackathon.git
-cd Parts-Detection-Hackathon/frontend
-npm install
-cp .env.example .env        # VITE_API_MODE=mock is already the default
-npm run dev                 # open http://localhost:5173
-```
-
 ### Live pipeline — real models + database
 
 Everything heavy already ships with the repo — the trained classifier, the built FAISS indexes, and all 56 products live in the shared database — so install → configure → run is the whole path. Only `DATABASE_URL` is needed and it is git-ignored by design.
@@ -432,7 +423,7 @@ cd partpilot
 python -m venv .venv && .venv\Scripts\Activate.ps1     # Windows
 pip install -r requirements.txt
 cp .env.example .env        # set DATABASE_URL; leave the rest alone
-python -m backend.main      # open http://localhost:8000/docs
+python run.py                # open http://localhost:8000/docs
 ```
 
 Then point the frontend at it: set `VITE_API_MODE=live` and `VITE_CHAT_API=true` in `frontend/.env`. Startup takes ~50s while all four brains warm up (`WARM_MODELS_ON_STARTUP`) — deliberate, so the first uploader doesn't pay that cost.
@@ -465,6 +456,7 @@ Ordered by what the measurements say is actually limiting the system, not by wha
 | 5 | Re-calibrate thresholds on real traffic | Thresholds were tuned on catalog photos; phone photos in a garage will shift both distributions. |
 | 6 | Persist chat sessions outside the process | Sessions currently live in process memory; Redis lets a conversation survive a restart and scale across workers. |
 | 7 | ERP / CRM / PIM connector | The REST API (Section 10) is already the right shape for this; next step is an adapter, not a redesign. |
+| 8 | Native camera capture on mobile | The upload flow currently expects a file picker; on a phone — the device most counter staff and customers actually hold — a direct camera-capture option removes a step between seeing the part and identifying it. |
 
 ---
 

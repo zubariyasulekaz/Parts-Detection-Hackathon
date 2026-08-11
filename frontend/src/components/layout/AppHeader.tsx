@@ -1,7 +1,8 @@
-import { Menu, Search, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { useEffect, useState, type MouseEvent } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { LogoMark } from '@/components/common/LogoMark'
+import { HeaderSearch } from '@/components/layout/HeaderSearch'
 
 const NAV_LINK_CLASS =
   'relative py-1 text-sm font-medium text-muted transition-colors hover:text-foreground ' +
@@ -66,13 +67,7 @@ export function AppHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link
-            to="/catalog"
-            className="hidden items-center gap-2 rounded-lg border border-border-strong px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent/50 hover:text-accent-hover sm:inline-flex"
-          >
-            <Search className="h-4 w-4" aria-hidden="true" />
-            Catalog Search
-          </Link>
+          <HeaderSearch className="hidden w-56 sm:block lg:w-72" />
           <button
             type="button"
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
@@ -88,8 +83,9 @@ export function AppHeader() {
       {menuOpen && (
         <nav
           aria-label="Primary, mobile"
-          className="animate-fade-in border-t border-border bg-background/98 px-4 pt-2 pb-4 backdrop-blur md:hidden"
+          className="animate-fade-in border-t border-border bg-background/98 px-4 pt-3 pb-4 backdrop-blur md:hidden"
         >
+          <HeaderSearch className="mb-3 sm:hidden" onNavigate={() => setMenuOpen(false)} />
           <a href="/#how-it-works" onClick={handleHowItWorksClick} className={MOBILE_LINK_CLASS}>
             How It Works
           </a>

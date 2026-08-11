@@ -9,7 +9,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function matchesQuery(product: Product, query: string): boolean {
+export function matchesQuery(product: Product, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
   return (

@@ -1,25 +1,34 @@
 import { Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { LoadingState } from '@/components/common/LoadingState'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { AlternativeProductCard } from '@/components/product/AlternativeProductCard'
-import { deriveFilterOptions, listProducts } from '@/services/catalogService'
+import { deriveFilterOptions, listProducts, matchesQuery } from '@/services/catalogService'
 import type { Product } from '@/types/product'
 
 type LoadStatus = 'loading' | 'success' | 'error'
 
 export function CatalogPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [status, setStatus] = useState<LoadStatus>('loading')
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
   const [category, setCategory] = useState('')
   const [brand, setBrand] = useState('')
   // Bumped by Retry so the fetch effect re-runs without a full page reload.
   const [reloadToken, setReloadToken] = useState(0)
+
+  // Header search sets ?q= and navigates here even when already on this
+  // page (e.g. searching again without leaving /catalog), which doesn't
+  // remount the component - the state initializer above only runs once, so
+  // this effect is what keeps the search box in sync on a repeat search.
+  useEffect(() => {
+    setQuery(searchParams.get('q') ?? '')
+  }, [searchParams])
 
   useEffect(() => {
     let cancelled = false
@@ -41,11 +50,10 @@ export function CatalogPage() {
   const { categories, brands } = useMemo(() => deriveFilterOptions(products), [products])
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
     return products.filter((product) => {
       if (category && product.category !== category) return false
       if (brand && product.brand !== brand) return false
-      if (q && !`${product.productName} ${product.sku} ${product.brand}`.toLowerCase().includes(q)) return false
+      if (!matchesQuery(product, query)) return false
       return true
     })
   }, [products, query, category, brand])
@@ -114,7 +122,7 @@ export function CatalogPage() {
 
       {status === 'success' && filtered.length === 0 && (
         <EmptyState
-          title="No products match your filters"
+          title="No such products available"
           description="Try a different search term or clear the category/brand filters."
         />
       )}

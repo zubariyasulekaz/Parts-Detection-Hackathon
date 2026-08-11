@@ -12,7 +12,7 @@ what replaces it, and what to buy alongside it.
 [![Top-1 accuracy](https://img.shields.io/badge/Top--1_accuracy-85.0%25-success?style=for-the-badge)](#-accuracy)
 [![Top-3 accuracy](https://img.shields.io/badge/Top--3_accuracy-96.7%25-success?style=for-the-badge)](#-accuracy)
 [![MRR](https://img.shields.io/badge/MRR-0.911-success?style=for-the-badge)](#-accuracy)
-[![Impostors caught](https://img.shields.io/badge/Impostors_caught-93.1%25-blueviolet?style=for-the-badge)](#-refusing-to-guess)
+[![Impostors caught](https://img.shields.io/badge/Impostors_caught-93.2%25-blueviolet?style=for-the-badge)](#-refusing-to-guess)
 
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -328,8 +328,10 @@ that happen to share a silhouette.**
 
 ### How it works
 
-EfficientNetB0 is small enough to train on a free Colab GPU *and* to run on a CPU
-in production.
+EfficientNetB0 is small enough to train on a free Kaggle Notebooks GPU *and* to
+run on a CPU in production. The deployed checkpoint was trained there — Colab's
+free tier did not hold up for this training run — and it is committed to the
+repo, so the GPU is a training-time need only, never an inference one.
 
 **Preprocessing** ([`preprocess.py`](partpilot/backend/pipeline/brain1_classifier/preprocess.py)) —
 resize to 224×224. That is all.
@@ -457,7 +459,7 @@ Each index ships with two sidecar files:
 
 ### Step 5 · Scoring: centroid, not best photo
 
-Each product has **2–7 photos**, and each photo is stored as its own row. So how
+Each product has **2–11 photos**, and each photo is stored as its own row. So how
 should a product be scored — by its *best-matching* photo, or by its *average*?
 
 Measured both ways over the real index ([`scripts/analyze_index_vectors.py`](partpilot/scripts/analyze_index_vectors.py)):
@@ -495,11 +497,11 @@ cannot serve both. So thresholds are keyed per backend, calibrated against the
 measured score distributions of correct matches and impostors:
 
 ```text
- dinov2     0.45  →  0.0% correct rejected  /  90.0% impostors caught
-            0.48  →  1.3% correct rejected  /  93.1% impostors caught    chosen
+ dinov2     0.45  →  0.0% correct rejected  /  90.2% impostors caught
+            0.48  →  1.2% correct rejected  /  93.2% impostors caught    chosen
 
- openclip   0.84  →  0.0% correct rejected  /  43.9% impostors caught
-            0.86  →  1.5% correct rejected  /  62.1% impostors caught    chosen
+ openclip   0.84  →  1.5% correct rejected  /  41.8% impostors caught
+            0.86  →  1.5% correct rejected  /  60.4% impostors caught    chosen
 ```
 
 > ### The trade is explicit and priced
@@ -913,10 +915,10 @@ Two design rules hold throughout:
 | Document | Covers |
 |:--|:--|
 | **[`partpilot/docs/RUNNING.md`](partpilot/docs/RUNNING.md)** | Full backend setup, configuration, troubleshooting, rebuilding indexes |
-| **[`partpilot/docs/DEMO_GUIDE.md`](partpilot/docs/DEMO_GUIDE.md)** | End-to-end Google Colab demo, including training Brain 1 from scratch |
+| **[`partpilot/docs/DEMO_GUIDE.md`](partpilot/docs/DEMO_GUIDE.md)** | End-to-end Google Colab demo run, with an optional Brain 1 training cell — the shipped checkpoint was trained on Kaggle Notebooks |
 
 This is the only README in the repository — everything else under `docs/` is
-reference material for a specific task (deep backend setup, retraining in
+reference material for a specific task (deep backend setup, running the demo in
 Colab), not a second front door.
 
 <div align="center">

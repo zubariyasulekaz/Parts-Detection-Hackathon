@@ -135,6 +135,14 @@ print(f'Converted {converted} images to .jpg')
 Trains an EfficientNetB0 transfer-learning model to tell part categories apart, and
 saves it where the backend expects.
 
+> ⚠️ **The shipped checkpoint was not trained here.** It was trained on **Kaggle
+> Notebooks**, whose free GPU tier handled this run where Colab's did not. This
+> cell is included so the training step is reproducible and inspectable, but if
+> it stalls or runs out of resources, that is the same wall we hit — move the
+> step to Kaggle rather than fighting it. Nothing else in this guide depends on
+> retraining: `backend/models/classifier/` already holds the trained model, so
+> you can skip straight to Step 6 and the demo still works end to end.
+
 ```python
 import csv, json, shutil, pathlib
 import tensorflow as tf

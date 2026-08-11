@@ -29,7 +29,7 @@ from backend.core.exceptions import (
     SearchError,
 )
 from backend.core.logging import get_logger
-from backend.core.startup import on_shutdown, on_startup
+from backend.core.startup import check_database, on_shutdown, on_startup
 from backend.schemas.response import ErrorResponse
 
 logger = get_logger(__name__)
@@ -55,6 +55,7 @@ _EXCEPTION_STATUS_MAP: dict[type[PartPilotError], int] = {
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifespan handler: runs startup routines, then shutdown on exit."""
     on_startup()
+    await check_database()
     yield
     await on_shutdown()
 

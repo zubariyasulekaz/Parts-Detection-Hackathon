@@ -76,6 +76,18 @@ async def predict_part(
         result = await orchestrator.run(image, top_k=top_k, explain=explain)
     except PartPilotError:
         raise  # domain errors -> mapped to HTTP status by the global handler
+    except (ConnectionError, OSError, TimeoutError) as exc:
+        # Distinguished from the catch-all below because this one is
+        # actionable: it's Brain 3 (the Postgres catalog) being
+        # unreachable, not a pipeline bug. Most often the IPv6-only
+        # Supabase direct-connection host on a network without IPv6 -
+        # see check_database() in backend.core.startup, which flags this
+        # at boot, and docs/RUNNING.md for the session-pooler fix.
+        raise PredictionError(
+            "Cannot reach the product catalog database right now. If this is "
+            "unexpected, check DATABASE_URL in .env and see docs/RUNNING.md "
+            "(look for the IPv6/session-pooler note)."
+        ) from exc
     except Exception as exc:  # noqa: BLE001
         raise PredictionError(f"Prediction pipeline failed: {exc}") from exc
 

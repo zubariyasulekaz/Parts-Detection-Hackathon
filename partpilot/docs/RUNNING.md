@@ -21,6 +21,14 @@ Ask for the `DATABASE_URL`. You can skip the images unless you intend to
 rebuild the FAISS indexes - predictions embed the photo the user uploads, not
 the catalog photos.
 
+**Ask for the session-pooler variant specifically**
+(`aws-0-<region>.pooler.supabase.com`, username `postgres.<project-ref>`), not
+the direct-connection host (`db.<project-ref>.supabase.co`). The direct host
+resolves over IPv6 only, so it silently fails on any network without IPv6
+routing - a real risk on an unfamiliar network (conference wifi, a judge's
+laptop, a hotspot). The pooler is IPv4-reachable and behaves identically for
+this app's query pattern.
+
 ---
 
 ## 1. Clone
@@ -59,6 +67,26 @@ pip install -r requirements.txt
 
 This pulls TensorFlow, PyTorch and FAISS, so it is a few GB and takes a while.
 
+### Optional: Brain 4 explanations (llama.cpp)
+
+Skip this unless you want the LLM-generated explanation text - the golden
+path (identify a part, including guided-chat disambiguation) works fully
+without it, since a missing Brain 4 just degrades to the Brain 1-3 answer
+with no explanation.
+
+`llama-cpp-python` is deliberately not in `requirements.txt`: its source
+build fails outright on Windows unless Long Path support is enabled (most
+machines don't have it on by default), which would break the base install
+for everyone. If you want it:
+
+```bash
+pip install llama-cpp-python --prefer-binary \
+  --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+```
+
+Or set `LLM_BACKEND=transformers` in `.env` to use the slower
+no-extra-dependency path instead.
+
 ## 4. Configure
 
 ```powershell
@@ -84,6 +112,10 @@ Then open <http://localhost:8000/docs>.
 
 To try a prediction: find the predict endpoint, click **Try it out**, choose a
 photo of a car part, and **Execute**.
+
+The startup log ends with either `Database reachable` or an `ERROR` naming
+the problem and pointing back here - check that line before assuming the app
+is ready, especially the first time you run it on a new network.
 
 The first request takes 30-60 seconds - it downloads the background-removal
 model and the embedding model, roughly 500 MB combined. After that a prediction

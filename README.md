@@ -136,16 +136,20 @@ source .venv/bin/activate      # macOS / Linux
 pip install -r requirements.txt
 ```
 
-> ⚠️ `llama-cpp-python` (the Brain 4 runtime) may try to compile from source.
-> Install it from the project's own prebuilt wheels instead — no compiler needed:
+> ℹ️ `llama-cpp-python` (the Brain 4 runtime) is deliberately **not** in
+> `requirements.txt` — its source build fails outright on Windows without
+> Long Path support enabled, which would break the base install for
+> everyone. Brain 4 is optional either way; the answer never depends on it.
+> Only install it if you want the LLM-generated explanation text, from the
+> project's own prebuilt wheels (no compiler needed):
 >
 > ```bash
 > pip install llama-cpp-python --prefer-binary \
 >   --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
 > ```
 >
-> Or skip it entirely: set `LLM_BACKEND=transformers` in `.env`. Brain 4 is
-> optional either way — the answer never depends on it.
+> Or set `LLM_BACKEND=transformers` in `.env` to use the slower
+> no-extra-dependency path instead.
 
 ### 3. Configure
 

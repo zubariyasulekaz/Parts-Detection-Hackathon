@@ -7,9 +7,11 @@ makes it independently testable and keeps `app.py` focused on wiring.
 
 from time import perf_counter
 
+from sqlalchemy import text
+
 from backend.config.paths import ensure_runtime_directories
 from backend.config.settings import get_settings
-from backend.core.database import close_db_engine
+from backend.core.database import close_db_engine, engine
 from backend.core.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)
@@ -18,15 +20,53 @@ logger = get_logger(__name__)
 def on_startup() -> None:
     """Run all startup routines.
 
-    Brain 3 (product catalog) needs no warm-up: it is backed by
-    PostgreSQL via a request-scoped `AsyncSession` (see
-    `backend.core.database.get_db`), not an in-memory cache.
+    Brain 3 (product catalog) needs no warm-up beyond the connectivity
+    check below: it is backed by PostgreSQL via a request-scoped
+    `AsyncSession` (see `backend.core.database.get_db`), not an
+    in-memory cache.
     """
     configure_logging()
     ensure_runtime_directories()
     logger.info("PartPilot backend starting up")
     if get_settings().WARM_MODELS_ON_STARTUP:
         warm_models()
+
+
+async def check_database() -> None:
+    """Fail loudly at boot, not silently on the judge's first upload.
+
+    A DB outage otherwise surfaces only when a user submits a photo -
+    Brain 1/2 run for several seconds first, then the request dies on
+    catalog lookup. Checking here puts the failure (and the fix) in the
+    startup log where whoever is running the demo will actually see it
+    before an audience does.
+
+    `db.<project>.supabase.co` (Supabase's direct connection) resolves
+    over IPv6 only; a network without IPv6 routing fails with a
+    low-level connect error that gives no hint what to do. The session
+    pooler (`aws-0-<region>.pooler.supabase.com`) is IPv4-reachable and
+    is what `docs/RUNNING.md` recommends for exactly this reason.
+    """
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001
+        hint = (
+            " This looks like the IPv6-only Supabase direct-connection host - "
+            "switch DATABASE_URL to the session pooler "
+            "(aws-0-<region>.pooler.supabase.com:5432, username "
+            "postgres.<project-ref>). See docs/RUNNING.md."
+            if "10060" in str(exc) or "10061" in str(exc) or "Connect call failed" in str(exc)
+            else " Check DATABASE_URL in .env - see docs/RUNNING.md for troubleshooting."
+        )
+        logger.error(
+            "Cannot reach the database - Brain 3 catalog lookups will fail on every "
+            "upload until this is fixed: %s.%s",
+            exc,
+            hint,
+        )
+    else:
+        logger.info("Database reachable")
 
 
 def warm_models() -> None:

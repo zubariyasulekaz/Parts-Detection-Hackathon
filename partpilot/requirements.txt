@@ -24,24 +24,29 @@ numpy==2.0.2
 # --- Brain 2: similarity search ---------------------------------------------------------------
 # Embedding backends are swappable (see EMBEDDING_BACKEND): open_clip_torch
 # provides OpenCLIP, and transformers below provides DINOv2 and SigLIP.
+# torch itself is imported directly (embedding_backends.py, clip_model.py),
+# not just pulled in transitively by the two packages above, so it is pinned
+# explicitly rather than left to whatever version they happen to resolve.
+torch==2.13.0
 open_clip_torch==2.29.0
 faiss-cpu==1.9.0.post1
 
 # --- Brain 4: reasoning (Qwen) + Brain 2 backends (DINOv2, SigLIP) ---------------------------------------------------------------
 transformers==4.46.3
 accelerate==1.1.1
-# Default Brain 4 runtime (LLM_BACKEND=llamacpp): runs a quantised GGUF
-# instead of full-precision weights. transformers took ~23s per explanation
-# on a CPU box here; llama.cpp is built for exactly this case. Prebuilt
-# wheels come from the project's own index, so no compiler is needed:
+# Brain 4 is optional (a failed load degrades to the Brain 1-3 answer with no
+# explanation), and LLM_BACKEND=llamacpp - the default - needs
+# llama-cpp-python, which is deliberately NOT in this file: its sdist build
+# fails outright on Windows without Long Path support enabled (a common
+# default), which would break this file for anyone who hits it. Install it
+# separately only if you want Brain 4 explanations:
 #   pip install llama-cpp-python --prefer-binary \
 #     --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-# Set LLM_BACKEND=transformers to skip this dependency entirely.
-llama-cpp-python==0.3.34
+# Or set LLM_BACKEND=transformers to use the (slower, no-extra-dependency)
+# path instead.
 
 # --- image processing ---------------------------------------------------------------
 Pillow==11.0.0
-opencv-python==4.10.0.84
 rembg==2.0.60
 # rembg runs its segmentation model through ONNX but does not pull the runtime
 # in itself; without this it fails at import with a misleading "rembg is not
@@ -51,6 +56,3 @@ onnxruntime==1.20.1
 # --- testing ---------------------------------------------------------------
 pytest==8.3.4
 httpx==0.28.1
-
-# --- vector search in Postgres (optional Brain 2 store) ---------------------------------------------------------------
-pgvector==0.3.6

@@ -47,7 +47,7 @@ export function HistoryEntryCard({
         {entry.thumbnail ? (
           <img
             src={entry.thumbnail}
-            alt={`Uploaded photo identified as ${entry.category}`}
+            alt={entry.topSku ? `Uploaded photo identified as ${entry.category}` : 'Uploaded photo, no catalog match'}
             className="h-14 w-14 shrink-0 rounded-lg border border-border-strong bg-surface-2 object-cover"
           />
         ) : (
@@ -55,7 +55,10 @@ export function HistoryEntryCard({
         )}
 
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground">{entry.category}</p>
+          {/* A refusal is a refusal all the way down: a category name here
+              would read as a confident identification the pipeline didn't
+              actually make - see the No match badge just below. */}
+          <p className="text-sm font-semibold text-foreground">{entry.topSku ? entry.category : 'No match'}</p>
           {entry.topSku ? (
             <span className="mt-1 flex flex-wrap items-center gap-2">
               <ProductThumbnail

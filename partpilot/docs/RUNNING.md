@@ -14,20 +14,13 @@ Two things are not in the repo:
 
 | | Why | Needed to run? |
 |---|---|---|
-| `DATABASE_URL` | contains a password, so it stays out of git | **yes** |
+| `.env` | contains the database connection string, so it stays out of git | **yes** |
 | `partpilot_images_v3.zip` | ~50 MB of catalog photos, git-ignored | only for rebuilding indexes |
 
-Ask for the `DATABASE_URL`. You can skip the images unless you intend to
-rebuild the FAISS indexes - predictions embed the photo the user uploads, not
-the catalog photos.
-
-**Ask for the session-pooler variant specifically**
-(`aws-0-<region>.pooler.supabase.com`, username `postgres.<project-ref>`), not
-the direct-connection host (`db.<project-ref>.supabase.co`). The direct host
-resolves over IPv6 only, so it silently fails on any network without IPv6
-routing - a real risk on an unfamiliar network (conference wifi, a judge's
-laptop, a hotspot). The pooler is IPv4-reachable and behaves identically for
-this app's query pattern.
+Get the `.env` file from the team and place it at `partpilot/.env` - see
+[step 4](#4-configure). You can skip the images unless you intend to rebuild
+the FAISS indexes - predictions embed the photo the user uploads, not the
+catalog photos.
 
 ---
 
@@ -36,7 +29,6 @@ this app's query pattern.
 ```bash
 git clone https://github.com/zubariyasulekaz/Parts-Detection-Hackathon.git
 cd Parts-Detection-Hackathon
-git checkout solai
 cd partpilot
 ```
 
@@ -66,41 +58,27 @@ pip install -r requirements.txt
 ```
 
 This pulls TensorFlow, PyTorch and FAISS, so it is a few GB and takes a while.
+It also installs `llama-cpp-python` (the Brain 4 runtime) from a prebuilt
+wheel - `requirements.txt` points pip at the project's own wheel index, so
+this needs no compiler and installs cleanly on Windows even without Long
+Path support enabled. A plain `pip install llama-cpp-python` with no extra
+index would instead try to build from source and fail there, which is why
+that index is wired in rather than left as a manual step.
 
-### Optional: Brain 4 explanations (llama.cpp)
-
-Skip this unless you want the LLM-generated explanation text - the golden
-path (identify a part, including guided-chat disambiguation) works fully
-without it, since a missing Brain 4 just degrades to the Brain 1-3 answer
-with no explanation.
-
-`llama-cpp-python` is deliberately not in `requirements.txt`: its source
-build fails outright on Windows unless Long Path support is enabled (most
-machines don't have it on by default), which would break the base install
-for everyone. If you want it:
-
-```bash
-pip install llama-cpp-python --prefer-binary \
-  --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-```
-
-Or set `LLM_BACKEND=transformers` in `.env` to use the slower
-no-extra-dependency path instead.
+Brain 4 stays optional at runtime regardless - the golden path (identify a
+part, including guided-chat disambiguation) works fully without it, and a
+failed load just degrades to the Brain 1-3 answer with no explanation. If
+`llama-cpp-python` ever fails to install on some other platform, set
+`LLM_BACKEND=transformers` in `.env` to use the slower, no-extra-dependency
+path instead.
 
 ## 4. Configure
 
-```powershell
-copy .env.example .env      # Windows
-```
-```bash
-cp .env.example .env        # macOS / Linux
-```
+Place the `.env` file the team gave you at `partpilot/.env`. Leave it as
+given.
 
-Open `.env` and set `DATABASE_URL` to the connection string the team gave you.
-Leave everything else as it is.
-
-`.env` is git-ignored. Do not commit it, and do not paste the connection string
-into an issue or a pull request.
+`.env` is git-ignored. Do not commit it, and do not paste its contents into
+an issue or a pull request.
 
 ## 5. Run
 
@@ -144,7 +122,8 @@ cp .env.example .env    # copy .env.example on Windows
 npm run dev
 ```
 
-Run it alongside the backend. `.env` decides what it talks to:
+This creates `frontend/.env` (no secrets in it, unlike the backend's). Run it
+alongside the backend. `.env` decides what it talks to:
 
 | | |
 |---|---|
@@ -153,15 +132,18 @@ Run it alongside the backend. `.env` decides what it talks to:
 | `VITE_API_PREFIX` | must match `API_PREFIX` in `backend/config/settings.py` |
 | `VITE_PREDICTION_EXPLAIN` | `false` skips Brain 4 (see below) |
 
-The backend allows all CORS origins by default, so whichever port Vite picks
-works without extra configuration.
+The dev server is fixed to **<http://localhost:5555>** (`server.port` in
+`vite.config.ts`, with `strictPort: true`) - it fails to start rather than
+silently moving to another port if 5555 is already taken. The backend allows
+all CORS origins by default, so no extra configuration is needed on that
+side.
 
 ---
 
 ## If something goes wrong
 
 **`pip install` fails on a numpy version conflict**
-Make sure you are on the latest `solai`. TensorFlow 2.18 caps numpy below 2.1,
+Make sure you are on the latest commit. TensorFlow 2.18 caps numpy below 2.1,
 and an older commit pinned 2.1.3, which can never resolve.
 
 **`rembg is not installed; cannot remove image background`**
@@ -172,9 +154,12 @@ Misleading message - it usually means `onnxruntime` is missing. It is in
 Check `DATABASE_URL` in `.env`. It must start `postgresql+asyncpg://`, and any
 `@ : / #` in the password has to be URL-encoded (`@` becomes `%40`).
 
-**`could not translate host name` on the database**
-The direct Supabase host resolves over IPv6 only. If your network has no IPv6,
-ask the team for the session-pooler URL instead.
+**Backend seems to hang, or `could not translate host name` on the database**
+The direct Supabase host (`DATABASE_URL`) resolves over IPv6 only. If
+`DATABASE_URL_POOLER` is set in `.env`, `backend.core.database` detects a
+missing IPv6 route at startup and switches to it automatically - check the
+startup log for `Database reachable` or an `ERROR` naming the problem. If
+`DATABASE_URL_POOLER` is unset, ask the team for it and add it to `.env`.
 
 **`alembic` runs but hits the wrong project**
 If you have other virtual environments around, `alembic` on PATH may not be

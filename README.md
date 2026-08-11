@@ -75,6 +75,10 @@ not stock the part — the customer fits it, it fails, and they do not come back
 </tr>
 </table>
 
+> **Upload a photo of a part from one of these 10 categories to get a match.**
+> A photo from outside them is correctly refused rather than matched to the
+> nearest wrong part — see [Refusing to guess](#-refusing-to-guess).
+
 </div>
 
 ---
@@ -90,20 +94,19 @@ git clone https://github.com/zubariyasulekaz/Parts-Detection-Hackathon.git
 cd Parts-Detection-Hackathon
 ```
 
-#### What you need first
+#### Prerequisites
 
-| What | Why | Do you need it? |
-|---|---|---|
-| `DATABASE_URL` | contains a password, so it stays out of git | **Yes** — ask the team before you begin |
-| `partpilot_images_v3.zip` | ~50 MB of catalog photos, git-ignored | Only to *rebuild* indexes — not to run |
+Get the `.env` file from the team — it contains the database connection
+string, which is excluded from version control. The install below pulls
+TensorFlow, PyTorch, and FAISS (several GB), so have the file ready before
+starting.
 
-> **Get the `DATABASE_URL` first, and ask for the session-pooler variant**
-> (`aws-0-<region>.pooler.supabase.com`), not the direct-connection host
-> (`db.<project-ref>.supabase.co`). The direct host resolves over IPv6 only,
-> so it silently fails on any network without IPv6 routing — a real risk on
-> unfamiliar wifi. The install below also pulls TensorFlow, PyTorch and FAISS
-> — several GB — so line the connection string up first and the rest runs
-> straight through.
+Two separate `.env` files are needed, one per app — do not mix them up:
+
+| App | Env file location | Where it comes from |
+|:--|:--|:--|
+| Backend (`partpilot`) | `partpilot/.env` | the file the team gives you |
+| Frontend (`frontend`) | `frontend/.env` | copied from `frontend/.env.example`, no secrets in it |
 
 #### 1. Backend environment
 
@@ -129,40 +132,27 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> `llama-cpp-python` (the Brain 4 runtime) is deliberately **not** in
-> `requirements.txt` — its source build fails outright on Windows without
-> Long Path support enabled, which would break the base install for
-> everyone. Brain 4 is optional either way; the answer never depends on it —
-> everything, including the guided chat, works without it. Only install it
-> if you want the LLM-generated explanation text, from the project's own
-> prebuilt wheels (no compiler needed):
->
-> ```bash
-> pip install llama-cpp-python --prefer-binary \
->   --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-> ```
->
-> Or set `LLM_BACKEND=transformers` in `.env` to use the slower
+> This installs `llama-cpp-python` (the Brain 4 runtime) from a prebuilt
+> wheel — `requirements.txt` points pip at the project's own wheel index, so
+> no compiler is needed and it installs cleanly on Windows even without Long
+> Path support enabled (a plain `pip install llama-cpp-python` with no extra
+> index would try to build from source and fail there). Brain 4 is optional
+> at runtime regardless — the answer never depends on it, and a failed load
+> just degrades to no explanation. If it ever fails to install, set
+> `LLM_BACKEND=transformers` in `.env` to use the slower,
 > no-extra-dependency path instead.
 
 #### 3. Configure the backend
 
-```powershell
-copy .env.example .env         # Windows
-```
-```bash
-cp .env.example .env           # macOS / Linux
-```
-
-Open `.env` and set `DATABASE_URL` to the string the team gave you (the
-session-pooler variant — see above). **Leave everything else alone** — every
-threshold is already tuned. `.env` is git-ignored; never paste the
-connection string into an issue or a PR.
+Place the `.env` file from the team directly inside the `partpilot/` folder,
+so it sits at **`partpilot/.env`** (next to `requirements.txt`). **Leave it
+as given** — every threshold is already tuned. `.env` is git-ignored; never
+commit it or paste its contents into an issue or a PR.
 
 #### 4. Run the backend
 
 ```bash
-python -m backend.main
+python run.py
 ```
 
 Startup takes **~50–90s** while all four brains warm up — the log shows each
@@ -174,7 +164,9 @@ indexes, and the 56 catalog products already live in the shared database — so
 there is nothing to train or rebuild before this step works.
 
 Open <http://localhost:8000/docs>, find `POST /api/v1/predict`, click
-**Try it out**, upload a part photo, **Execute**.
+**Try it out**, upload a part photo, **Execute**. Use a photo from one of the
+[10 trained categories](#the-catalog-it-searches--56-products-10-categories)
+above to get a match — anything else is correctly refused.
 
 #### 5. Run the frontend, pointed at the real backend
 
@@ -189,7 +181,7 @@ npm install
 cp .env.example .env           # macOS / Linux
 ```
 
-Open `frontend/.env` and set:
+This creates **`frontend/.env`** (next to `package.json`). Open it and set:
 
 ```bash
 VITE_API_MODE=live     # call the real backend instead of the canned data
@@ -202,7 +194,9 @@ then start it:
 npm run dev
 ```
 
-Open <http://localhost:5173>. With `VITE_CHAT_API=false` the guided-chat
+Open <http://localhost:5555> (the port is fixed in `vite.config.ts`, so it
+never silently moves to 5174/5175/... if 5555 is already taken - free the
+port instead). With `VITE_CHAT_API=false` the guided-chat
 questions still work — they just run in the browser against the same logic
 instead of the server session API.
 

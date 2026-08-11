@@ -443,14 +443,7 @@ export function ServerChatPanel({
               <SkipForward className="h-3.5 w-3.5" aria-hidden="true" />
               Skip questions - show me the matches
             </button>
-            <span className="font-mono text-[10px] text-subtle">server session {chat.session_id.slice(0, 8)}</span>
           </div>
-        </div>
-      )}
-
-      {!question && chat && (
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-end border-t border-border px-4 py-2">
-          <span className="font-mono text-[10px] text-subtle">server session {chat.session_id.slice(0, 8)}</span>
         </div>
       )}
     </section>

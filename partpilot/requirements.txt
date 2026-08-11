@@ -1,3 +1,9 @@
+# Prebuilt CPU wheels for llama-cpp-python (see the Brain 4 section below).
+# Additive: pip still checks PyPI first for everything else, and falls back
+# to PyPI's own sdist for llama-cpp-python on any platform this index
+# doesn't have a wheel for.
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+
 # --- web framework ---------------------------------------------------------------
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
@@ -34,16 +40,16 @@ faiss-cpu==1.9.0.post1
 # --- Brain 4: reasoning (Qwen) + Brain 2 backends (DINOv2, SigLIP) ---------------------------------------------------------------
 transformers==4.46.3
 accelerate==1.1.1
-# Brain 4 is optional (a failed load degrades to the Brain 1-3 answer with no
-# explanation), and LLM_BACKEND=llamacpp - the default - needs
-# llama-cpp-python, which is deliberately NOT in this file: its sdist build
-# fails outright on Windows without Long Path support enabled (a common
-# default), which would break this file for anyone who hits it. Install it
-# separately only if you want Brain 4 explanations:
-#   pip install llama-cpp-python --prefer-binary \
-#     --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-# Or set LLM_BACKEND=transformers to use the (slower, no-extra-dependency)
-# path instead.
+# LLM_BACKEND=llamacpp (the default) needs this. A plain `pip install
+# llama-cpp-python` tries to build from source and fails outright on Windows
+# without Long Path support enabled (a common default) - its sdist contains
+# a llama.cpp vendor path deep enough to exceed MAX_PATH. The
+# --extra-index-url at the top of this file avoids that entirely by
+# fetching a prebuilt wheel instead (verified: installs clean even without
+# Long Path support). Brain 4 is still optional at runtime either way - a
+# failed load just degrades to the Brain 1-3 answer with no explanation -
+# so set LLM_BACKEND=transformers instead if this ever fails to install.
+llama-cpp-python==0.3.34
 
 # --- image processing ---------------------------------------------------------------
 Pillow==11.0.0

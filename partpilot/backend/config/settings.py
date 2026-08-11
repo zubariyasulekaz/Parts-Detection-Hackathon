@@ -55,6 +55,17 @@ class Settings(BaseSettings):
 
     # --- database (Brain 3 product catalog) ---------------------------------------------------------------
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/partpilot"
+    # Supabase's session-pooler connection string (IPv4-compatible). The
+    # direct DATABASE_URL host above resolves over IPv6 only; on a network
+    # with no IPv6 route, connecting to it hangs rather than failing fast.
+    # When this is set, backend.core.database checks IPv6 reachability once
+    # at startup and swaps to this URL automatically if the direct host
+    # can't be reached - no manual .env edit needed per machine. Leave unset
+    # to always use DATABASE_URL as-is.
+    DATABASE_URL_POOLER: str | None = None
+    # How long to wait for the IPv6 reachability probe before assuming no
+    # route exists and falling back to DATABASE_URL_POOLER.
+    DB_IPV6_CHECK_TIMEOUT_SECONDS: float = 2.0
     DB_ECHO: bool = False
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 10

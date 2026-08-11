@@ -26,12 +26,6 @@ from dataclasses import dataclass, field
 #: `frontend/src/services/identificationService.ts` — keep in sync.
 STRONG_SEPARATION_GAP = 0.08
 
-#: Attribute keys that name a sub-type of the part itself (e.g. "air
-#: strut" vs "shock absorber") rather than an independent trait. These
-#: overlap with the classification the app exists to do — asking the user
-#: to tell them apart would just outsource that job back to them.
-IDENTITY_ATTRIBUTE_KEYS = {"damper_style", "manifold_style"}
-
 _PROMPTS: dict[str, tuple[str, str]] = {
     "make": ("Which vehicle is this part for?", "These candidates fit different makes."),
     "model": ("Which model?", "Narrowing further by model."),
@@ -69,26 +63,6 @@ _ATTRIBUTE_PROMPTS: dict[str, tuple[str, str]] = {
     "pulley_fitted": ("Is the pulley already fitted?", ""),
     "integrated_reservoir": ("Does it have a fluid reservoir on top?", ""),
     "catalytic_converter": ("Does it include a catalytic converter?", ""),
-}
-
-#: Attribute value slugs whose hyphen joins words rather than being part
-#: of the term — mirrors `VALUE_LABELS` in `frontend/src/utils/attributes.ts`.
-_VALUE_LABELS: dict[str, str] = {
-    "strut-assembly": "Strut assembly",
-    "shock-absorber": "Shock absorber",
-    "remote-reservoir": "Remote reservoir",
-    "air-strut": "Air strut",
-    "long-tube-header": "Long-tube header",
-    "shorty-header": "Shorty header",
-    "oem-manifold": "OEM manifold",
-    "direct-injection": "Direct injection",
-    "common-rail": "Common rail",
-    "dual-fuel": "Dual fuel",
-    "unit-injector": "Unit injector",
-    "stainless-steel": "Stainless steel",
-    "cast-iron": "Cast iron",
-    "yes": "Yes",
-    "no": "No",
 }
 
 _KEY_LABELS: dict[str, str] = {
@@ -181,11 +155,6 @@ def format_attribute_label(key: str) -> str:
         return _KEY_LABELS[key]
     words = key.replace("_", " ").replace("-", " ").strip()
     return words[:1].upper() + words[1:]
-
-
-def format_attribute_value(value: str) -> str:
-    """`semi-metallic` -> "Semi-metallic"; `strut-assembly` -> "Strut assembly"."""
-    return _VALUE_LABELS.get(value, value[:1].upper() + value[1:])
 
 
 def prompt_for(facet: str) -> tuple[str, str]:
@@ -317,24 +286,6 @@ def _part_number_options(candidates: list[ChatCandidate]) -> list[Option]:
     ]
 
 
-def _attribute_options(candidates: list[ChatCandidate], key: str) -> list[Option]:
-    """One option per distinct value of an attribute key.
-
-    Only offered when every candidate carries the key: a product whose
-    attribute was never derived would otherwise be silently ruled out for
-    having no value, which is a data gap rather than a mismatch.
-    """
-    if not all(c.attributes.get(key) for c in candidates):
-        return []
-    return [
-        Option(
-            label=format_attribute_value(value),
-            skus=tuple(_unique_sorted([c.sku for c in candidates if c.attributes.get(key) == value])),
-        )
-        for value in _unique_sorted([c.attributes[key] for c in candidates])
-    ]
-
-
 def _worst_case_remaining(options: list[Option]) -> int:
     return max(len(option.skus) for option in options)
 
@@ -400,12 +351,11 @@ def _question_for(
 
     built: list[tuple[str, list[Option]]] = []
 
-    attribute_keys = _unique_sorted(
-        [key for c in candidates for key in c.attributes if key not in IDENTITY_ATTRIBUTE_KEYS]
-    )
-    for key in attribute_keys:
-        built.append((f"attr:{key}", _attribute_options(candidates, key)))
-
+    # Visual attributes (colour, shape, style, ...) are deliberately never
+    # asked here: Brain 2's similarity search already ranks candidates on
+    # visual appearance, so re-asking what the photo already informed would
+    # be redundant friction, not new information. Only ask what the photo
+    # genuinely cannot tell us - fitment, part number, brand.
     if every_candidate_has_fitment:
         built.append(("make", _options_from_rows(rows, "make")))
         built.append(("model", _options_from_rows(rows, "model")))

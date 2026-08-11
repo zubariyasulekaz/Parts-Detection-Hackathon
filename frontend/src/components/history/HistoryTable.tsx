@@ -94,7 +94,11 @@ export function HistoryTable({
                       {entry.thumbnail ? (
                         <img
                           src={entry.thumbnail}
-                          alt={`Uploaded photo identified as ${entry.category}`}
+                          alt={
+                            entry.topSku
+                              ? `Uploaded photo identified as ${entry.category}`
+                              : 'Uploaded photo, no catalog match'
+                          }
                           className="h-12 w-12 shrink-0 rounded-lg border border-border-strong bg-surface-2 object-cover"
                         />
                       ) : (
@@ -103,7 +107,12 @@ export function HistoryTable({
                           className="h-12 w-12 shrink-0 rounded-lg border border-border-strong"
                         />
                       )}
-                      <span className="font-medium whitespace-nowrap">{entry.category}</span>
+                      {/* A refusal is a refusal all the way down: a category name here
+                          would read as a confident identification the pipeline didn't
+                          actually make - see the "Top Match" column's own No match badge. */}
+                      <span className="font-medium whitespace-nowrap">
+                        {entry.topSku ? entry.category : 'No match'}
+                      </span>
                     </div>
                   </td>
                   <td className="px-4 py-3">

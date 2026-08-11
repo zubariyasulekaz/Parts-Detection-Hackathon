@@ -1,4 +1,4 @@
-import { formatAttributeLabel, formatAttributeValue } from '@/utils/attributes'
+import { formatAttributeLabel } from '@/utils/attributes'
 import { STRONG_SEPARATION_GAP } from './identificationService'
 import type { IdentificationCandidate } from '@/types/identification'
 
@@ -108,18 +108,6 @@ const ATTRIBUTE_PROMPTS: Record<string, { prompt: string; hint: string }> = {
   catalytic_converter: { prompt: 'Does it include a catalytic converter?', hint: '' },
 }
 
-
-
-/**
- * Attribute keys that name a sub-type of the part itself (e.g. "air strut" vs
- * "shock absorber" vs "strut assembly") rather than an independent trait.
- * These overlap with the classification the app exists to do - asking the
- * user to tell them apart would just outsource that job back to them, so
- * they never become a question no matter how well they'd otherwise narrow
- * the field.
- */
-const IDENTITY_ATTRIBUTE_KEYS = new Set(['damper_style', 'manifold_style'])
-
 /** Exposed so the results UI can replay a past answer's question text. */
 export function promptFor(facet: FacetKey): { prompt: string; hint: string } {
   if (!facet.startsWith('attr:')) return PROMPTS[facet]
@@ -226,24 +214,6 @@ function partNumberOptions(candidates: IdentificationCandidate[]): Disambiguatio
   }))
 }
 
-/**
- * One option per distinct value of an attribute key.
- *
- * Only offered when every candidate carries the key: a product whose attribute
- * was never derived would otherwise be silently ruled out for having no value,
- * which is a data gap rather than a mismatch.
- */
-function attributeOptions(
-  candidates: IdentificationCandidate[],
-  key: string,
-): DisambiguationOption[] {
-  if (!candidates.every((candidate) => candidate.attributes?.[key])) return []
-  return uniqueSorted(candidates.map((candidate) => candidate.attributes[key])).map((value) => ({
-    label: formatAttributeValue(value),
-    skus: uniqueSorted(candidates.filter((c) => c.attributes[key] === value).map((c) => c.sku)),
-  }))
-}
-
 function worstCaseRemaining(options: DisambiguationOption[]): number {
   return Math.max(...options.map((option) => option.skus.length))
 }
@@ -310,18 +280,11 @@ function questionFor(
 
   const built: { facet: FacetKey; options: DisambiguationOption[] }[] = []
 
-  // Every attribute key any candidate carries is a candidate question,
-  // except the ones that just rename the part's own category (see
-  // `IDENTITY_ATTRIBUTE_KEYS`). `?? {}` guards a candidate built before
-  // `attributes` existed (a cached API response, say). Crashing the whole
-  // results page over a missing enrichment would be a poor trade.
-  const attributeKeys = uniqueSorted(candidates.flatMap((c) => Object.keys(c.attributes ?? {}))).filter(
-    (key) => !IDENTITY_ATTRIBUTE_KEYS.has(key),
-  )
-  for (const key of attributeKeys) {
-    built.push({ facet: `attr:${key}`, options: attributeOptions(candidates, key) })
-  }
-
+  // Visual attributes (colour, shape, style, ...) are deliberately never
+  // asked here: Brain 2's similarity search already ranks candidates on
+  // visual appearance, so re-asking what the photo already informed would
+  // be redundant friction, not new information. Only ask what the photo
+  // genuinely cannot tell us - fitment, part number, brand.
   if (everyCandidateHasFitment) {
     built.push({ facet: 'make', options: optionsFromRows(rows, 'make') })
     built.push({ facet: 'model', options: optionsFromRows(rows, 'model') })

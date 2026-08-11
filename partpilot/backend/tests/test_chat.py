@@ -50,8 +50,11 @@ def _candidate(
 # ---------------------------------------------------------------- engine
 
 
-def test_attribute_question_preferred_over_vehicle() -> None:
-    """Visual attributes are asked first: they need no knowledge at all."""
+def test_visual_attributes_are_never_asked() -> None:
+    """Brain 2's similarity search already ranks on visual appearance, so
+    colour/shape/style attributes must never become a question - even when
+    they'd separate the candidates - and the engine falls through to a
+    fitment question instead."""
     candidates = [
         _candidate(
             "A",
@@ -68,25 +71,9 @@ def test_attribute_question_preferred_over_vehicle() -> None:
     ]
     question = next_question(candidates, [], [])
     assert question is not None
-    assert question.facet == "attr:filter_style"
-    labels = {option.label for option in question.options}
-    assert labels == {"Spin-on", "Cartridge"}
-
-
-def test_attribute_skipped_when_a_candidate_lacks_it() -> None:
-    """A missing attribute is a data gap, not a mismatch — never a question."""
-    candidates = [
-        _candidate(
-            "A",
-            0.9,
-            attributes={"filter_style": "spin-on"},
-            fitment=(FitmentRange("Honda", "Civic", 2018, 2022),),
-        ),
-        _candidate("B", 0.88, fitment=(FitmentRange("Toyota", "Camry", 2018, 2022),)),
-    ]
-    question = next_question(candidates, [], [])
-    assert question is not None
     assert question.facet == "make"
+    labels = {option.label for option in question.options}
+    assert labels == {"Honda", "Toyota"}
 
 
 def test_answers_narrow_to_resolution() -> None:

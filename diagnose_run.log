@@ -1,6 +1,0 @@
-[ORIGINAL (full-res, cleaned)] train=400 test=438 kNN accuracy=0.7877
-[RESIZED (320px, cleaned)] train=400 test=438 kNN accuracy=0.7945
-
-Original  kNN accuracy: 0.7877
-Resized   kNN accuracy: 0.7945
-Delta: -0.0068

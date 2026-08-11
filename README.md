@@ -25,13 +25,12 @@ what replaces it, and what to buy alongside it.
 
 <br/>
 
-**[Quickstart](#-quickstart-2-minutes)** ·
+**[How to run](#-how-to-run)** ·
 **[How it works](#-how-a-photo-becomes-an-answer)** ·
 **[The four brains](#-brain-1--what-kind-of-part-is-this)** ·
 **[Guided chat](#-guided-chat--the-machine-asks-the-user-picks)** ·
 **[Accuracy](#-accuracy)** ·
 **[Business impact](#-business-impact)** ·
-**[Demo script](#-the-five-minute-demo)** ·
 **[Roadmap](#-future-roadmap)**
 
 </div>
@@ -80,68 +79,63 @@ not stock the part — the customer fits it, it fails, and they do not come back
 
 ---
 
-## ⚡ Quickstart (2 minutes)
+## 🚀 How to run
 
-**The whole user journey runs with no backend, no database and no model
-downloads.** The frontend ships with canned data, so this works on any machine
-with Node installed:
+This runs the real FastAPI backend — all four brains, against the real
+database — plus the frontend pointed at it. This is the setup a working demo
+needs.
 
 ```bash
 git clone https://github.com/zubariyasulekaz/Parts-Detection-Hackathon.git
-cd Parts-Detection-Hackathon/frontend
-npm install
-cp .env.example .env        # VITE_API_MODE=mock is already the default
-npm run dev
+cd Parts-Detection-Hackathon
 ```
 
-➡️ Open **<http://localhost:5173>** and follow the [demo script](#-the-five-minute-demo).
-
-<br/>
-
-<details>
-<summary><b>🔌 Running the real pipeline (models + database) — click to expand</b></summary>
-
-<br/>
-
-### Before you start — two things are *not* in the repo
+#### What you need first
 
 | What | Why | Do you need it? |
 |---|---|---|
 | `DATABASE_URL` | contains a password, so it stays out of git | **Yes** — ask the team before you begin |
 | `partpilot_images_v3.zip` | ~50 MB of catalog photos, git-ignored | Only to *rebuild* indexes — not to run |
 
-> ⚠️ **Get the `DATABASE_URL` first.** The install below pulls TensorFlow, PyTorch
-> and FAISS — several GB — so line the connection string up first and the rest of
-> the setup runs straight through.
+> **Get the `DATABASE_URL` first, and ask for the session-pooler variant**
+> (`aws-0-<region>.pooler.supabase.com`), not the direct-connection host
+> (`db.<project-ref>.supabase.co`). The direct host resolves over IPv6 only,
+> so it silently fails on any network without IPv6 routing — a real risk on
+> unfamiliar wifi. The install below also pulls TensorFlow, PyTorch and FAISS
+> — several GB — so line the connection string up first and the rest runs
+> straight through.
 
-### 1. Environment
+#### 1. Backend environment
 
 Python **3.10–3.12** (TensorFlow 2.18 does not support 3.13).
 
-```bash
+```powershell
+# Windows
 cd partpilot
 python -m venv .venv
+.venv\Scripts\Activate.ps1
 ```
 
-```powershell
-.venv\Scripts\Activate.ps1     # Windows
-```
 ```bash
-source .venv/bin/activate      # macOS / Linux
+# macOS / Linux
+cd partpilot
+python -m venv .venv
+source .venv/bin/activate
 ```
 
-### 2. Install
+#### 2. Install backend dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-> ℹ️ `llama-cpp-python` (the Brain 4 runtime) is deliberately **not** in
+> `llama-cpp-python` (the Brain 4 runtime) is deliberately **not** in
 > `requirements.txt` — its source build fails outright on Windows without
 > Long Path support enabled, which would break the base install for
-> everyone. Brain 4 is optional either way; the answer never depends on it.
-> Only install it if you want the LLM-generated explanation text, from the
-> project's own prebuilt wheels (no compiler needed):
+> everyone. Brain 4 is optional either way; the answer never depends on it —
+> everything, including the guided chat, works without it. Only install it
+> if you want the LLM-generated explanation text, from the project's own
+> prebuilt wheels (no compiler needed):
 >
 > ```bash
 > pip install llama-cpp-python --prefer-binary \
@@ -151,63 +145,76 @@ pip install -r requirements.txt
 > Or set `LLM_BACKEND=transformers` in `.env` to use the slower
 > no-extra-dependency path instead.
 
-### 3. Configure
+#### 3. Configure the backend
 
+```powershell
+copy .env.example .env         # Windows
+```
 ```bash
-cp .env.example .env           # copy .env.example on Windows
+cp .env.example .env           # macOS / Linux
 ```
 
-Set `DATABASE_URL` to the string the team gave you. **Leave everything else
-alone** — every threshold is already tuned. `.env` is git-ignored; never paste
-the connection string into an issue or a PR.
+Open `.env` and set `DATABASE_URL` to the string the team gave you (the
+session-pooler variant — see above). **Leave everything else alone** — every
+threshold is already tuned. `.env` is git-ignored; never paste the
+connection string into an issue or a PR.
 
-### 4. Run
+#### 4. Run the backend
 
 ```bash
 python -m backend.main
 ```
 
-➡️ Open **<http://localhost:8000/docs>**, find `POST /api/v1/predict`, click
+Startup takes **~50–90s** while all four brains warm up — the log shows each
+one as it lands, and ends with either `Database reachable` or an `ERROR`
+naming the problem. Check that line before assuming the app is ready.
+
+Everything heavy ships with the repo — the trained classifier, the FAISS
+indexes, and the 56 catalog products already live in the shared database — so
+there is nothing to train or rebuild before this step works.
+
+Open <http://localhost:8000/docs>, find `POST /api/v1/predict`, click
 **Try it out**, upload a part photo, **Execute**.
 
-### 5. Point the frontend at it
+#### 5. Run the frontend, pointed at the real backend
 
+```powershell
+cd ../frontend
+npm install
+copy .env.example .env         # Windows
+```
 ```bash
-cd ../frontend && cp .env.example .env
+cd ../frontend
+npm install
+cp .env.example .env           # macOS / Linux
 ```
 
-In `frontend/.env` set:
+Open `frontend/.env` and set:
 
 ```bash
 VITE_API_MODE=live     # call the real backend instead of the canned data
 VITE_CHAT_API=true     # run the guided chat through the server session API
 ```
 
-then `npm run dev`. With `VITE_CHAT_API=false` the questions still work — they
-just run in the browser against the same logic, which is what mock mode uses.
+then start it:
 
-### Already done for you
+```bash
+npm run dev
+```
 
-Everything heavy ships with the repo, so install → configure → run is the whole
-path:
+Open <http://localhost:5173>. With `VITE_CHAT_API=false` the guided-chat
+questions still work — they just run in the browser against the same logic
+instead of the server session API.
 
-| | Ready to use |
-|:--|:--|
-| ✅ **Brain 1** | the trained classifier is committed in `backend/models/classifier/` |
-| ✅ **Brain 2** | the FAISS indexes are committed in `backend/models/faiss/` |
-| ✅ **Brain 3** | all 56 products are already live in the shared database |
+#### Run the tests
 
-That means you can go straight to step 4 — training, index building and database
-migrations are all behind you.
+```bash
+cd partpilot
+pytest backend/tests
+```
 
-**Startup takes ~50 s** while all four brains warm up — the log shows each one as
-it lands. That is deliberate: `WARM_MODELS_ON_STARTUP` (and
-`WARM_BRAIN4_ON_STARTUP`) pay the model load at boot rather than making whoever
-uploads first wait it out. The models themselves download once on first run.
-
-📖 Full setup, troubleshooting and index rebuilding: **[`partpilot/docs/RUNNING.md`](partpilot/docs/RUNNING.md)**
-
-</details>
+Full setup, troubleshooting and index rebuilding:
+**[`partpilot/docs/RUNNING.md`](partpilot/docs/RUNNING.md)**
 
 ---
 
@@ -218,31 +225,31 @@ output to the next.
 
 ```mermaid
 flowchart TD
-    U(["📷 User uploads a photo"]) --> BG
+    U(["User uploads a photo"]) --> BG
 
     BG["<b>Stage 0 · Background removal</b><br/>rembg<br/><i>isolate the part from the workbench</i>"]
     BG --> B1
 
-    B1["<b>🧠 Brain 1 · Classifier</b><br/>EfficientNetB0<br/><i>what kind of part is this?</i>"]
+    B1["<b>Brain 1 · Classifier</b><br/>EfficientNetB0<br/><i>what kind of part is this?</i>"]
     B1 -->|"category + confidence"| B2
 
-    B2["<b>🧠 Brain 2 · Similarity search</b><br/>DINOv2 / OpenCLIP + FAISS<br/><i>which exact SKU is it?</i>"]
+    B2["<b>Brain 2 · Similarity search</b><br/>DINOv2 / OpenCLIP + FAISS<br/><i>which exact SKU is it?</i>"]
     B2 -->|"ranked SKUs + cosine scores"| GATE
 
-    GATE{"<b>⚖️ Confidence gate</b><br/>is the top score above<br/>this model's threshold?"}
-    GATE -->|"no"| REFUSE(["<b>🚫 No catalog match</b><br/>nothing named, nothing shown"])
+    GATE{"<b>Confidence gate</b><br/>is the top score above<br/>this model's threshold?"}
+    GATE -->|"no"| REFUSE(["<b>No catalog match</b><br/>nothing named, nothing shown"])
     GATE -->|"yes"| B3
 
-    B3["<b>🧠 Brain 3 · Catalog</b><br/>PostgreSQL<br/><i>what do we know about it?</i>"]
+    B3["<b>Brain 3 · Catalog</b><br/>PostgreSQL<br/><i>what do we know about it?</i>"]
     B3 --> TIE
 
     TIE{"<b>are the top candidates<br/>too close to call?</b>"}
-    TIE -->|"yes"| CHAT["<b>💬 Guided chat</b><br/>catalog metadata · <i>no model</i><br/><i>ask what the photo cannot tell us</i>"]
+    TIE -->|"yes"| CHAT["<b>Guided chat</b><br/>catalog metadata · <i>no model</i><br/><i>ask what the photo cannot tell us</i>"]
     CHAT -->|"user narrows it to one"| B4
     TIE -->|"no"| B4
 
-    B4["<b>🧠 Brain 4 · Conversation</b><br/>Qwen2.5-1.5B · <i>optional</i><br/><i>explain it, and ask what is unclear</i>"]
-    B4 --> OUT(["<b>✅ Answer</b><br/>SKU · fitment · replacement · accessories"])
+    B4["<b>Brain 4 · Conversation</b><br/>Qwen2.5-1.5B · <i>optional</i><br/><i>explain it, and ask what is unclear</i>"]
+    B4 --> OUT(["<b>Answer</b><br/>SKU · fitment · replacement · accessories"])
 
     TIE -.->|"answer stands on its own"| OUT
 
@@ -266,12 +273,12 @@ flowchart TD
 | Stage | The question it answers | Technology | What it hands on |
 |:--|:--|:--|:--|
 | **Stage 0** | *Where is the part in this photo?* | `rembg` segmentation | the part alone, on white |
-| **🧠 Brain 1** | *What kind of part is this?* | EfficientNetB0 | 1 of 10 categories + confidence |
-| **🧠 Brain 2** | *Which exact SKU is it?* | DINOv2 / OpenCLIP + FAISS | ranked SKUs with cosine scores |
-| **⚖️ Gate** | *Are we sure enough to answer at all?* | per-model calibrated thresholds | **answer, or refuse** |
-| **🧠 Brain 3** | *What is actually true about it?* | PostgreSQL | product record + recommendations |
-| **💬 Guided chat** | *Which of these look-alikes is it?* | catalog metadata — **no model** | one narrowing question at a time |
-| **🧠 Brain 4** | *How do we explain it to the user?* | Qwen2.5-1.5B via llama.cpp *(optional)* | an explanation + clarifying questions |
+| **Brain 1** | *What kind of part is this?* | EfficientNetB0 | 1 of 10 categories + confidence |
+| **Brain 2** | *Which exact SKU is it?* | DINOv2 / OpenCLIP + FAISS | ranked SKUs with cosine scores |
+| **Gate** | *Are we sure enough to answer at all?* | per-model calibrated thresholds | **answer, or refuse** |
+| **Brain 3** | *What is actually true about it?* | PostgreSQL | product record + recommendations |
+| **Guided chat** | *Which of these look-alikes is it?* | catalog metadata — **no model** | one narrowing question at a time |
+| **Brain 4** | *How do we explain it to the user?* | Qwen2.5-1.5B via llama.cpp *(optional)* | an explanation + clarifying questions |
 
 > **Everything before the gate is a model. Everything after it is data.**
 >
@@ -333,7 +340,7 @@ in production.
 **Preprocessing** ([`preprocess.py`](partpilot/backend/pipeline/brain1_classifier/preprocess.py)) —
 resize to 224×224. That is all.
 
-> ⚠️ EfficientNet's own normalization is **baked into the saved model graph** by
+> EfficientNet's own normalization is **baked into the saved model graph** by
 > the training notebook. Re-applying it here would double-normalize and quietly
 > wreck accuracy.
 
@@ -347,7 +354,7 @@ configuration rather than a default.
 softmax over 10 classes, sorted descending. Not just the winner: the **full
 ranking**, which is what makes the next part possible.
 
-### 🔑 Key decision — handling an unsure classifier
+### Key decision — handling an unsure classifier
 
 A hard gate at Brain 1 is unrecoverable: **pick the wrong category and Brain 2
 will never look in the right index, however good it is.**
@@ -400,7 +407,7 @@ Backends can also be combined with `+` (e.g. `dinov2+siglip`): each vector is
 normalized, concatenated and re-normalized, which makes the combined cosine the
 **average** of the individual cosines — the models vote.
 
-### Step 2 · 🔑 Per-category model routing — *a measured finding*
+### Step 2 · Per-category model routing — *a measured finding*
 
 **No single model wins everywhere.** Benchmarking every category separately showed
 DINOv2 far ahead on parts that differ *structurally*, and behind on parts where
@@ -408,16 +415,16 @@ every product shares the same texture and the difference is fine detail:
 
 | Category | DINOv2 | OpenCLIP | → Routed to |
 |:--|:--:|:--:|:--|
-| Air Filter | 66.7% | **95.2%** | 🟠 OpenCLIP |
-| Wheel Hub Assembly | 16.7% | **33.3%** | 🟠 OpenCLIP |
-| Shock Absorber | 95.8% | **100%** | 🟠 OpenCLIP |
-| *everything else* | **best** | — | 🔵 DINOv2 |
+| Air Filter | 66.7% | **95.2%** | OpenCLIP |
+| Wheel Hub Assembly | 16.7% | **33.3%** | OpenCLIP |
+| Shock Absorber | 95.8% | **100%** | OpenCLIP |
+| *everything else* | **best** | — | DINOv2 |
 
 So `CATEGORY_BACKENDS` overrides the default for exactly those three. Since every
 category already owns a separate index, each can be built by whichever model
 scored best for it — **no extra machinery required.**
 
-> ### 🔬 The experiment that shaped the design
+> ### The experiment that shaped the design
 >
 > Testing the obvious alternative first mattered here. The **DINOv2 + OpenCLIP
 > ensemble scored 72.8%, while DINOv2 alone reached 73.2%** — measurably behind it.
@@ -454,7 +461,7 @@ Each index ships with two sidecar files:
 > comparable to it, and *the failure is silent*: you get scores, they are just
 > meaningless. The index says how it was built, and the query follows.
 
-### Step 5 · 🔑 Scoring: centroid, not best photo
+### Step 5 · Scoring: centroid, not best photo
 
 Each product has **2–7 photos**, and each photo is stored as its own row. So how
 should a product be scored — by its *best-matching* photo, or by its *average*?
@@ -463,7 +470,7 @@ Measured both ways over the real index ([`scripts/analyze_index_vectors.py`](par
 
 | Scoring strategy | Correct SKU ranked first |
 |:--|:--:|
-| ✅ **Centroid** (mean of the product's vectors) | **79%** |
+| **Centroid** (mean of the product's vectors) | **79%** |
 | Max over images (best single photo) | 72% |
 
 Max-over-images loses because with only a handful of photos per product, **one
@@ -495,13 +502,13 @@ measured score distributions of correct matches and impostors:
 
 ```text
  dinov2     0.45  →  0.0% correct rejected  /  90.0% impostors caught
-            0.48  →  1.3% correct rejected  /  93.1% impostors caught   ✅ chosen
+            0.48  →  1.3% correct rejected  /  93.1% impostors caught    chosen
 
  openclip   0.84  →  0.0% correct rejected  /  43.9% impostors caught
-            0.86  →  1.5% correct rejected  /  62.1% impostors caught   ✅ chosen
+            0.86  →  1.5% correct rejected  /  62.1% impostors caught    chosen
 ```
 
-> ### 💰 The trade is explicit and priced
+> ### The trade is explicit and priced
 > Roughly **1.5% of correct matches are given up to catch most impostors.**
 > Recommending the wrong part is worse than admitting the catalog does not have it.
 
@@ -587,13 +594,13 @@ and does two things:
 
 | | |
 |:--|:--|
-| 💬 **Explains the match** | two to four sentences, under 150 words |
-| ❓ **Asks what it needs to know** | up to three short, specific questions — but **only** when the result is genuinely ambiguous: several compatible vehicles, low confidence, or multiple close-scoring alternatives. When the match is clean, it says so plainly and asks nothing. |
+| **Explains the match** | two to four sentences, under 150 words |
+| **Asks what it needs to know** | up to three short, specific questions — but **only** when the result is genuinely ambiguous: several compatible vehicles, low confidence, or multiple close-scoring alternatives. When the match is clean, it says so plainly and asks nothing. |
 
 Greedy decoding means the same input always produces the same answer — which
 matters for a demo.
 
-### 🔑 Key decision — the runtime was the bottleneck, not the model
+### Key decision — the runtime was the bottleneck, not the model
 
 The first working version ran full-precision weights through `transformers` and
 took **23.5 seconds** per explanation on a CPU box. Unusable in front of a user.
@@ -617,7 +624,7 @@ same catalog facts. Brain 4 is also warmed at startup
 (`WARM_BRAIN4_ON_STARTUP`), so the first upload after a restart does not pay the
 model load.
 
-### 🔑 Key decision — the answer is complete before Brain 4 speaks
+### Key decision — the answer is complete before Brain 4 speaks
 
 By the time Brain 4 is called, Brains 1–3 have **already produced the full
 result**: the SKU, the fitment, the replacement and the accessories. Brain 4 adds
@@ -633,7 +640,7 @@ that first load is remembered, so a heavy one-time initialisation is never
 repeated per request. Every prediction after the first is served straight from
 the warm instance.
 
-### 🔑 Key decision — the LLM is kept away from the facts
+### Key decision — the LLM is kept away from the facts
 
 Brain 4 explains a decision that has **already been made** from catalog data. It
 is never asked which part it is, and never asked to produce a part number.
@@ -654,14 +661,14 @@ So when the visual search **cannot separate its top candidates**, PartPilot stop
 guessing and starts a conversation:
 
 ```
-🤖  Hi! Your photo is visually close to 3 parts in our catalog.
-🤖  What colour is it, mainly?
-                                                    Not sure  👤
-🤖  Which vehicle is this part for?
-                                                      Toyota  👤
-🤖  Which model?
-                                                      Altima  👤
-🤖  ✅ That leaves one match: SHK-1006 — OEM Front Strut Assembly
+System:  Hi! Your photo is visually close to 3 parts in our catalog.
+System:  What colour is it, mainly?
+                                                       User:  Not sure
+System:  Which vehicle is this part for?
+                                                       User:  Toyota
+System:  Which model?
+                                                       User:  Altima
+System:  That leaves one match: SHK-1006 - OEM Front Strut Assembly
 ```
 
 ### The user never types — and that is the design
@@ -670,9 +677,9 @@ Every answer is a button, and **every button comes from a catalog row**. There i
 no free-text box and no language model in this loop, which is what makes three
 guarantees possible:
 
-- ✅ every option provably corresponds to real SKUs — nothing can be invented
-- ✅ every answer provably narrows the set — each option carries the SKUs it keeps
-- ✅ it works with the LLM switched off entirely
+- every option provably corresponds to real SKUs — nothing can be invented
+- every answer provably narrows the set — each option carries the SKUs it keeps
+- it works with the LLM switched off entirely
 
 ### How a question gets chosen
 
@@ -767,16 +774,16 @@ below in seconds.
 
 | Category | Backend | Top-1 | Top-3 |
 |:--|:--|--:|--:|
-| Power Steering Pump | 🔵 DINOv2 | 100.0% | 100.0% |
-| Shock Absorber | 🟠 OpenCLIP | 95.8% | 95.8% |
-| Fuel Injector | 🔵 DINOv2 | 93.1% | 100.0% |
-| Air Filter | 🟠 OpenCLIP | 90.9% | 100.0% |
-| Oil Filter | 🔵 DINOv2 | 85.0% | 100.0% |
-| Suspension Bushing | 🔵 DINOv2 | 83.3% | 95.8% |
-| Throttle Body | 🔵 DINOv2 | 82.8% | 93.1% |
-| Brake Pads | 🔵 DINOv2 | 77.4% | 96.8% |
-| Wheel Hub Assembly | 🟠 OpenCLIP | 76.2% | 100.0% |
-| Exhaust Manifold | 🔵 DINOv2 | 70.8% | 87.5% |
+| Power Steering Pump | DINOv2 | 100.0% | 100.0% |
+| Shock Absorber | OpenCLIP | 95.8% | 95.8% |
+| Fuel Injector | DINOv2 | 93.1% | 100.0% |
+| Air Filter | OpenCLIP | 90.9% | 100.0% |
+| Oil Filter | DINOv2 | 85.0% | 100.0% |
+| Suspension Bushing | DINOv2 | 83.3% | 95.8% |
+| Throttle Body | DINOv2 | 82.8% | 93.1% |
+| Brake Pads | DINOv2 | 77.4% | 96.8% |
+| Wheel Hub Assembly | OpenCLIP | 76.2% | 100.0% |
+| Exhaust Manifold | DINOv2 | 70.8% | 87.5% |
 
 > ### The gap between those two columns is the whole argument for a ranked answer
 >
@@ -793,9 +800,9 @@ below in seconds.
 |:--:|:--|--:|:--|
 | 1 | OpenCLIP baseline | 69.6% | |
 | 2 | DINOv2 | 73.2% | |
-| 3 | DINOv2 + OpenCLIP ensemble | 72.8% | 🔬 *the measurement that pointed to routing* |
+| 3 | DINOv2 + OpenCLIP ensemble | 72.8% | *the measurement that pointed to routing* |
 | 4 | Per-category routing | 77.5% | |
-| 5 | **+ centroid scoring, image cleaning** | **85.0%** | 🏆 |
+| 5 | **+ centroid scoring, image cleaning** | **85.0%** | |
 
 ---
 
@@ -806,7 +813,7 @@ to a parts counter, wait for someone who has seen that part before. That spends
 the counter's time, delays the customer, and does not scale past whoever is on
 shift.
 
-| | 🧑‍🔧 Parts counter today | 🤖 PartPilot |
+| | Parts counter today | PartPilot |
 |:--|:--|:--|
 | **Who identifies it** | someone experienced | anyone with a phone |
 | **Time to an answer** | minutes to hours | seconds |
@@ -817,51 +824,13 @@ Three things make this worth deploying rather than demoing:
 
 | | |
 |:--|:--|
-| 🛡️ **It refuses** | A confidently wrong brake pad costs a return, a refit, and the customer. The no-match threshold is calibrated against measured score distributions, so the false-answer rate is **a number someone chose** — not an accident. |
-| 🛒 **It sells the rest of the basket** | Every identification also returns the superseding part and the accessories, straight from the catalog. That is attach-rate the counter would otherwise have to remember. |
-| 📈 **It improves by being used** | Each confirmation records which SKU the customer actually settled on — labelled training data the catalog earns at **zero labelling cost**. |
+| **It refuses** | A confidently wrong brake pad costs a return, a refit, and the customer. The no-match threshold is calibrated against measured score distributions, so the false-answer rate is **a number someone chose** — not an accident. |
+| **It sells the rest of the basket** | Every identification also returns the superseding part and the accessories, straight from the catalog. That is attach-rate the counter would otherwise have to remember. |
+| **It improves by being used** | Each confirmation records which SKU the customer actually settled on — labelled training data the catalog earns at **zero labelling cost**. |
 
 > The catalog here is 56 products, so the accuracy figures are **indicative**. The
 > architecture does not change at tens of thousands of SKUs — the indexes grow,
 > the pipeline does not.
-
----
-
-## 🎬 The five-minute demo
-
-No backend, no database, no model downloads — the frontend ships with canned data:
-
-```bash
-cd frontend && npm install && npm run dev     # VITE_API_MODE=mock by default
-```
-
-Four things to show, **in this order**, because each one sets up the next:
-
-| # | Show this | The point |
-|:--:|:--|:--|
-| **1** | Upload `brake-pads.jpg` | one clear winner (26 points clear of rank 2) → straight to the answer. **No questions asked** — the photo decided. |
-| **2** | Upload `wheel-hub-assembly.jpg` | four hubs differing only in stud count, top two **4 points apart** → the [guided chat](#-guided-chat--the-machine-asks-the-user-picks) opens and narrows it to one |
-| **3** | Upload something the catalog does not stock | **🚫 no match** — nothing named, nothing selectable; *not* a product page with a warning |
-| **4** | Open `/architecture` | the four brains, and where the refusal gate sits |
-
-> **Steps 1 and 2 are a pair — show them back to back.** Same app, same upload
-> flow; the chat appears in one and not the other. That contrast *is* the point:
-> the questions are not a fixed step in a wizard, they are what happens when the
-> models report they could not separate the candidates.
-
-> **Step 3 is the one worth dwelling on.** The first two show a parts catalog
-> working. Step 3 shows it *declining to be wrong*, which is the harder half of
-> the problem.
-
-**If a judge asks whether the chat is AI-generated:** it is not, and that is
-provable on the spot — the questions and every option come from catalog rows, so
-the whole conversation still works with the language model switched off
-(`LLM_BACKEND` unset, or `VITE_PREDICTION_EXPLAIN=false`). Nothing in it can be
-invented.
-
-Sample photos for steps 1–2 live in [`frontend/public/samples/`](frontend/public/samples/).
-For the live pipeline against the real models and database, follow the
-[full setup](#-quickstart-2-minutes) first.
 
 ---
 
@@ -878,6 +847,24 @@ what is interesting to build.
 | **4** | **Approximate search at catalog scale** | `IndexFlatIP` is exact and fast at 56 products. Past roughly 10⁵ vectors per category it stops being free and becomes IVF or HNSW — a swap behind the existing index interface. |
 | **5** | **Re-calibrate thresholds on real traffic** | Thresholds were tuned against catalog photos. Phone photos in a garage will shift both distributions, making calibration a recurring **operations** task rather than a one-off. |
 | **6** | **Persist chat sessions outside the process** | The [guided chat](#-guided-chat--the-machine-asks-the-user-picks) keeps its sessions in process memory, which is right for one worker and this catalog. Moving them behind Redis lets the conversation survive a restart and scale across workers — a swap behind the existing session store. |
+
+### Known limitations
+
+Stated plainly, roughly in priority order:
+
+1. **Latency.** A steady-state prediction is around 7s, of which roughly half
+   is database round trips rather than model time — the audit write is
+   awaited inline on the response path, and a remote Postgres costs about
+   1.1s per round trip. A local database and a backgrounded audit write are
+   the two levers.
+2. **Catalog size.** 56 products across 10 categories is enough to calibrate
+   against, not enough to prove the retrieval story at scale.
+3. **Domain gap.** Every indexed image is a studio shot on white; real
+   uploads are phone photos. Thresholds calibrated leave-one-out on studio
+   images run optimistic against what users actually send.
+4. **Hardening.** `verify_api_key` is still a permissive no-op; no
+   request-id middleware, structured metrics or tracing; no integration
+   tests against a containerized PostgreSQL.
 
 ---
 
@@ -900,16 +887,29 @@ partpilot/
   scripts/          index building, evaluation, threshold calibration
   datasets/         catalog.csv (images are git-ignored)
   docs/             RUNNING.md (setup), DEMO_GUIDE.md (Colab demo)
-frontend/           Vite + React 19 + TypeScript + Tailwind v4
+frontend/
+  src/
+    api/            fetch wrapper + typed backend calls
+    adapters/       backend DTO -> frontend domain-type mapping
+    services/       identificationService, catalogService - the mock/live switch lives here
+    mocks/          canned catalog + identification scenarios (mock mode only)
+    context/        IdentificationProvider - cross-page journey state
+    components/     grouped by feature (landing, processing, results, product, architecture, common, layout)
+    pages/          one component per route
 ```
+
+Vite + React 19 + TypeScript + Tailwind CSS v4, no Redux — state is a small
+`useReducer`-backed React Context. The landing hero renders a procedurally
+built brake rotor with `@react-three/fiber`, lazy-loaded so three.js stays
+out of every other route's bundle.
 
 Two design rules hold throughout:
 
-> **🔌 Interfaces, not implementations.** The orchestrator depends only on
+> **Interfaces, not implementations.** The orchestrator depends only on
 > `*Interface` ABCs, so any brain can be swapped or mocked without touching the
 > others.
 >
-> **🎛️ Every tuning decision lives in [`settings.py`](partpilot/backend/config/settings.py)**,
+> **Every tuning decision lives in [`settings.py`](partpilot/backend/config/settings.py)**,
 > with the measurement that justified it written next to the number.
 
 ---
@@ -919,8 +919,11 @@ Two design rules hold throughout:
 | Document | Covers |
 |:--|:--|
 | **[`partpilot/docs/RUNNING.md`](partpilot/docs/RUNNING.md)** | Full backend setup, configuration, troubleshooting, rebuilding indexes |
-| **[`frontend/README.md`](frontend/README.md)** | Frontend architecture, mock vs live mode, the 3D/motion layer |
 | **[`partpilot/docs/DEMO_GUIDE.md`](partpilot/docs/DEMO_GUIDE.md)** | End-to-end Google Colab demo, including training Brain 1 from scratch |
+
+This is the only README in the repository — everything else under `docs/` is
+reference material for a specific task (deep backend setup, retraining in
+Colab), not a second front door.
 
 <div align="center">
 <br/>

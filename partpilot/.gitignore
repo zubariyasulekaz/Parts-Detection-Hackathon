@@ -8,7 +8,7 @@ dist/
 .venv/
 venv/
 env/
-
+.claude/ 
 # --- environment / secrets ---------------------------------------------------------------
 .env
 *.env.local
@@ -44,6 +44,10 @@ backend/models/clip/*
 !backend/models/clip/.gitkeep
 backend/models/faiss/*
 !backend/models/faiss/.gitkeep
+# Local safety copies taken before an index rebuild. The rule above only
+# covers files inside faiss/, so a sibling backup directory would otherwise
+# be untracked-but-not-ignored, which is exactly what "stage all" picks up.
+backend/models/faiss_backup*/
 
 datasets/*
 !datasets/.gitkeep

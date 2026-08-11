@@ -2,22 +2,22 @@
 
 **Version 0.1.0 · Klizer Hackathon · Submission: August 11, 2026**
 
-A four-stage computer-vision pipeline that identifies a car part from one photograph — SKU, fitment, replacement, and accessories — and is calibrated to refuse rather than guess when it isn't sure. The **live inference pipeline** runs entirely on **open-source, self-hostable AI models** — zero dependency on any proprietary LLM API at prediction time (see Section 17 for the one offline tool used during dataset preparation).
+A four-stage computer-vision pipeline that identifies a car part from one photograph — SKU, fitment, replacement, and accessories — and is calibrated to refuse rather than guess when it isn't sure. The **live inference pipeline** runs entirely on **open-source, self-hostable AI models** — zero dependency on any proprietary LLM API at prediction time (see Section 16 for the one offline tool used during dataset preparation).
 
 **Headline metrics:** Top-1 accuracy 85.0% · Top-3 accuracy 96.7% · MRR 0.911 · Impostors caught 93.1%
-**Catalog:** 56 SKUs across 10 categories — Air Filter, Brake Pads, Exhaust Manifold, Fuel Injector, Oil Filter, Power Steering Pump, Shock Absorber, Suspension Bushing, Throttle Body, Wheel Hub Assembly. A photo of a part from one of these returns a match; a photo from outside them is correctly refused (Section 6) rather than matched to the nearest wrong part.
+**Catalog:** 56 SKUs across 10 categories — Air Filter, Brake Pads, Exhaust Manifold, Fuel Injector, Oil Filter, Power Steering Pump, Shock Absorber, Suspension Bushing, Throttle Body, Wheel Hub Assembly. A photo of a part from one of these returns a match; a photo from outside them is correctly refused (Section 5) rather than matched to the nearest wrong part.
 
-### Submission requirements — where to find each item
+### Contents
 
-| Required item | Section |
+| Topic | Section |
 |---|---|
 | Problem Statement | 1 |
-| Solution Overview | 1, 3 |
-| Business Value | 13 |
-| AI Models & Technologies Used | 4, 17 |
-| Data Sources | 9 |
-| Architecture Overview | 3 |
-| Future Enhancements | 16 |
+| Solution Overview | 1, 2 |
+| Business Value | 12 |
+| AI Models & Technologies Used | 3, 16 |
+| Data Sources | 8 |
+| Architecture Overview | 2 |
+| Future Enhancements | 15 |
 
 ---
 
@@ -29,48 +29,13 @@ A four-stage computer-vision pipeline that identifies a car part from one photog
 
 **Why AI is the right approach.** No rules-based or text-search system can match an unlabelled photo to a SKU — the input has no text, no barcode, nothing to key a lookup on. Visual similarity search is the only approach that works on pixels alone, and a classifier is needed to narrow the search space before it does. AI is not a UI layer here; it **is** the identification step. Every SKU, fitment fact, and recommendation shown afterward comes from the database, but the database is only reached because a trained vision model decided which row to look up.
 
-The harder half of the problem is knowing when **not** to answer. A catalog that confidently names the wrong brake pad is worse than one that admits it doesn't stock the part — so refusal is a designed, calibrated feature (Section 6), not an error path.
+The harder half of the problem is knowing when **not** to answer. A catalog that confidently names the wrong brake pad is worse than one that admits it doesn't stock the part — so refusal is a designed, calibrated feature (Section 5), not an error path.
 
 **Design rule:** Everything before the confidence gate is a trained model. Everything after it is data. The models decide *which* part; PostgreSQL decides *what is true* about it. No language model is ever asked to invent a fact about stock or state a SKU.
 
 ---
 
-## 2. Hackathon Rules Alignment
-
-A direct walkthrough of how PartPilot satisfies the stated hackathon rules and bonus criteria.
-
-| # | Rule | How PartPilot satisfies it |
-|---|---|---|
-| 1 | Working prototype | Full running system: FastAPI backend + React frontend, running end-to-end against the real models and the live database today. |
-| 2 | AI must be core, not a chatbot wrapper | The identification itself — category classification + visual similarity search — **is** the AI. The optional LLM (Brain 4) only narrates a decision three other components already made; the product answer never depends on it. |
-| 3 | Any tech stack | Python/FastAPI backend, React/TypeScript frontend, PyTorch + TensorFlow for models, FAISS for search, PostgreSQL for data. See Section 4. |
-| 4 | ⭐ Open-source AI advantage | **Every model in the live prediction path is open-weight and self-hostable**: EfficientNetB0, DINOv2, OpenCLIP, and Qwen2.5-1.5B-Instruct via llama.cpp. (SigLIP is implemented as a supported backend in code but is not used by any of the 10 deployed category indexes — see Section 5.) No OpenAI, Anthropic, Gemini, or Azure OpenAI call exists anywhere in the inference pipeline. (Gemini was used once, offline, to help build the image dataset — see Section 9, disclosed in full in Section 17.) |
-| 5 | Build for real customers | Directly applicable to auto-parts retailers, dealership service counters, repair shops, and insurance-claim triage. The architecture generalizes to any visually-identifiable SKU catalog (electronics, industrial parts, appliance parts) — a candidate Klizer accelerator, not a single-customer demo. |
-| 6 | Original work, disclosed components | Built on disclosed open-source libraries and pretrained weights (Section 17), plus one disclosed proprietary tool (Gemini) used offline for a minority of catalog images (Section 9). No proprietary or third-party commercial code is embedded in the running application. Catalog data provenance is documented in full in Section 9. |
-| 7 | Demonstrate business value | Answered directly in Section 13: the problem (unlabelled-part identification), who benefits (counter staff and customers), the time saved (minutes–hours → seconds), and why AI is necessary (no text/barcode exists to look up). |
-| 8 | Keep it practical | Scope is deliberately a working 56-SKU catalog rather than a larger unvalidated one — every threshold in the pipeline is measured against it (Section 12), not assumed. The architecture does not change at catalog scale; only index size does. |
-| 9 | Present the architecture | Covered in full in Section 3 (solution architecture), Section 4 (AI models), Section 9 (data sources), Section 10 (integration surface — REST API), Section 15 (deployment), and Section 16 (future scalability). |
-| 10 | AI transparency | Full model/service disclosure in Section 17 — every model is named, sourced, and licensed as open weight. |
-| 11 | Team collaboration | *[Team to fill in: contribution breakdown by member for the final presentation.]* |
-| 12 | Time limits (20 min demo / 10 min Q&A) | Suggested run order in Section 15 covers the demo script; pace problem → architecture → live predictions → refusal case → business value inside the 20-minute window, leaving Q&A for the threshold/calibration methodology in Sections 6 and 12. |
-| 13 | Bonus considerations | See the scorecard immediately below. |
-| 14 | Realistic data | Catalog photos are primarily real manufacturer product photography, supplemented with Gemini-generated images only where a manufacturer photo was unavailable; catalog metadata is a curated synthetic dataset modeled on real retail conventions. Full documentation, generation method, and assumptions in Section 9. |
-
-### Bonus-criteria scorecard
-
-| Bonus criterion | Status |
-|---|---|
-| Effective use of open-source AI models | **Yes** — the entire pipeline, not a token component |
-| Runs on customer-owned / self-hosted infrastructure | **Yes** — every model runs locally; Postgres is the only external dependency and is swappable for any self-hosted instance |
-| Minimizes dependency on proprietary AI services | **Yes** — zero proprietary AI API calls by default |
-| Agentic AI / multi-agent orchestration | **Not applicable by design.** PartPilot is a deterministic, auditable staged pipeline, not autonomous LLM agents — a deliberate choice for a domain where an invented SKU is a real-world cost (Section 1). |
-| ERP / CRM / PIM / eCommerce integration | Not yet built. The REST API and catalog schema (Sections 8, 10) are structured to make this a near-term integration, not a redesign — listed as a roadmap item (Section 16), not a current capability. |
-| Measurable business impact | **Yes** — Sections 12–13 give calibrated accuracy, a priced false-answer rate, and a counter-vs-PartPilot comparison. |
-| Potential to become a Klizer accelerator | **Yes** — see Section 5's generalization argument. |
-
----
-
-## 3. Solution Architecture
+## 2. Solution Architecture
 
 Four independent stages — called Brains 1–4 — each with one job, wired together by an orchestrator that contains no AI logic of its own. Every stage is injected as an interface (`brain*_*/interfaces.py`), so any one can be swapped or mocked without touching the others.
 
@@ -101,17 +66,17 @@ Photo upload
 | Guided chat | Which look-alike is it? | Catalog metadata — no model | One narrowing question at a time |
 | Brain 4 | How do we explain it? | Qwen2.5-1.5B via llama.cpp | Explanation + clarifying questions |
 
-**Integrations:** a single REST API (Section 10) is the entire integration surface — any storefront, counter tool, or ERP/CRM/PIM front end talks to PartPilot the same way the bundled React frontend does.
+**Integrations:** a single REST API (Section 9) is the entire integration surface — any storefront, counter tool, or ERP/CRM/PIM front end talks to PartPilot the same way the bundled React frontend does.
 
 **Deployment:** the backend is a single FastAPI process (models loaded in-process, warmed at boot); the database is any PostgreSQL instance (Supabase in this build, but not required to be). Nothing in the pipeline calls out to a third-party AI service, so the whole stack can run inside a customer's own network with no external egress.
 
-**Future scalability:** see Section 16 — the index structure, threshold calibration, and session storage are each called out as the specific things that need to change at 10x–1000x catalog size, and none of them require an architecture change.
+**Future scalability:** see Section 15 — the index structure, threshold calibration, and session storage are each called out as the specific things that need to change at 10x–1000x catalog size, and none of them require an architecture change.
 
 Orchestration code: `partpilot/backend/pipeline/orchestrator.py`
 
 ---
 
-## 4. Technology & AI Models Used
+## 3. Technology & AI Models Used
 
 | Layer | Technology | Role | Open source? |
 |---|---|---|---|
@@ -126,11 +91,11 @@ Orchestration code: `partpilot/backend/pipeline/orchestrator.py`
 | Frontend | Vite · React 19 · TypeScript · Tailwind v4 | Upload flow, results, guided chat UI, architecture page | Yes |
 | 3D / motion | Three.js · React Three Fiber · React Three Drei | Hero part render, tilt interaction, and other 3D UI elements | Yes |
 
-**No proprietary AI service is called by the live inference pipeline** — every model a prediction actually runs through (Sections 5–7) is open weight and self-hostable. The one exception in the whole project is Google Gemini, used offline during dataset preparation to generate a minority of catalog images (Section 9); it plays no role at prediction time. Full model-by-model disclosure is in Section 17.
+**No proprietary AI service is called by the live inference pipeline** — every model a prediction actually runs through (Sections 4–6) is open weight and self-hostable. The one exception in the whole project is Google Gemini, used offline during dataset preparation to generate a minority of catalog images (Section 8); it plays no role at prediction time. Full model-by-model disclosure is in Section 16.
 
 ---
 
-## 5. Pipeline Reference
+## 4. Pipeline Reference
 
 ### Stage 0 — Background removal (rembg / ONNX)
 
@@ -168,7 +133,7 @@ The embedding layer (`embedding_backends.py`) supports three open-weight model f
 | Shock Absorber | 95.8% | 100% | OpenCLIP |
 | All other categories | best | — | DINOv2 |
 
-**Measured:** A DINOv2 + OpenCLIP ensemble scored 72.8% top-1 — behind DINOv2 alone at 73.2%. Averaging two models pulls the strong one toward the weak one; that single measurement is what pointed to per-category routing instead of blending, which went on to deliver the largest single accuracy gain in the project (see Section 12).
+**Measured:** A DINOv2 + OpenCLIP ensemble scored 72.8% top-1 — behind DINOv2 alone at 73.2%. Averaging two models pulls the strong one toward the weak one; that single measurement is what pointed to per-category routing instead of blending, which went on to deliver the largest single accuracy gain in the project (see Section 11).
 
 **Scoring: centroid vs. best photo.** Each product has 2–7 photos, each stored as its own vector row. Scoring against the mean vector of a product's photos beats scoring against its single best-matching photo:
 
@@ -185,7 +150,7 @@ Per-image vectors are still stored individually rather than pre-collapsed, which
 
 ---
 
-## 6. Confidence Gate — Refusing to Guess
+## 5. Confidence Gate — Refusing to Guess
 
 The two embedding models compress cosine similarity very differently: an out-of-catalog image tops out around 0.83 on DINOv2 but 0.92 on OpenCLIP, so one global threshold cannot serve both. Thresholds are keyed per backend and calibrated against the measured score distributions of correct matches vs. impostors.
 
@@ -202,7 +167,7 @@ If Brain 1 itself was unsure of the category (confidence below 0.5), the thresho
 
 ---
 
-## 7. Guided Disambiguation Chat
+## 6. Guided Disambiguation Chat
 
 Some parts cannot be told apart by photograph alone — two brake pad sets for different vehicles are the same object shot twice. When rank 1 and rank 2 land within `CONFIRMATION_SIMILARITY_GAP` of each other, the pipeline stops guessing and asks the catalog's own facts, one narrowing question at a time. There is no free-text input and no language model in this loop — every option is a button generated from a real catalog row, so nothing can be invented and every answer provably narrows the candidate set.
 
@@ -217,7 +182,7 @@ Sessions live server-side (`backend/pipeline/chat/engine.py`, `backend/api/route
 
 ---
 
-## 8. Data Model
+## 7. Data Model
 
 Brain 3's catalog is a single `products` table (PostgreSQL, accessed only through `ProductRepository`), keyed by SKU. `attributes` is an open JSONB bag rather than a fixed column set, because what visually separates two air filters is not what separates two brake pads.
 
@@ -241,7 +206,7 @@ Recommendation logic (`brain3_catalog/recommendation_service.py`) is pure catalo
 
 ---
 
-## 9. Data Sources & Data Realism
+## 8. Data Sources & Data Realism
 
 Three distinct data assets feed the pipeline, sourced and built differently — one for Brain 1's category classifier, two for Brain 2/3's product catalog:
 
@@ -249,21 +214,21 @@ Three distinct data assets feed the pipeline, sourced and built differently — 
 
 **Brain 2/3 catalog photography — real images, supplemented where needed.** The primary source is real product photography collected from manufacturer and retailer product pages (open, publicly available listings) across all 10 part categories. Where a SKU or a needed angle had no usable manufacturer photo, the gap was filled with AI-generated product images created with Google Gemini, so every SKU still reaches a usable photo count. All photos — sourced and generated alike — went through the same cleaning pipeline: near-duplicate and collage/composite images were removed with a perceptual-duplicate pass (`fastdup`), and each kept photo was background-normalized (Stage 0) so the classifier and embedding models see the part the same way regardless of where the source photo came from. Each of the 56 SKUs carries 2–7 verified photos after cleaning.
 
-**Catalog metadata — curated, realistic synthetic data.** Product names, brands, manufacturer part numbers, fitment ranges, cross-references (`replacement_sku`, `alternative_skus`, `accessory_skus`), and category-specific attributes are a curated dataset modeled closely on real automotive aftermarket retail conventions — real brand-naming patterns (e.g. Duralast, Wagner ThermoQuiet, Febi Bilstein, MOOG, TRW), realistic part-number formats, and plausible make/model/year fitment windows. This was a deliberate choice over arbitrary placeholder labels: it lets the recommendation engine (Section 8) and the guided-chat disambiguation logic (Section 7) exercise real business relationships — a brake pad set that has actually been superseded, an accessory that actually belongs with a given filter — rather than meaningless linkage.
+**Catalog metadata — curated, realistic synthetic data.** Product names, brands, manufacturer part numbers, fitment ranges, cross-references (`replacement_sku`, `alternative_skus`, `accessory_skus`), and category-specific attributes are a curated dataset modeled closely on real automotive aftermarket retail conventions — real brand-naming patterns (e.g. Duralast, Wagner ThermoQuiet, Febi Bilstein, MOOG, TRW), realistic part-number formats, and plausible make/model/year fitment windows. This was a deliberate choice over arbitrary placeholder labels: it lets the recommendation engine (Section 7) and the guided-chat disambiguation logic (Section 6) exercise real business relationships — a brake pad set that has actually been superseded, an accessory that actually belongs with a given filter — rather than meaningless linkage.
 
 **Documented assumptions:**
 - SKUs and manufacturer part numbers are illustrative, not real retailer inventory identifiers.
 - No proprietary retailer data, pricing, or customer data was used or is required by the architecture.
 - The Brain 1 training images were scraped from public web search results via `ddgs` — sufficient volume and variety to train a general category classifier.
-- Manufacturer-sourced photos were collected from public product listings; Gemini-generated photos are clearly a fill-in for coverage where a manufacturer photo wasn't available, not a substitute for real photography where it was. The pipeline itself is agnostic to where photos come from, so the image sources are a swappable input, not an architectural constraint (see Section 16).
-- Gemini was used only as an **offline, one-time data-preparation tool** to generate a minority of catalog images. It is not part of the live prediction pipeline and nothing about the runtime system's zero-proprietary-API claim (Sections 4, 17) depends on it.
-- Data quality was treated as a first-class variable, not an afterthought: the accuracy figures in Section 12 are only meaningful because the underlying catalog data was built to be internally consistent (fitment, cross-references, and attribute keys per category all validated against each other).
+- Manufacturer-sourced photos were collected from public product listings; Gemini-generated photos are clearly a fill-in for coverage where a manufacturer photo wasn't available, not a substitute for real photography where it was. The pipeline itself is agnostic to where photos come from, so the image sources are a swappable input, not an architectural constraint (see Section 15).
+- Gemini was used only as an **offline, one-time data-preparation tool** to generate a minority of catalog images. It is not part of the live prediction pipeline and nothing about the runtime system's zero-proprietary-API claim (Sections 3, 16) depends on it.
+- Data quality was treated as a first-class variable, not an afterthought: the accuracy figures in Section 11 are only meaningful because the underlying catalog data was built to be internally consistent (fitment, cross-references, and attribute keys per category all validated against each other).
 
 ---
 
-## 10. API Reference
+## 9. API Reference
 
-Base path `/api/v1` (configurable via `API_PREFIX`). Interactive docs are auto-generated at `/docs`. Every response is wrapped in a `StandardResponse<T>` envelope. This is also the full integration surface for connecting PartPilot to an external storefront, counter tool, or ERP/CRM/PIM system (Section 2, bonus criteria).
+Base path `/api/v1` (configurable via `API_PREFIX`). Interactive docs are auto-generated at `/docs`. Every response is wrapped in a `StandardResponse<T>` envelope. This is also the full integration surface for connecting PartPilot to an external storefront, counter tool, or ERP/CRM/PIM system.
 
 **Prediction**
 
@@ -272,7 +237,7 @@ Base path `/api/v1` (configurable via `API_PREFIX`). Interactive docs are auto-g
 | POST | `/predict` | Upload a photo → full pipeline run → category, ranked candidates, matched product, recommendations, explanation, audit id |
 | POST | `/predict/{audit_id}/confirm` | Record which SKU the user actually settled on — validates or corrects the audit entry |
 
-A photo of a part from one of the 10 trained categories (listed in Section 1) returns a match; a photo from outside them is correctly refused rather than matched to the nearest wrong part (Section 6).
+A photo of a part from one of the 10 trained categories (listed in Section 1) returns a match; a photo from outside them is correctly refused rather than matched to the nearest wrong part (Section 5).
 
 **Chat**
 
@@ -307,7 +272,7 @@ A photo of a part from one of the 10 trained categories (listed in Section 1) re
 
 ---
 
-## 11. Configuration Reference
+## 10. Configuration Reference
 
 All tuning lives in one typed, validated file — `backend/config/settings.py` — sourced from environment variables / `.env` via `pydantic-settings`. Selected keys:
 
@@ -316,11 +281,12 @@ All tuning lives in one typed, validated file — `backend/config/settings.py` �
 | `CLASSIFIER_CONFIDENCE_THRESHOLD` | 0.5 | Below this, Brain 1 also searches the runner-up category |
 | `CATEGORY_TRUST_THRESHOLD` | 0.75 | Below this, a no-match result states no category at all |
 | `EMBEDDING_BACKEND` | dinov2 | Default Brain 2 embedding model |
-| `CATEGORY_BACKENDS` | 3 overrides | Per-category backend routing (Section 5) |
+| `CATEGORY_BACKENDS` | 3 overrides | Per-category backend routing (Section 4) |
 | `EMBEDDING_TTA` | true | Average image + mirror embeddings |
-| `NO_MATCH_THRESHOLDS` | dinov2: 0.48 · openclip: 0.86 | Per-backend refusal thresholds (Section 6) |
+| `NO_MATCH_THRESHOLDS` | dinov2: 0.48 · openclip: 0.86 | Per-backend refusal thresholds (Section 5) |
 | `NO_MATCH_UNCERTAIN_MARGIN` | 0.04 | Added to the threshold when Brain 1 was unsure |
 | `VECTOR_STORE` | faiss | `faiss` reads index files from disk; `pgvector` queries the products table directly |
+| `DATABASE_URL_POOLER` | unset | Optional. Supabase's direct connection host is IPv6-only; if set, `backend.core.database` probes IPv6 reachability once at startup and swaps to this session-pooler URL automatically when there's no route — self-healing across networks without a per-machine `.env` edit |
 | `LLM_BACKEND` | llamacpp | Brain 4 runtime — `llamacpp` (fast, quantised) or `transformers` (fallback) |
 | `LLM_GGUF_FILE` | qwen2.5-1.5b-instruct-q4_k_m.gguf | ~1.1 GB, 4-bit quantised |
 | `WARM_MODELS_ON_STARTUP` | true | Pay model load at boot (~50s), not on the first request |
@@ -328,7 +294,7 @@ All tuning lives in one typed, validated file — `backend/config/settings.py` �
 
 ---
 
-## 12. Evaluation
+## 11. Evaluation
 
 Measured **leave-one-out** over the stored index vectors — each image is excluded from its own product's centroid before scoring, so nothing is ever matched against itself. 240 queries across 56 products in 10 categories.
 
@@ -361,7 +327,7 @@ Reproduce: `cd partpilot && python scripts/analyze_index_vectors.py` (reads the 
 
 ---
 
-## 13. Business Value
+## 12. Business Value
 
 **What business problem does this solve?** Identifying an unlabelled car part today requires a human who has seen that exact part before — a scarce, shift-bound resource. PartPilot turns that lookup into a self-service, always-available step.
 
@@ -386,7 +352,7 @@ The catalog here is 56 products, so the figures above are indicative — the arc
 
 ---
 
-## 14. Repository Layout
+## 13. Repository Layout
 
 ```
 partpilot/
@@ -402,9 +368,10 @@ partpilot/
       orchestrator.py       # wires the four stages together
     config/settings.py      # every threshold and model choice, in one file
     models/faiss/           # built indexes, one set per category
+  run.py              # convenience entrypoint - `python run.py`
   scripts/            # index building, evaluation, threshold calibration
   datasets/           # catalog.csv (images git-ignored)
-  docs/               # RUNNING.md, DEMO_GUIDE.md
+  docs/               # supplementary internal setup/demo notes
 frontend/             # Vite + React 19 + TypeScript + Tailwind v4
 ```
 
@@ -412,7 +379,7 @@ frontend/             # Vite + React 19 + TypeScript + Tailwind v4
 
 ---
 
-## 15. Setup & Run
+## 14. Setup & Run
 
 ### Live pipeline — real models + database
 
@@ -428,22 +395,46 @@ python run.py                # open http://localhost:8000/docs
 
 Then point the frontend at it: set `VITE_API_MODE=live` and `VITE_CHAT_API=true` in `frontend/.env`. Startup takes ~50s while all four brains warm up (`WARM_MODELS_ON_STARTUP`) — deliberate, so the first uploader doesn't pay that cost.
 
-Full setup, troubleshooting and index rebuilding: `partpilot/docs/RUNNING.md`.
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `pip install` fails on a numpy version conflict | TensorFlow 2.18 caps numpy below 2.1 | Use the pinned `requirements.txt` as-is rather than upgrading numpy independently |
+| `rembg is not installed; cannot remove image background` | Misleading — `onnxruntime` is actually what's missing | Re-run `pip install -r requirements.txt`; it's already listed there |
+| `password authentication failed` / cannot connect to the database | `DATABASE_URL` malformed | Must start `postgresql+asyncpg://`; any `@ : / #` in the password has to be URL-encoded (`@` → `%40`) |
+| `could not translate host name` on the database | The direct connection host resolves over IPv6 only, and this network has no IPv6 route | Set `DATABASE_URL_POOLER` (Section 10) — the app detects the missing route and swaps to it automatically at startup |
+| `ModuleNotFoundError: No module named 'faiss'` (or `torch`, `rembg`, etc.) | The virtual environment isn't active | Activate it, or call the interpreter directly: `.venv\Scripts\python.exe run.py` |
+| A prediction returns a SKU but no product details | The FAISS indexes and the database have drifted apart | Confirm a SKU in `backend/models/faiss/*.ids.json` also exists in the `products` table |
+| No AI explanation; `explanation` comes back `null` | DINOv2/Qwen weights failed to download on first use (some networks block the Hugging Face CDN) | The rest of the response is unaffected — Brains 1–3 still answer. Restart the backend on a network that can reach `huggingface.co` to retry the download once |
+
+A failed model load is remembered for the life of the process, so only the first request after a restart pays a download timeout.
+
+### Rebuilding the indexes (rarely needed)
+
+Only required if the catalog images change — the shipped indexes already reflect the current 56-product catalog.
+
+```bash
+python scripts/build_faiss_indexes.py --remove-bg    # rebuild the FAISS indexes
+python scripts/evaluate_brain2.py --remove-bg         # re-embed and measure accuracy from scratch
+python scripts/analyze_index_vectors.py               # measure the already-built indexes (seconds, no re-embedding)
+```
+
+`analyze_index_vectors.py` is the one to reach for by default — it reads the vectors already stored in the built indexes, so it reports exactly what the running system will do without re-embedding the whole catalog.
 
 ### Suggested demo run order (fits the 20-minute demo window)
 
 1. Problem statement + why AI (Section 1) — ~2 min
-2. Architecture walkthrough using the pipeline diagram (Section 3) — ~4 min
+2. Architecture walkthrough using the pipeline diagram (Section 2) — ~4 min
 3. Live prediction: a clear-winner photo → straight to the answer, no questions asked — ~3 min
 4. Live prediction: a close-call photo → the guided chat opens and narrows it to one SKU — ~4 min
 5. Live prediction: an out-of-catalog photo → the refusal case, and why it matters more than the two wins above — ~3 min
-6. Business value + open-source model disclosure (Sections 13, 17) — ~4 min
+6. Business value + open-source model disclosure (Sections 12, 16) — ~4 min
 
-Leaves 10 minutes for Q&A on threshold calibration (Section 6) and the accuracy methodology (Section 12) — the two areas most likely to draw technical follow-up questions.
+Leaves 10 minutes for Q&A on threshold calibration (Section 5) and the accuracy methodology (Section 11) — the two areas most likely to draw technical follow-up questions.
 
 ---
 
-## 16. Future Enhancements
+## 15. Future Enhancements
 
 Ordered by what the measurements say is actually limiting the system, not by what is interesting to build.
 
@@ -455,12 +446,12 @@ Ordered by what the measurements say is actually limiting the system, not by wha
 | 4 | Approximate search at catalog scale | `IndexFlatIP` is exact and free at 56 products; past ~10⁵ vectors per category it becomes IVF/HNSW behind the same index interface. |
 | 5 | Re-calibrate thresholds on real traffic | Thresholds were tuned on catalog photos; phone photos in a garage will shift both distributions. |
 | 6 | Persist chat sessions outside the process | Sessions currently live in process memory; Redis lets a conversation survive a restart and scale across workers. |
-| 7 | ERP / CRM / PIM connector | The REST API (Section 10) is already the right shape for this; next step is an adapter, not a redesign. |
+| 7 | ERP / CRM / PIM connector | The REST API (Section 9) is already the right shape for this; next step is an adapter, not a redesign. |
 | 8 | Native camera capture on mobile | The upload flow currently expects a file picker; on a phone — the device most counter staff and customers actually hold — a direct camera-capture option removes a step between seeing the part and identifying it. |
 
 ---
 
-## 17. AI Transparency & Model Disclosure
+## 16. AI Transparency & Model Disclosure
 
 Every AI component in PartPilot, in full:
 
@@ -477,9 +468,9 @@ Every AI component in PartPilot, in full:
 
 **Every model actually exercised by the live prediction path is open weight and self-hostable, with zero proprietary AI API calls at inference time**: the classifier, DINOv2, OpenCLIP, rembg, FAISS, and Qwen2.5 — six components, running in-process on commodity CPU hardware, deployable entirely inside a customer's own network with no external AI-service egress. `LLM_BACKEND` also supports a `transformers` fallback runtime for Brain 4, itself running the same open-weight Qwen checkpoint.
 
-The one proprietary AI service used anywhere in this project is **Google Gemini**, and it was used exactly once, offline, to generate a minority of catalog product images where a manufacturer photo wasn't available (Section 9). It has no code path into the running application and could be removed from the dataset-build tooling with no change to the pipeline.
+The one proprietary AI service used anywhere in this project is **Google Gemini**, and it was used exactly once, offline, to generate a minority of catalog product images where a manufacturer photo wasn't available (Section 8). It has no code path into the running application and could be removed from the dataset-build tooling with no change to the pipeline.
 
-PostgreSQL (Section 8) is the one external *runtime* dependency in this build, and it is not an AI service — a plain relational store, swappable for any self-hosted Postgres instance.
+PostgreSQL (Section 7) is the one external *runtime* dependency in this build, and it is not an AI service — a plain relational store, swappable for any self-hosted Postgres instance.
 
 ---
 

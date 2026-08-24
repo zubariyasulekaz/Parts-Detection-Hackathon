@@ -4,7 +4,7 @@
 
 A four-stage computer-vision pipeline that identifies a car part from one photograph — SKU, fitment, replacement, and accessories — and is calibrated to refuse rather than guess when it isn't sure. The **live inference pipeline** runs entirely on **open-source, self-hostable AI models** — zero dependency on any proprietary LLM API at prediction time (see Section 16 for the one offline tool used during dataset preparation).
 
-**Headline metrics:** Top-1 accuracy 85.0% · Top-3 accuracy 96.7% · MRR 0.911 · Impostors caught 93.1%
+**Headline metrics:** Top-1 accuracy 85.0% · Top-3 accuracy 96.7% · MRR 0.911 · Impostors caught 93.2%
 **Catalog:** 56 SKUs across 10 categories — Air Filter, Brake Pads, Exhaust Manifold, Fuel Injector, Oil Filter, Power Steering Pump, Shock Absorber, Suspension Bushing, Throttle Body, Wheel Hub Assembly. A photo of a part from one of these returns a match; a photo from outside them is correctly refused (Section 5) rather than matched to the nearest wrong part.
 
 ### Contents
@@ -135,7 +135,7 @@ The embedding layer (`embedding_backends.py`) supports three open-weight model f
 
 **Measured:** A DINOv2 + OpenCLIP ensemble scored 72.8% top-1 — behind DINOv2 alone at 73.2%. Averaging two models pulls the strong one toward the weak one; that single measurement is what pointed to per-category routing instead of blending, which went on to deliver the largest single accuracy gain in the project (see Section 11).
 
-**Scoring: centroid vs. best photo.** Each product has 2–7 photos, each stored as its own vector row. Scoring against the mean vector of a product's photos beats scoring against its single best-matching photo:
+**Scoring: centroid vs. best photo.** Each product has 2–11 photos, each stored as its own vector row. Scoring against the mean vector of a product's photos beats scoring against its single best-matching photo:
 
 | Scoring strategy | Correct SKU ranked first |
 |---|---:|
@@ -156,10 +156,10 @@ The two embedding models compress cosine similarity very differently: an out-of-
 
 | Backend | Threshold | Correct matches rejected | Impostors caught |
 |---|---:|---:|---:|
-| DINOv2 | 0.45 | 0.0% | 90.0% |
-| DINOv2 — chosen | 0.48 | 1.3% | 93.1% |
-| OpenCLIP | 0.84 | 0.0% | 43.9% |
-| OpenCLIP — chosen | 0.86 | 1.5% | 62.1% |
+| DINOv2 | 0.45 | 0.0% | 90.2% |
+| DINOv2 — chosen | 0.48 | 1.2% | 93.2% |
+| OpenCLIP | 0.84 | 1.5% | 41.8% |
+| OpenCLIP — chosen | 0.86 | 1.5% | 60.4% |
 
 **Priced trade-off:** Roughly 1.5% of correct matches are given up to catch the large majority of impostors — recommending the wrong part is judged worse than admitting the catalog doesn't have it. OpenCLIP's distributions overlap more; that's an accepted cost of keeping it for the three categories where it ranks far better.
 
@@ -212,7 +212,7 @@ Three distinct data assets feed the pipeline, sourced and built differently — 
 
 **Brain 1 training images — broad, category-level, web-sourced.** The classifier is trained to tell 10 part *categories* apart, not specific SKUs, so it needs volume and visual variety rather than per-product precision. That training set was built with `ddgs` (the DuckDuckGo image search library) querying broad, descriptive terms per category (e.g. "car suspension bushing", "OEM suspension bushing", "control arm bushing"), targeting roughly 400 candidate images per category. The raw scrape was then cleaned before training — near-duplicates and collages removed (`image_dedup.py`, `run_fastdup.py`), off-topic results filtered with a CLIP-similarity pass (`filter_dataset_clip.py`), and the result split into train/validation folders per category (`split_dataset.py`). This dataset is intentionally separate from, and much larger and noisier than, the curated 56-SKU catalog below — it only needs to teach "what does an air filter look like in general," not "which exact SKU is this."
 
-**Brain 2/3 catalog photography — real images, supplemented where needed.** The primary source is real product photography collected from manufacturer and retailer product pages (open, publicly available listings) across all 10 part categories. Where a SKU or a needed angle had no usable manufacturer photo, the gap was filled with AI-generated product images created with Google Gemini, so every SKU still reaches a usable photo count. All photos — sourced and generated alike — went through the same cleaning pipeline: near-duplicate and collage/composite images were removed with a perceptual-duplicate pass (`fastdup`), and each kept photo was background-normalized (Stage 0) so the classifier and embedding models see the part the same way regardless of where the source photo came from. Each of the 56 SKUs carries 2–7 verified photos after cleaning.
+**Brain 2/3 catalog photography — real images, supplemented where needed.** The primary source is real product photography collected from manufacturer and retailer product pages (open, publicly available listings) across all 10 part categories. Where a SKU or a needed angle had no usable manufacturer photo, the gap was filled with AI-generated product images created with Google Gemini, so every SKU still reaches a usable photo count. All photos — sourced and generated alike — went through the same cleaning pipeline: near-duplicate and collage/composite images were removed with a perceptual-duplicate pass (`fastdup`), and each kept photo was background-normalized (Stage 0) so the classifier and embedding models see the part the same way regardless of where the source photo came from. Each of the 56 SKUs carries 2–11 verified photos after cleaning.
 
 **Catalog metadata — curated, realistic synthetic data.** Product names, brands, manufacturer part numbers, fitment ranges, cross-references (`replacement_sku`, `alternative_skus`, `accessory_skus`), and category-specific attributes are a curated dataset modeled closely on real automotive aftermarket retail conventions — real brand-naming patterns (e.g. Duralast, Wagner ThermoQuiet, Febi Bilstein, MOOG, TRW), realistic part-number formats, and plausible make/model/year fitment windows. This was a deliberate choice over arbitrary placeholder labels: it lets the recommendation engine (Section 7) and the guided-chat disambiguation logic (Section 6) exercise real business relationships — a brake pad set that has actually been superseded, an accessory that actually belongs with a given filter — rather than meaningless linkage.
 
@@ -387,7 +387,8 @@ Everything heavy already ships with the repo — the trained classifier, the bui
 
 ```
 cd partpilot
-python -m venv .venv && .venv\Scripts\Activate.ps1     # Windows
+python -m venv .venv                 # Windows: PowerShell has no `&&`, so run these
+.venv\Scripts\Activate.ps1           # two lines separately
 pip install -r requirements.txt
 cp .env.example .env        # set DATABASE_URL; leave the rest alone
 python run.py                # open http://localhost:8000/docs

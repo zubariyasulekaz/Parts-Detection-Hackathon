@@ -23,6 +23,13 @@ replacement/alternative/accessory mapping, and compatible_vehicles' fitment
 tags already live in attributes.fitment instead. Re-add them with an ALTER
 TABLE if a future data source backfills any of them.
 
+The table itself is owned by `alembic_rigidhitch/` (a parallel migration
+environment to the main app's `alembic/`, pointed at this separate database)
+rather than created ad hoc by this script - run migrations once before the
+first import:
+
+    alembic -c alembic_rigidhitch.ini upgrade head
+
 Safe to re-run: rows are upserted on sku.
 
 Run:
@@ -30,8 +37,9 @@ Run:
     python scripts/import_rigidhitch_catalog.py --database-url "..." --dry-run
 
 The database URL can also be supplied via the RIGIDHITCH_DATABASE_URL
-environment variable instead of --database-url, so it never has to be typed
-into a shell history or committed anywhere.
+environment variable instead of --database-url (the same variable
+`alembic_rigidhitch/env.py` reads), so it never has to be typed into a shell
+history or committed anywhere.
 """
 
 import argparse
@@ -45,43 +53,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import sqlalchemy as sa  # noqa: E402
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, insert  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
+from sqlalchemy.dialects.postgresql import insert  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
+
+from alembic_rigidhitch.schema import products_table  # noqa: E402
+
+# Loads partpilot/.env (if present) so RIGIDHITCH_DATABASE_URL can live there
+# like every other setting, rather than needing --database-url every run.
+load_dotenv()
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 DEFAULT_DATASET_DIR = Path(r"C:\Users\Vinith\Downloads\rigidhitch_dataset\rigidhitch_dataset")
 BATCH_SIZE = 500
-
-# A local table definition rather than importing backend.pipeline.brain3_catalog.models.Product:
-# that ORM class still declares replacement_sku / alternative_skus / accessory_skus /
-# compatible_vehicles with Python-side defaults, which SQLAlchemy would silently
-# re-add to every insert even when those keys are left out of the row dicts. This
-# table matches what RigidHitch's products table actually has, column for column.
-METADATA = sa.MetaData()
-products_table = sa.Table(
-    "products",
-    METADATA,
-    sa.Column("sku", sa.Text(), primary_key=True),
-    sa.Column("product_name", sa.Text(), nullable=False),
-    sa.Column("brand", sa.Text(), nullable=False),
-    sa.Column("category", sa.Text(), nullable=False),
-    sa.Column("description", sa.Text(), nullable=True),
-    sa.Column("manufacturer_part_number", sa.Text(), nullable=True),
-    sa.Column("attributes", JSONB, nullable=False, server_default="{}"),
-    sa.Column("image_paths", ARRAY(sa.Text()), nullable=False, server_default="{}"),
-    sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-    sa.Column(
-        "updated_at",
-        sa.DateTime(timezone=True),
-        server_default=sa.text("now()"),
-        onupdate=sa.text("now()"),
-        nullable=False,
-    ),
-    sa.Index("ix_products_brand", "brand"),
-    sa.Index("ix_products_category", "category"),
-    sa.Index("ix_products_manufacturer_part_number", "manufacturer_part_number"),
-)
 
 
 def split_list(value: str) -> list[str]:
@@ -152,11 +136,6 @@ def build_rows(dataset_dir: Path, csv_path: Path) -> list[dict]:
     return rows
 
 
-async def create_table(engine) -> None:
-    async with engine.begin() as connection:
-        await connection.run_sync(lambda sync_conn: METADATA.create_all(sync_conn, tables=[products_table]))
-
-
 async def upsert(engine, rows: list[dict]) -> None:
     """Insert the rows in batches, updating any SKU that is already present."""
     update_columns = (
@@ -196,12 +175,19 @@ async def main() -> None:
         "--dataset-dir",
         type=Path,
         default=DEFAULT_DATASET_DIR,
-        help=f"Root folder containing catalog.csv and images/ (default: {DEFAULT_DATASET_DIR})",
+        help=f"Root folder containing the catalog CSV and images/ (default: {DEFAULT_DATASET_DIR})",
+    )
+    parser.add_argument(
+        "--catalog-file",
+        default="catalog.csv",
+        help="CSV filename within --dataset-dir (default: catalog.csv). "
+             "Use catalog.clean.csv to import the HTML/blank-brand-cleaned version "
+             "instead of the raw export - see scripts/clean_rigidhitch_catalog.py.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Parse and report only, write nothing.")
     args = parser.parse_args()
 
-    csv_path = args.dataset_dir / "catalog.csv"
+    csv_path = args.dataset_dir / args.catalog_file
     rows = build_rows(args.dataset_dir, csv_path)
 
     print(f"Read {len(rows)} products from {csv_path}")
@@ -229,8 +215,6 @@ async def main() -> None:
     engine = create_async_engine(url)
     try:
         print(f"\nConnecting to {re.sub(r'://[^@]+@', '://***@', url)}")
-        print("Creating products table (if not already present)...")
-        await create_table(engine)
         print(f"Importing {len(rows)} products...")
         await upsert(engine, rows)
     except Exception as exc:  # noqa: BLE001

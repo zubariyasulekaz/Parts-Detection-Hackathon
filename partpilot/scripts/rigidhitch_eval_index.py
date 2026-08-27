@@ -63,6 +63,43 @@ def kit_scores(vectors: np.ndarray, indices: list[int]) -> np.ndarray:
     return np.einsum("ij,ij->i", block, unit_rows(sibling_sums))
 
 
+def fit_whitener(train: np.ndarray, dims: int | None, variance: float | None) -> tuple:
+    """Fit a PCA whitening transform on the tuning vectors only.
+
+    DINOv2's dimensions are correlated and wildly unequal in variance: a few
+    directions carrying overall brightness and canonical product pose dominate
+    the cosine, drowning out the fine geometry that separates one hitch from
+    another. Whitening rescales every retained direction to unit variance, so
+    the small discriminative differences count as much as the large generic
+    ones.
+
+    Fitted on the tuning split alone. Fitting on everything would let the
+    transform see the SKUs it is later scored on - a mild leak, since PCA uses
+    no labels, but the split exists precisely so no such question arises.
+
+    The usual ``sqrt(n-1)`` scale factor is omitted: it multiplies every
+    dimension equally, so L2 normalization afterwards cancels it out.
+    """
+    mean = train.mean(axis=0)
+    _, singular, right = np.linalg.svd(train - mean, full_matrices=False)
+
+    if dims is None:
+        explained = singular**2
+        cumulative = np.cumsum(explained) / explained.sum()
+        dims = int(np.argmax(cumulative >= (variance or 0.99)) + 1)
+    dims = min(dims, right.shape[0])
+
+    # Epsilon guards the tail components, whose singular values approach zero
+    # and would otherwise blow up into pure noise once divided through.
+    matrix = right[:dims].T / (singular[:dims] + 1e-5)
+    return mean, matrix, dims
+
+
+def apply_whitener(vectors: np.ndarray, mean: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+    """Centre, project, and re-normalize - the same transform for index and query."""
+    return unit_rows((vectors - mean) @ matrix)
+
+
 def apply_filters(rows, vectors, args) -> dict[str, list[int]]:
     """Reproduce the build-time filters, returning surviving row indices per SKU."""
     zero_mask = np.abs(vectors).sum(axis=1) == 0
@@ -208,6 +245,14 @@ def main() -> None:
     parser.add_argument("--kit-threshold", type=float, default=0.40)
     parser.add_argument("--kit-min-siblings", type=int, default=3)
     parser.add_argument("--no-kit-filter", action="store_true")
+    parser.add_argument("--whiten", action="store_true",
+                        help="Apply PCA whitening, fitted on the tuning split only.")
+    parser.add_argument("--whiten-dims", type=int, default=None,
+                        help="Keep this many components (default: enough for --whiten-variance).")
+    parser.add_argument("--whiten-variance", type=float, default=0.99,
+                        help="Variance to retain when --whiten-dims is unset (default: 0.99).")
+    parser.add_argument("--whiten-sweep", action="store_true",
+                        help="Score several component counts and the un-whitened baseline.")
     parser.add_argument("--seed", type=int, default=20260827)
     args = parser.parse_args()
 
@@ -223,25 +268,57 @@ def main() -> None:
     print(f"filters: max-skus-per-hash={args.max_skus_per_hash}  "
           f"kit={'off' if args.no_kit_filter else f'<{args.kit_threshold} at >={args.kit_min_siblings} imgs'}")
 
+    tuning_rows: np.ndarray | None = None
+    if args.whiten or args.whiten_sweep:
+        split_path = args.build_dir / "split.json"
+        if not split_path.is_file():
+            raise SystemExit(f"{split_path} not found - re-run rigidhitch_dedup_images.py.")
+        tuning = set(json.loads(split_path.read_text())["tuning_skus"])
+        indices = [i for sku, idxs in by_sku.items() if sku in tuning for i in idxs]
+        if len(indices) < 100:
+            raise SystemExit(f"only {len(indices)} tuning vectors - too few to fit whitening.")
+        tuning_rows = vectors[indices]
+        print(f"whitening fitted on {len(indices):,} tuning vectors "
+              f"({len(tuning & set(by_sku)):,} SKUs), never on the test half")
+
+    def report(label: str, matrix: np.ndarray) -> None:
+        for slice_label, minimum in (("2+ photos", 2), ("3+ photos", 3)):
+            result = evaluate(matrix, by_sku, minimum)
+            if not result.get("queries"):
+                continue
+            print(f"{label:<20}{slice_label:<12}{result['queries']:>8,}{result['skus']:>7,}"
+                  f"{result['top1']:>8.1f}%{result['top3']:>8.1f}%{result['top5']:>8.1f}%"
+                  f"{result['mrr']:>8.3f}")
+
     print()
-    print("=" * 66)
-    print(f"{'slice':<26}{'queries':>9}{'SKUs':>8}{'top-1':>9}{'top-3':>9}{'top-5':>9}{'MRR':>8}")
-    print("=" * 66)
-    for label, minimum in (("2+ photos (noisy)", 2), ("3+ photos (reliable)", 3)):
-        result = evaluate(vectors, by_sku, minimum)
-        if not result.get("queries"):
-            print(f"{label:<26}  no queries")
-            continue
-        print(f"{label:<26}{result['queries']:>9,}{result['skus']:>8,}"
-              f"{result['top1']:>8.1f}%{result['top3']:>8.1f}%{result['top5']:>8.1f}%"
-              f"{result['mrr']:>8.3f}")
+    print("=" * 78)
+    print(f"{'variant':<20}{'slice':<12}{'queries':>8}{'SKUs':>7}"
+          f"{'top-1':>8}{'top-3':>8}{'top-5':>8}{'MRR':>8}")
+    print("=" * 78)
+
+    scored = vectors
+    if args.whiten_sweep:
+        report("raw (no whitening)", vectors)
+        for dims in (64, 128, 256, 384, 512):
+            if dims >= vectors.shape[1]:
+                continue
+            mean, matrix, kept = fit_whitener(tuning_rows, dims, None)
+            print("-" * 78)
+            report(f"whitened d={kept}", apply_whitener(vectors, mean, matrix))
+    elif args.whiten:
+        mean, matrix, kept = fit_whitener(tuning_rows, args.whiten_dims, args.whiten_variance)
+        scored = apply_whitener(vectors, mean, matrix)
+        print(f"({vectors.shape[1]} dims -> {kept} after whitening)")
+        report(f"whitened d={kept}", scored)
+    else:
+        report("raw", vectors)
 
     print()
     print(f"Ranking pool is all {len(by_sku):,} indexed SKUs, but only multi-photo SKUs")
     print("can be queried. Single-photo products compete as distractors and are")
     print("never scored - so these figures are optimistic about finding *them*.")
 
-    impostor_sweep(vectors, by_sku, np.random.default_rng(args.seed))
+    impostor_sweep(scored, by_sku, np.random.default_rng(args.seed))
 
 
 if __name__ == "__main__":

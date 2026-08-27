@@ -114,4 +114,15 @@ def create_app() -> FastAPI:
     return app
 
 
-app = create_app()
+_app = create_app()
+_settings = get_settings()
+
+# Wrap the complete application so CORS headers are also present on unhandled
+# errors returned by Starlette's outer ServerErrorMiddleware.
+app = CORSMiddleware(
+    _app,
+    allow_origins=_settings.CORS_ORIGINS,
+    allow_credentials="*" not in _settings.CORS_ORIGINS,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)

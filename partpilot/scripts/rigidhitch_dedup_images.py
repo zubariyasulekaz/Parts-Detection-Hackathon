@@ -37,6 +37,7 @@ import argparse
 import hashlib
 import json
 import random
+import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -103,15 +104,79 @@ def build_rows(by_hash: dict[str, list[str]]) -> list[dict]:
             "sha256": digest,
             "n_skus_sharing": len(skus),
             "n_copies": len(paths),
+            # Who shares it, not just how many. The count alone cannot tell a
+            # placeholder used by 367 unrelated products from a photo shared by
+            # one part's bundle variants - see is_variant_family().
+            "sharers": skus,
         })
     return rows
 
 
-def surviving_counts(rows: list[dict], max_skus_per_hash: int) -> Counter:
+def variant_root(sku: str) -> str:
+    """The base SKU a bundle variant belongs to.
+
+    RigidHitch sells one part under several SKUs - ``BX2619`` is the baseplate,
+    ``BX2619-20`` / ``-70`` / ``-80`` are the same baseplate packed with
+    different extras. They legitimately share one photograph.
+    """
+    return re.sub(r"-\d{1,3}$", "", sku)
+
+
+def is_variant_family(skus: list[str]) -> bool:
+    """True when every SKU sharing a photo is a bundle of the same part.
+
+    This is the distinction the raw share-count cannot make, and getting it
+    wrong is expensive in both directions:
+
+    * One photo used by 367 unrelated products is a placeholder. Keeping it
+      would let a single image answer for 367 SKUs - worse than useless.
+    * One photo used by ``BX2619`` and its three bundles is a perfectly good
+      picture of a real part. Discarding it makes that part unfindable, which
+      is exactly what happened: 1,322 products were dropped for this reason.
+    """
+    return len({variant_root(sku) for sku in skus}) == 1
+
+
+def load_sharers(build_dir: Path) -> dict[str, list[str]]:
+    """The sha256 -> sharing-SKUs sidecar, or empty when absent.
+
+    A sidecar rather than a column on ``embed_rows.jsonl``, because that file's
+    hash is recorded at embed time and checked before every build: row N of the
+    vector array must be line N of the manifest, so editing it - even to add a
+    field, even preserving order - trips the guard that protects against
+    silently misattributing every vector.
+    """
+    path = build_dir / "hash_sharers.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+
+
+def keeps_row(
+    row: dict,
+    max_skus_per_hash: int,
+    allow_families: bool,
+    sharers: dict[str, list[str]] | None = None,
+) -> bool:
+    """Whether an image survives the cross-SKU filter.
+
+    Falls back to the strict count when the sharer list is unavailable: without
+    knowing *who* shares a photo the family test cannot run, and guessing would
+    risk keeping a placeholder used by hundreds of unrelated products.
+    """
+    if row["n_skus_sharing"] <= max_skus_per_hash:
+        return True
+    if not allow_families:
+        return False
+    shared_with = (sharers or {}).get(row["sha256"]) or row.get("sharers")
+    return bool(shared_with and is_variant_family(shared_with))
+
+
+def surviving_counts(
+    rows: list[dict], max_skus_per_hash: int, allow_families: bool = False
+) -> Counter:
     """Images each SKU keeps once the cross-SKU cutoff is applied."""
     counts: Counter = Counter()
     for row in rows:
-        if row["n_skus_sharing"] <= max_skus_per_hash:
+        if keeps_row(row, max_skus_per_hash, allow_families):
             counts[row["sku"]] += 1
     return counts
 

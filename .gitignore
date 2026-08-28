@@ -31,3 +31,10 @@ htmlcov/
 Thumbs.db
 
 *.zip
+
+# --- RigidHitch search index (build artifact) ---
+# ~42 MB and rewritten on every rebuild, so it stays out of history. PartPilot's
+# own indexes are committed because they are ~50 KB each; this one is 800x larger.
+# Rebuild in ~2 min from the cached vectors:
+#   python scripts/rigidhitch_filter_and_build.py --embeddings embeddings_base.npy
+partpilot/backend/models/faiss_rigidhitch/

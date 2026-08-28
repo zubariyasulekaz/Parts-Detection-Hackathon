@@ -14,10 +14,23 @@ import type {
 /** Inference runs several models; give it far longer than a catalog read, but not forever. */
 const PREDICT_TIMEOUT_MS = 120_000
 
+/**
+ * Which catalogue the app runs against.
+ *
+ * `''` is PartPilot's own car-parts catalogue; `/rigidhitch` is the second
+ * client's. Both expose the same routes under their prefix and return the same
+ * shapes, so switching is a prefix rather than a rewrite.
+ *
+ * Both constants have to move together: a search that finds a RigidHitch SKU
+ * and then looks it up in PartPilot's catalogue 404s on every result.
+ */
+const CATALOG_PREFIX = import.meta.env.VITE_CATALOG_PREFIX ?? '/rigidhitch'
+const PREDICT_PATH = import.meta.env.VITE_PREDICT_PATH ?? `${CATALOG_PREFIX}/predict`
+
 export async function predictPart(file: File, topK: number, explain = true): Promise<PredictionResultDTO> {
   const formData = new FormData()
   formData.append('file', file)
-  return apiPostForm<PredictionResultDTO>('/predict', formData, { top_k: topK, explain }, PREDICT_TIMEOUT_MS)
+  return apiPostForm<PredictionResultDTO>(PREDICT_PATH, formData, { top_k: topK, explain }, PREDICT_TIMEOUT_MS)
 }
 
 /**
@@ -48,11 +61,11 @@ export async function deleteHistoryEntry(entryId: number): Promise<{ id: number 
 }
 
 export async function fetchProduct(sku: string): Promise<ProductResponseDTO> {
-  return apiGet<ProductResponseDTO>(`/products/${encodeURIComponent(sku)}`)
+  return apiGet<ProductResponseDTO>(`${CATALOG_PREFIX}/products/${encodeURIComponent(sku)}`)
 }
 
 export async function fetchProducts(query: ProductListQuery = {}): Promise<ProductResponseDTO[]> {
-  return apiGet<ProductResponseDTO[]>('/products', {
+  return apiGet<ProductResponseDTO[]>(`${CATALOG_PREFIX}/products`, {
     limit: query.limit,
     offset: query.offset,
     category: query.category,
@@ -61,7 +74,7 @@ export async function fetchProducts(query: ProductListQuery = {}): Promise<Produ
 }
 
 export async function fetchRecommendations(sku: string): Promise<RecommendationDTO> {
-  return apiGet<RecommendationDTO>(`/products/${encodeURIComponent(sku)}/recommendations`)
+  return apiGet<RecommendationDTO>(`${CATALOG_PREFIX}/products/${encodeURIComponent(sku)}/recommendations`)
 }
 
 /**

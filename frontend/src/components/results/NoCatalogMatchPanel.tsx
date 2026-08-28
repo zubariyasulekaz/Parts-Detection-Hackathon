@@ -10,6 +10,18 @@ interface NoCatalogMatchPanelProps {
   closestCandidate: IdentificationCandidate | null
   /** The server-side threshold the verdict was made against; falls back to the mock-mode constant. */
   threshold?: number | null
+  /**
+   * How the verdict was reached, which changes what is honest to say.
+   *
+   * `'score'` - nothing scored high enough, so the image probably is not a part.
+   * `'user'`  - the customer said none of the results is their part. The scores
+   *             here are perfectly normal, so the threshold sentence would be
+   *             false; a 34% top match is typical of a real phone photograph of
+   *             a part we *do* stock. The system had no way to know: measured on
+   *             200 queries, no signal read off a photograph separates a stocked
+   *             product from its nearest unstocked lookalike.
+   */
+  reason?: 'score' | 'user'
   onNewSearch: () => void
 }
 
@@ -29,9 +41,16 @@ interface NoCatalogMatchPanelProps {
  */
 const CATEGORY_TRUST_THRESHOLD = 0.75
 
-export function NoCatalogMatchPanel({ category, closestCandidate, threshold, onNewSearch }: NoCatalogMatchPanelProps) {
+export function NoCatalogMatchPanel({
+  category,
+  closestCandidate,
+  threshold,
+  reason = 'score',
+  onNewSearch,
+}: NoCatalogMatchPanelProps) {
   const effectiveThreshold = threshold ?? NO_CATALOG_MATCH_THRESHOLD
   const categoryTrusted = category.confidence >= CATEGORY_TRUST_THRESHOLD
+  const saidByUser = reason === 'user'
   return (
     <div className="shadow-card flex h-full flex-col gap-5 rounded-xl border border-warning/40 bg-surface p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -45,12 +64,21 @@ export function NoCatalogMatchPanel({ category, closestCandidate, threshold, onN
         </span>
         <div>
           <p className="text-base font-semibold text-foreground">
-            {categoryTrusted
-              ? 'This part is not available in our catalog'
-              : "We couldn't recognize a catalog part in this image"}
+            {saidByUser
+              ? "We don't appear to stock this part"
+              : categoryTrusted
+                ? 'This part is not available in our catalog'
+                : "We couldn't recognize a catalog part in this image"}
           </p>
           <p className="mt-1.5 text-sm text-muted">
-            {closestCandidate ? (
+            {saidByUser ? (
+              <>
+                Thanks - that's the one thing a photograph can't tell us. Parts from different manufacturers are
+                often the same shape, so we can only narrow it down to what it looks like; you're the one who can
+                read the brand off the part. Give our team a call with that name and they'll confirm whether we
+                carry it.
+              </>
+            ) : closestCandidate ? (
               <>
                 The closest entry we stock matches this photo at only{' '}
                 <span className="font-mono font-semibold text-foreground">

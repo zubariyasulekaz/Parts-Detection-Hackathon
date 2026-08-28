@@ -37,6 +37,22 @@ const USE_SERVER_CHAT =
   import.meta.env.VITE_API_MODE === 'live' &&
   String(import.meta.env.VITE_CHAT_API ?? '').toLowerCase() === 'true'
 
+/**
+ * Whether to offer guided questions at all.
+ *
+ * Off for RigidHitch. Its catalogue carries no attribute worth asking about:
+ * `special_order` is "No" on 10,631 of 10,813 products, `keyword` holds
+ * internal codes, and `installation_instructions` is a `\\fileserver\...`
+ * path that must never reach a customer. Questions built from those would be
+ * useless at best.
+ *
+ * What these products actually need asking is a dimension - "what drop?",
+ * "how long?" - which is a different question engine than the attribute
+ * matching here. Until that exists, the shortlist alone is the honest answer.
+ */
+const QUESTIONS_ENABLED =
+  String(import.meta.env.VITE_GUIDED_QUESTIONS ?? 'false').toLowerCase() === 'true'
+
 /** `[{facet: "make", label: "Honda"}]` -> `{make: "Honda"}` for the audit trail. */
 function answersToRecord(answers: DisambiguationAnswer[]): Record<string, string> | undefined {
   if (!answers.length) return undefined
@@ -66,7 +82,8 @@ export function ResultsPage() {
   // score: a weak-but-clear winner needs no questions, while a 95% match with
   // a 94% runner-up is exactly when we must ask.
   const needsQuestions = Boolean(
-    result &&
+    QUESTIONS_ENABLED &&
+      result &&
       !result.noMatch &&
       result.candidates.length > 1 &&
       result.requiresConfirmation &&
@@ -129,7 +146,15 @@ export function ResultsPage() {
   // Nothing in the catalog scored high enough to be a match - the page becomes a
   // "we don't stock this" answer rather than a ranked recommendation. The
   // verdict is the server's (mock mode derives it locally).
-  const noCatalogMatch = result.noMatch
+  //
+  // The user can also reach it themselves, and for one important case that is
+  // the *only* way to reach it: the server's score cutoff catches input that is
+  // not a trailer part at all, but no signal computed from a photograph can
+  // catch a part we simply do not stock - an unstocked ball mount looks like a
+  // stocked one because it is the same shape. So "none of these" is always
+  // available, and answering the brand question with "a different brand" lands
+  // here too.
+  const noCatalogMatch = result.noMatch || (remainingSkus !== null && remainingSkus.length === 0)
   const selectedCandidate = candidates.find((candidate) => candidate.sku === selectedSku) ?? null
   const isHighConfidence =
     !noCatalogMatch && !result.requiresConfirmation && result.category.confidence >= HIGH_CONFIDENCE_THRESHOLD
@@ -345,6 +370,7 @@ export function ResultsPage() {
               category={result.category}
               closestCandidate={candidates[0] ?? null}
               threshold={result.noMatchThreshold}
+              reason={result.noMatch ? 'score' : 'user'}
               onNewSearch={handleNewSearch}
             />
           ) : (
@@ -384,6 +410,20 @@ export function ResultsPage() {
               </div>
             ))}
           </div>
+
+          {/* The only refusal route that works for a part we do not stock.
+              Measured on 200 queries, no signal read off the photograph tells a
+              stocked product from its nearest unstocked lookalike - they are
+              the same shape - so the customer, who can see the brand on the
+              part, is the one able to say. Without this the page would assert
+              its closest guess and be confidently wrong. */}
+          <button
+            type="button"
+            onClick={() => setRemainingSkus([])}
+            className="mt-6 text-sm font-medium text-muted underline underline-offset-4 transition-colors hover:text-foreground"
+          >
+            None of these is my part
+          </button>
         </div>
       )}
 

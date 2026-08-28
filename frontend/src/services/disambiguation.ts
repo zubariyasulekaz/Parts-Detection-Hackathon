@@ -40,10 +40,25 @@ export interface RowFilter {
 export interface DisambiguationOption {
   /** What the user sees on the chip. */
   label: string
-  /** SKUs still possible if this option is chosen. Never empty. */
+  /** SKUs still possible if this option is chosen. Empty only when `escape`. */
   skus: string[]
   /** Constraint this option puts on fitment rows for later questions. */
   filter?: RowFilter
+  /**
+   * "None of these" - the answer rules every candidate out, so the honest
+   * response is that we do not stock the part.
+   *
+   * This is the only reliable refusal the system has. Measured on 200 queries,
+   * no signal computed from the photograph separates a product we stock from
+   * its nearest lookalike that we do not: similarity and top-2 margin barely
+   * beat chance, and SIFT/RANSAC verification is marginally inverted (median 12
+   * inliers for the wrong rival against 11 for the right answer). An unstocked
+   * ball mount resembles a stocked one because it is the same shape.
+   *
+   * The brand is the information the shape does not carry, and the customer can
+   * read it off the part - so asking beats any amount of further modelling.
+   */
+  escape?: true
 }
 
 export interface DisambiguationQuestion {
@@ -71,7 +86,7 @@ interface FitmentRow {
 }
 
 const PROMPTS: Record<string, { prompt: string; hint: string }> = {
-  make: { prompt: 'Which vehicle is this part for?', hint: 'These candidates fit different makes.' },
+  make: { prompt: 'Which vehicle is this for?', hint: 'These candidates fit different makes.' },
   model: { prompt: 'Which model?', hint: 'Narrowing further by model.' },
   year: { prompt: 'Which model year?', hint: 'The remaining candidates cover different year ranges.' },
   mpn: {
@@ -90,23 +105,45 @@ const PROMPTS: Record<string, { prompt: string; hint: string }> = {
  * a frontend change.
  */
 const ATTRIBUTE_PROMPTS: Record<string, { prompt: string; hint: string }> = {
-  primary_colour: { prompt: 'What colour is it, mainly?', hint: 'The body, not the fittings.' },
-  filter_style: { prompt: 'Is it a spin-on canister or a cartridge insert?', hint: 'Look at the shape.' },
-  filter_shape: { prompt: 'What shape is the filter?', hint: '' },
-  position: { prompt: 'Where does it fit on the vehicle?', hint: 'Front or rear axle.' },
+  watts: { prompt: 'What wattage is it?', hint: 'Usually stamped on the element or its collar.' },
+  voltage: { prompt: 'What voltage?', hint: 'Printed next to the wattage.' },
+  drop: { prompt: 'How far down does the bar drop?', hint: 'Measure from the top of the shank to the ball hole.' },
+  rise: { prompt: 'How far up does the bar rise?', hint: 'For a ball mount fitted upside down.' },
+  ball_diameter: { prompt: 'How wide is the ball?', hint: 'Measure across the widest point - usually stamped on top.' },
+  shank_size: { prompt: 'How wide is the square shank?', hint: 'The bar that slides into the receiver.' },
+  receiver_size: { prompt: 'What size is your receiver opening?', hint: 'Measure the square hole - commonly 2 or 2½ inch.' },
+  capacity: { prompt: 'What weight is it rated for?', hint: 'Usually stamped on the part.' },
+  tow_capacity: { prompt: 'What towing capacity?', hint: 'Stamped on the part or in its paperwork.' },
+  length: { prompt: 'How long is it?', hint: 'Measure end to end.' },
+  width: { prompt: 'How wide is it?', hint: '' },
+  height: { prompt: 'How tall is it?', hint: '' },
+  hub_face: { prompt: 'What is the hub face measurement?', hint: 'Measured between the hub faces.' },
+  bolt_pattern: { prompt: 'What is the bolt pattern?', hint: 'Count the studs and measure across the circle.' },
+  lug_count: { prompt: 'How many studs does it have?', hint: 'Count the bolts on the flange.' },
+  wire_count: { prompt: 'How many wires or pins does the plug have?', hint: 'Count the pins in the connector.' },
+  connector_type: { prompt: 'What type of connector?', hint: 'Look at the shape of the plug.' },
   material: { prompt: 'What is it made of?', hint: '' },
-  friction_material: { prompt: 'What is the friction material?', hint: 'Usually printed on the pad edge or box.' },
-  injector_type: { prompt: 'Which type of injector is it?', hint: '' },
-  pump_style: { prompt: 'Which type of pump is it?', hint: '' },
-  throttle_control: { prompt: 'Is it cable-operated or electronic?', hint: 'Look for a cable pulley or a plug.' },
-  sold_as: { prompt: 'How many are in the set?', hint: '' },
-  lug_count: { prompt: 'How many wheel studs does it have?', hint: 'Count the bolts on the flange.' },
-  abs_sensor: { prompt: 'Does it have an ABS sensor?', hint: 'A wire running off the hub.' },
-  wear_sensor: { prompt: 'Does it have a wear sensor?', hint: 'A small wire clipped to one pad.' },
-  pulley_fitted: { prompt: 'Is the pulley already fitted?', hint: '' },
-  integrated_reservoir: { prompt: 'Does it have a fluid reservoir on top?', hint: '' },
-  catalytic_converter: { prompt: 'Does it include a catalytic converter?', hint: '' },
+  finish: { prompt: 'What finish does it have?', hint: 'Zinc is dull silver; powder coat is usually black.' },
+  fits: { prompt: 'What does it fit?', hint: 'What the part attaches to.' },
+  fitment: { prompt: 'What does it fit?', hint: 'For example a 2 inch receiver.' },
 }
+
+/**
+ * Attribute keys never worth asking about.
+ *
+ * Some carry no signal - `special_order` is "No" on 10,631 of RigidHitch's
+ * 10,813 products, so it can never eliminate anything. Others must not reach a
+ * customer at all: `installation_instructions` holds an internal
+ * `\\fileserver\...` path, and `keyword` holds internal codes.
+ */
+const ATTRIBUTE_BLOCKLIST = new Set([
+  'special_order',
+  'installation_instructions',
+  'keyword',
+  'warranty',
+  'suggested_wiring',
+  'made_in',
+])
 
 /** Exposed so the results UI can replay a past answer's question text. */
 export function promptFor(facet: FacetKey): { prompt: string; hint: string } {
@@ -198,9 +235,41 @@ function yearOptions(rows: FitmentRow[]): DisambiguationOption[] {
 }
 
 function brandOptions(candidates: IdentificationCandidate[]): DisambiguationOption[] {
-  return uniqueSorted(candidates.map((candidate) => candidate.brand)).map((label) => ({
+  const brands = uniqueSorted(candidates.map((candidate) => candidate.brand)).map((label) => ({
     label,
     skus: uniqueSorted(candidates.filter((candidate) => candidate.brand === label).map((c) => c.sku)),
+  }))
+  // The escape is what makes this question worth asking even when every
+  // candidate shares one brand: it cannot narrow the shortlist, but it can rule
+  // the whole shortlist out, which nothing else here can.
+  return [...brands, { label: 'A different brand', skus: [], escape: true as const }]
+}
+
+/**
+ * Attribute keys worth considering as a question for this set of candidates.
+ *
+ * Every candidate must carry the key - a missing attribute means "unknown",
+ * not "different", and answering would silently rule out a product whose data
+ * is merely incomplete. That is the same trap the fitment check avoids.
+ */
+function attributeKeys(candidates: IdentificationCandidate[]): string[] {
+  if (candidates.length < 2) return []
+  const [first, ...rest] = candidates
+  return Object.keys(first.attributes ?? {})
+    .filter((key) => !ATTRIBUTE_BLOCKLIST.has(key))
+    .filter((key) => rest.every((candidate) => Boolean(candidate.attributes?.[key])))
+    .sort()
+}
+
+function attributeOptions(
+  candidates: IdentificationCandidate[],
+  key: string,
+): DisambiguationOption[] {
+  return uniqueSorted(candidates.map((candidate) => candidate.attributes[key])).map((label) => ({
+    label,
+    skus: uniqueSorted(
+      candidates.filter((candidate) => candidate.attributes[key] === label).map((c) => c.sku),
+    ),
   }))
 }
 
@@ -226,7 +295,14 @@ function worstCaseRemaining(options: DisambiguationOption[]): number {
  * is still the one worth asking.
  */
 function isUseful(options: DisambiguationOption[], candidateCount: number): boolean {
-  return options.length > 1 && Math.min(...options.map((o) => o.skus.length)) < candidateCount
+  // Escapes are ignored here on purpose. One is attached to a question that is
+  // already worth asking, but it must never be the reason for asking: an escape
+  // narrows nothing, and counting it would make every question look useful and
+  // interrogate the customer after a perfectly decisive match. The "none of
+  // these" route out of an all-one-brand shortlist is offered on the results
+  // page instead, where it costs no extra question.
+  const narrowing = options.filter((option) => !option.escape)
+  return narrowing.length > 1 && Math.min(...narrowing.map((o) => o.skus.length)) < candidateCount
 }
 
 /**
@@ -244,9 +320,40 @@ function isUseful(options: DisambiguationOption[], candidateCount: number): bool
  *
  * Elimination power only orders facets within a tier; "Not sure" skips one.
  */
+/**
+ * Physical dimensions - answerable from the part itself, with a tape measure
+ * if the label has worn off.
+ */
+const MEASURABLE = new Set([
+  'drop', 'rise', 'length', 'width', 'height',
+  'ball_diameter', 'shank_size', 'receiver_size', 'hub_face', 'bolt_pattern',
+  'lug_count', 'wire_count',
+])
+
+/**
+ * Ratings - printed on a plate or sticker and nowhere else. Unanswerable once
+ * that wears off, and easy to guess at wrongly.
+ */
+const RATINGS = new Set([
+  'capacity', 'tow_capacity', 'tongue_weight', 'gross_weight', 'load_rating',
+])
+
+/**
+ * How reliably a customer can answer, lowest asked first.
+ *
+ * Dimensions come first because they are always recoverable: a 2 inch drop can
+ * be measured whether or not the sticker survived. Ratings come last of the
+ * attributes, because a wrong guess there is worse than no question at all -
+ * it walks the customer to a confidently wrong product.
+ */
 function answerability(facet: FacetKey): number {
-  if (facet.startsWith('attr:')) return 0
-  return { make: 1, model: 2, year: 3, mpn: 4, brand: 5 }[facet as 'make'] ?? 9
+  if (facet.startsWith('attr:')) {
+    const key = facet.slice('attr:'.length)
+    if (MEASURABLE.has(key)) return 0
+    if (RATINGS.has(key)) return 4
+    return 1 // stamped values: wattage, voltage, finish
+  }
+  return { brand: 2, mpn: 3, make: 5, model: 6, year: 7 }[facet as 'brand'] ?? 9
 }
 
 /**
@@ -280,15 +387,22 @@ function questionFor(
 
   const built: { facet: FacetKey; options: DisambiguationOption[] }[] = []
 
-  // Visual attributes (colour, shape, style, ...) are deliberately never
-  // asked here: Brain 2's similarity search already ranks candidates on
-  // visual appearance, so re-asking what the photo already informed would
-  // be redundant friction, not new information. Only ask what the photo
-  // genuinely cannot tell us - fitment, part number, brand.
+  // Only ever ask what the photograph genuinely cannot answer. The similarity
+  // search has already ranked on appearance, so re-asking about shape or
+  // colour would be friction rather than information.
+  //
+  // For this catalogue that means the *specifications*: wattage, drop height,
+  // ball diameter, capacity. A 1000W element and a 1500W one are the same
+  // object to a camera; so are a 2 inch drop ball mount and a 3 inch one.
+  // Those differences are invisible in a photo and recorded in the data, which
+  // makes them the only questions worth a customer's time.
   if (everyCandidateHasFitment) {
     built.push({ facet: 'make', options: optionsFromRows(rows, 'make') })
     built.push({ facet: 'model', options: optionsFromRows(rows, 'model') })
     built.push({ facet: 'year', options: yearOptions(rows) })
+  }
+  for (const key of attributeKeys(candidates)) {
+    built.push({ facet: `attr:${key}`, options: attributeOptions(candidates, key) })
   }
   built.push({ facet: 'mpn', options: partNumberOptions(candidates) })
   built.push({ facet: 'brand', options: brandOptions(candidates) })
@@ -329,6 +443,21 @@ export function applyAnswers(
  */
 export function canDisambiguate(candidates: IdentificationCandidate[]): boolean {
   return nextQuestion(candidates) !== null
+}
+
+/**
+ * True when the answers have eliminated every candidate - the customer took an
+ * escape, so we do not stock this part.
+ *
+ * Distinct from "narrowed to one": both leave `nextQuestion` with nothing to
+ * ask, but one is an answer and the other is a refusal, and showing the wrong
+ * one is exactly the failure this whole path exists to prevent.
+ */
+export function isRuledOut(
+  candidates: IdentificationCandidate[],
+  answers: DisambiguationAnswer[],
+): boolean {
+  return candidates.length > 0 && applyAnswers(candidates, answers).length === 0
 }
 
 /**

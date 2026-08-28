@@ -38,12 +38,6 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# The de-dup script owns what counts as a duplicate; importing keeps the
-# measurement and the shipped build on one definition rather than two.
-from scripts.rigidhitch_dedup_images import (  # noqa: E402
-    keeps_row, load_sharers, variant_root,
-)
-
 DEFAULT_BUILD_DIR = Path(
     r"C:\Users\Vasuki.KLIZER-49\Downloads\rigidhitch_dataset\rigidhitch_dataset\index_build"
 )
@@ -110,25 +104,14 @@ def apply_whitener(vectors: np.ndarray, mean: np.ndarray, matrix: np.ndarray) ->
     return unit_rows((vectors - mean) @ matrix)
 
 
-def apply_filters(rows, vectors, args, sharers=None) -> dict[str, list[int]]:
-    """Reproduce the build-time filters, returning surviving row indices per SKU.
-
-    With ``--allow-variant-families`` a shared photo is kept when every SKU
-    sharing it is a bundle of the same part, and attributed to all of them: each
-    is separately purchasable, so each has to be findable. They are then
-    genuinely indistinguishable by photograph, which is correct - they are the
-    same object - and ``--family-credit`` scores that honestly.
-    """
+def apply_filters(rows, vectors, args) -> dict[str, list[int]]:
+    """Reproduce the build-time filters, returning surviving row indices per SKU."""
     zero_mask = np.abs(vectors).sum(axis=1) == 0
     by_sku: dict[str, list[int]] = defaultdict(list)
     for i, row in enumerate(rows):
-        if zero_mask[i]:
+        if zero_mask[i] or row["n_skus_sharing"] > args.max_skus_per_hash:
             continue
-        if row["n_skus_sharing"] <= args.max_skus_per_hash:
-            by_sku[row["sku"]].append(i)
-        elif keeps_row(row, args.max_skus_per_hash, args.allow_variant_families, sharers):
-            for sku in (sharers or {}).get(row["sha256"], []):
-                by_sku[sku].append(i)
+        by_sku[row["sku"]].append(i)
 
     if args.no_kit_filter:
         return by_sku
@@ -145,33 +128,17 @@ def apply_filters(rows, vectors, args, sharers=None) -> dict[str, list[int]]:
     return filtered
 
 
-def evaluate(
-    vectors: np.ndarray,
-    by_sku: dict[str, list[int]],
-    min_photos: int,
-    family_credit: bool = False,
-) -> dict:
+def evaluate(vectors: np.ndarray, by_sku: dict[str, list[int]], min_photos: int) -> dict:
     """Leave-one-out top-1 / top-3 / top-5 / MRR over the full SKU pool.
 
     Queries come only from SKUs with at least ``min_photos`` images - a SKU with
     one photo has nothing left to match against once that photo is removed. The
     *pool* is always every SKU, so single-photo products still compete as
     distractors.
-
-    With ``family_credit`` a query is scored against its whole bundle family
-    rather than the exact SKU. Once variant families are indexed this is the
-    only honest measure: ``BX2619`` and ``BX2619-20`` are one baseplate under
-    two part numbers, sharing one photograph, so ranking the sibling first is a
-    correct answer being marked wrong. Without the flag the two settings cannot
-    be compared - allowing families would appear to lose accuracy purely because
-    it introduced siblings that outrank each other.
     """
     skus = sorted(by_sku)
     sku_index = {sku: i for i, sku in enumerate(skus)}
     dim = vectors.shape[1]
-    # Integer-coded family per SKU column, so "same part?" is one comparison.
-    root_codes = {root: n for n, root in enumerate(sorted({variant_root(s) for s in skus}))}
-    roots = np.array([root_codes[variant_root(s)] for s in skus])
 
     sums = np.zeros((len(skus), dim), dtype=np.float32)
     counts = np.zeros(len(skus), dtype=np.int32)
@@ -211,14 +178,8 @@ def evaluate(
         scores[np.arange(len(block)), owners] = own
 
         order = np.argsort(-scores, axis=1)
-        # Position of the first acceptable answer: the SKU itself, or under
-        # family credit any sibling sharing its part number root.
-        if family_credit:
-            hit = roots[order] == roots[owners][:, None]
-            family_ranks = np.argmax(hit, axis=1) + 1
         for position, owner in enumerate(owners):
-            ranks.append(int(family_ranks[position]) if family_credit
-                         else int(np.where(order[position] == owner)[0][0]) + 1)
+            ranks.append(int(np.where(order[position] == owner)[0][0]) + 1)
             # Gap between the best and second-best product. A narrow gap means
             # the model is not really choosing - it is split between two
             # near-identical parts - which is a far better refusal signal here
@@ -435,12 +396,6 @@ def main() -> None:
     parser.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR)
     parser.add_argument("--embeddings", default="embeddings.npy")
     parser.add_argument("--max-skus-per-hash", type=int, default=1)
-    parser.add_argument("--allow-variant-families", action="store_true",
-                        help="Keep a shared photo when every SKU sharing it is a bundle "
-                             "of the same part (BX2619 / BX2619-20 / -70 / -80).")
-    parser.add_argument("--family-credit", action="store_true",
-                        help="Score a sibling bundle as correct. Required to compare "
-                             "against --allow-variant-families fairly.")
     parser.add_argument("--kit-threshold", type=float, default=0.40)
     parser.add_argument("--kit-min-siblings", type=int, default=3)
     parser.add_argument("--no-kit-filter", action="store_true")
@@ -463,8 +418,7 @@ def main() -> None:
     if len(rows) != vectors.shape[0]:
         raise SystemExit(f"row/vector mismatch: {len(rows):,} vs {vectors.shape[0]:,}")
 
-    sharers = load_sharers(args.build_dir)
-    by_sku = apply_filters(rows, vectors, args, sharers)
+    by_sku = apply_filters(rows, vectors, args)
     total_vectors = sum(len(v) for v in by_sku.values())
 
     print(f"indexed: {total_vectors:,} vectors across {len(by_sku):,} SKUs")
@@ -486,7 +440,7 @@ def main() -> None:
 
     def report(label: str, matrix: np.ndarray) -> None:
         for slice_label, minimum in (("2+ photos", 2), ("3+ photos", 3)):
-            result = evaluate(matrix, by_sku, minimum, args.family_credit)
+            result = evaluate(matrix, by_sku, minimum)
             if not result.get("queries"):
                 continue
             print(f"{label:<20}{slice_label:<12}{result['queries']:>8,}{result['skus']:>7,}"
@@ -529,7 +483,7 @@ def main() -> None:
 
     print()
     print(f"### Everything below describes: {scored_label}, 3+ photo slice ###")
-    detail = evaluate(scored, by_sku, 3, args.family_credit)
+    detail = evaluate(scored, by_sku, 3)
     if detail.get("queries"):
         catalog_path = args.catalog or (args.build_dir.parent / "catalog.clean.csv")
         if catalog_path.is_file():

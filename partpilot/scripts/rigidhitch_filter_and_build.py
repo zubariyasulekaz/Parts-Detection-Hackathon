@@ -45,9 +45,6 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# One definition of "duplicate", shared with the de-dup script and the eval.
-from scripts.rigidhitch_dedup_images import keeps_row, load_sharers  # noqa: E402
-
 from backend.pipeline.brain2_similarity.faiss_index import FaissIndex  # noqa: E402
 from rigidhitch_eval_index import apply_whitener, fit_whitener  # noqa: E402
 
@@ -106,10 +103,6 @@ def main() -> None:
     parser.add_argument("--index-dir", type=Path, default=DEFAULT_INDEX_DIR)
     parser.add_argument("--embeddings", default="embeddings.npy",
                         help="Array filename within --build-dir (default: embeddings.npy)")
-    parser.add_argument("--allow-variant-families", action="store_true",
-                        help="Keep a shared photo when every SKU sharing it is a bundle "
-                             "of one part (BX2619 / BX2619-20 / -70 / -80), and index it "
-                             "for all of them. Recovers ~1,300 products.")
     parser.add_argument("--max-skus-per-hash", type=int, default=1,
                         help="Keep an image only if its content is used by at most this "
                              "many SKUs (default: 1).")
@@ -142,7 +135,6 @@ def main() -> None:
     check_binding(rows_path, meta)
 
     rows = load_rows(rows_path)
-    sharers = load_sharers(args.build_dir)
     vectors = np.load(array_path).astype(np.float32)
     if len(rows) != vectors.shape[0]:
         raise SystemExit(
@@ -152,26 +144,13 @@ def main() -> None:
     # A failed image was written as a zero vector to keep the array aligned;
     # it carries no information and must not reach the index.
     zero_mask = np.abs(vectors).sum(axis=1) == 0
-    shared_mask = np.array([
-        not keeps_row(r, args.max_skus_per_hash, args.allow_variant_families, sharers)
-        for r in rows
-    ])
+    shared_mask = np.array([r["n_skus_sharing"] > args.max_skus_per_hash for r in rows])
     keep = ~zero_mask & ~shared_mask
 
-    # A photo kept because it belongs to a bundle family is attributed to every
-    # SKU in that family - each is separately purchasable, so each has to be
-    # findable. Without this, BX2619 stays unfindable while its -20/-70/-80
-    # bundles remain, which is the wrong way round: the base part is what a
-    # customer photographs.
     by_sku: dict[str, list[int]] = defaultdict(list)
     for i, row in enumerate(rows):
-        if not keep[i]:
-            continue
-        if row["n_skus_sharing"] <= args.max_skus_per_hash:
+        if keep[i]:
             by_sku[row["sku"]].append(i)
-        else:
-            for sku in sharers.get(row["sha256"], []):
-                by_sku[sku].append(i)
 
     kit_dropped: list[int] = []
     pair_scores: list[dict] = []
@@ -196,19 +175,10 @@ def main() -> None:
     for index in kit_dropped:
         keep[index] = False
 
-    # Rebuilt with the same family expansion used above. Reading `row["sku"]`
-    # alone here would silently discard it: the sibling bundles would vanish
-    # from the index while still counting as "emptied by the kit filter", and
-    # the build would ship a different SKU set from the one the eval measured.
     final_by_sku: dict[str, list[int]] = defaultdict(list)
     for i, row in enumerate(rows):
-        if not keep[i]:
-            continue
-        if row["n_skus_sharing"] <= args.max_skus_per_hash:
+        if keep[i]:
             final_by_sku[row["sku"]].append(i)
-        else:
-            for sku in sharers.get(row["sha256"], []):
-                final_by_sku[sku].append(i)
 
     emptied_by_kit = sorted(set(by_sku) - set(final_by_sku))
 
@@ -222,12 +192,7 @@ def main() -> None:
         print(f"  kit photos        : {len(kit_dropped):,} dropped of {len(scored):,} scored "
               f"(threshold {args.kit_threshold}, min siblings {args.kit_min_siblings})")
         print(f"  2-photo SKUs      : {len(pair_scores):,} scored, none dropped")
-    # Counted from final_by_sku, not `keep`: a photo shared by a bundle family
-    # is indexed once per sibling SKU, so the number of index entries exceeds
-    # the number of surviving images.
-    index_entries = sum(len(v) for v in final_by_sku.values())
-    print(f"indexed vectors     : {index_entries:,} entries from {int(keep.sum()):,} "
-          f"distinct images, across {len(final_by_sku):,} SKUs")
+    print(f"indexed vectors     : {int(keep.sum()):,} across {len(final_by_sku):,} SKUs")
     if emptied_by_kit:
         print(f"  [warn] {len(emptied_by_kit)} SKU(s) lost every image to the kit filter")
 
@@ -275,12 +240,9 @@ def main() -> None:
 
     args.index_dir.mkdir(parents=True, exist_ok=True)
     index = FaissIndex(args.index_dir / f"{INDEX_NAME}.faiss")
-    # Driven by final_by_sku, not the raw rows: it is the only structure that
-    # carries both filters *and* the family expansion, so it is what the eval
-    # scored. Adding from `rows` instead would ship an index nobody measured.
-    for sku, indices in sorted(final_by_sku.items()):
-        for i in indices:
-            index.add(sku, vectors[i])
+    for i, row in enumerate(rows):
+        if keep[i]:
+            index.add(row["sku"], vectors[i])
     # remove_bg=True: a customer's garage photo always needs background removal,
     # and the catalog vectors live on white. rembg on an already-white image is
     # near-idempotent, so the ~20% that were actually processed and the ~80% that
@@ -303,7 +265,6 @@ def main() -> None:
         "whitening": whiten_meta,
         "rows_file_sha256": meta["rows_file_sha256"],
         "max_skus_per_hash": args.max_skus_per_hash,
-        "allow_variant_families": args.allow_variant_families,
         "kit_threshold": args.kit_threshold if not args.no_kit_filter else None,
         "kit_min_siblings": args.kit_min_siblings,
         "indexed_vectors": int(keep.sum()),

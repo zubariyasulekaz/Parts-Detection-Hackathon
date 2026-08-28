@@ -95,6 +95,15 @@ class SimilaritySearchService(SimilaritySearchInterface):
         matches = [SimilarityMatch(sku=sku, similarity_score=score) for sku, score in raw_matches]
         return SearchOutcome(matches=matches, backend=spec)
 
+    def indexed_product_count(self, category: str) -> int:
+        """How many distinct products a category's index holds.
+
+        Reported alongside results so a caller can say what the match was
+        chosen from - "one of 7,525" is a materially different claim from
+        "one of 200", and the same score means different things in each.
+        """
+        return self._index_manager.get_index(category).product_count
+
     def warm(self) -> None:
         """Load every category index and its embedding model up front.
 

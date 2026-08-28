@@ -122,6 +122,78 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
+# --- RigidHitch -------------------------------------------------------------
+# A second client catalogue, in its own database with a different products
+# schema. Kept as a separate engine rather than a schema inside the first: the
+# two have different columns, different lifecycles, and belong to different
+# clients, so a mistake in one must not be able to reach the other.
+#
+# Built lazily. Most deployments serve only PartPilot, and an engine for a
+# database that was never configured should cost nothing and fail only when
+# something actually asks for it.
+_rigidhitch_engine: AsyncEngine | None = None
+_rigidhitch_session_factory: async_sessionmaker[AsyncSession] | None = None
+
+
+def get_rigidhitch_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Session factory for the RigidHitch catalogue, created on first use.
+
+    Raises:
+        RuntimeError: If ``RIGIDHITCH_DATABASE_URL`` is unset — better than
+            silently falling back to PartPilot's database and serving one
+            client's catalogue under another's name.
+    """
+    global _rigidhitch_engine, _rigidhitch_session_factory
+    if _rigidhitch_session_factory is not None:
+        return _rigidhitch_session_factory
+
+    settings = get_settings()
+    url = settings.RIGIDHITCH_DATABASE_URL
+    if not url:
+        raise RuntimeError(
+            "RIGIDHITCH_DATABASE_URL is not set, so the RigidHitch catalogue "
+            "cannot be served. Add it to .env - see docs/RIGIDHITCH.md."
+        )
+
+    _rigidhitch_engine = create_async_engine(
+        url,
+        echo=settings.DB_ECHO,
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
+        pool_pre_ping=True,
+    )
+    _rigidhitch_session_factory = async_sessionmaker(
+        bind=_rigidhitch_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+    )
+    logger.info("RigidHitch database engine created")
+    return _rigidhitch_session_factory
+
+
+async def get_rigidhitch_db() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency yielding a request-scoped session on the RigidHitch DB."""
+    async with get_rigidhitch_session_factory()() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+async def close_rigidhitch_engine() -> None:
+    """Dispose the RigidHitch engine at shutdown, if one was ever created."""
+    global _rigidhitch_engine, _rigidhitch_session_factory
+    if _rigidhitch_engine is not None:
+        await _rigidhitch_engine.dispose()
+        _rigidhitch_engine = None
+        _rigidhitch_session_factory = None
+
+
 async def close_db_engine() -> None:
     """Dispose of the engine's connection pool.
 

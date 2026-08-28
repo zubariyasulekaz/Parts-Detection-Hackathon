@@ -13,6 +13,7 @@ NOT cached — they wrap a request-scoped `AsyncSession` (see
 """
 
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,7 @@ from backend.pipeline.audit.repository import PredictionAuditRepository
 from backend.pipeline.audit.service import PredictionAuditService
 from backend.pipeline.brain1_classifier.interfaces import ClassifierInterface
 from backend.pipeline.brain1_classifier.predict import Classifier
+from backend.pipeline.brain2_similarity.index_manager import IndexManager
 from backend.pipeline.brain2_similarity.interfaces import SimilaritySearchInterface
 from backend.pipeline.brain2_similarity.search import SimilaritySearchService
 from backend.pipeline.brain3_catalog.interfaces import RecommendationInterface
@@ -142,4 +144,22 @@ def get_orchestrator(
         catalog=catalog,
         recommendation_service=recommendation_service,
         reasoning=reasoning,
+    )
+
+
+@lru_cache
+def get_rigidhitch_search() -> SimilaritySearchService:
+    """Brain 2 for the RigidHitch catalogue, reading its own index directory.
+
+    A second instance rather than a reconfigured one: PartPilot's cached
+    service keeps its own index directory and per-category model routing, and
+    must not be disturbed by a second catalogue existing. `IndexManager`
+    already accepts an index directory, so no shared code changes.
+
+    The whitening transform travels with the index file, so nothing here needs
+    to know that RigidHitch's vectors are whitened and PartPilot's are not.
+    """
+    settings = get_settings()
+    return SimilaritySearchService(
+        index_manager=IndexManager(Path(settings.RIGIDHITCH_FAISS_PATH))
     )

@@ -60,6 +60,14 @@ class FaissIndex:
         # embedded by a different model is not comparable to them, so the
         # search side reads this rather than assuming the configured default.
         self._meta_path = self._index_path.parent / f"{self._index_path.stem}.meta.json"
+        # Optional PCA whitening transform. When an index was built from
+        # whitened vectors, a raw query is not comparable to them - and the
+        # failure is silent, because the dimensions still match and the search
+        # returns confident-looking nonsense. The transform therefore travels
+        # with the index rather than being configured separately.
+        self._whiten_path = self._index_path.parent / f"{self._index_path.stem}.whiten.npz"
+        self._whiten_mean: np.ndarray | None = None
+        self._whiten_matrix: np.ndarray | None = None
         self._index: Any | None = None
         # Maps FAISS internal vector position -> catalog SKU.
         self._id_to_sku: list[str] = []
@@ -106,6 +114,10 @@ class FaissIndex:
             meta = json.loads(self._meta_path.read_text(encoding="utf-8"))
             self._backend = meta.get("backend")
             self._remove_bg = meta.get("remove_bg")
+        if self._whiten_path.exists():
+            stored = np.load(self._whiten_path)
+            self._whiten_mean = stored["mean"].astype(np.float32)
+            self._whiten_matrix = stored["matrix"].astype(np.float32)
         self._build_centroids()
         logger.info(
             "Loaded FAISS index %s (%d vectors%s)",
@@ -139,6 +151,32 @@ class FaissIndex:
         self._centroid_skus = list(rows_by_sku)
         self._centroids = np.stack(centroids).astype(np.float32)
 
+    @property
+    def whitened(self) -> bool:
+        """Whether this index stores PCA-whitened vectors."""
+        return self._whiten_matrix is not None
+
+    @property
+    def product_count(self) -> int:
+        """Distinct SKUs in the index, as opposed to ``size`` which counts vectors."""
+        if self._centroids_dirty or not self._centroid_skus:
+            self._build_centroids()
+        return len(self._centroid_skus)
+
+    def _whiten(self, vector: np.ndarray) -> np.ndarray:
+        """Put a query through the same whitening the stored vectors had.
+
+        Applied here rather than by the caller so it cannot be forgotten: an
+        unwhitened query against a whitened index has the right shape and
+        returns plausible scores, so the mistake produces wrong answers
+        instead of an error.
+        """
+        if self._whiten_matrix is None or self._whiten_mean is None:
+            return vector
+        whitened = (np.asarray(vector, dtype=np.float32) - self._whiten_mean) @ self._whiten_matrix
+        norm = np.linalg.norm(whitened)
+        return (whitened / norm if norm else whitened).astype(np.float32)
+
     def search(self, query_vector: np.ndarray, top_k: int) -> list[tuple[str, float]]:
         """Return the top-K SKUs by cosine similarity to their centroids.
 
@@ -157,7 +195,13 @@ class FaissIndex:
         if self._centroids_dirty or not self._centroid_skus:
             self._build_centroids()
 
-        query = _as_query_matrix(query_vector)[0]
+        query = _as_query_matrix(self._whiten(query_vector))[0]
+        if query.shape[0] != self._centroids.shape[1]:
+            raise SearchError(
+                f"Query is {query.shape[0]}-dim but {self._index_path.name} holds "
+                f"{self._centroids.shape[1]}-dim vectors. The query was not embedded "
+                f"or transformed the same way as the index."
+            )
         scores = self._centroids @ query
         order = np.argsort(scores)[::-1][:top_k]
         return [(self._centroid_skus[i], float(scores[i])) for i in order]

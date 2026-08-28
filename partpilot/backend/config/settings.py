@@ -66,6 +66,25 @@ class Settings(BaseSettings):
     # How long to wait for the IPv6 reachability probe before assuming no
     # route exists and falling back to DATABASE_URL_POOLER.
     DB_IPV6_CHECK_TIMEOUT_SECONDS: float = 2.0
+
+    # --- RigidHitch (second client catalogue) ---------------------------------------------------------------
+    # A separate database with its own products schema, served alongside
+    # PartPilot rather than replacing it. Unset means the RigidHitch routes
+    # are simply unavailable; nothing else changes.
+    RIGIDHITCH_DATABASE_URL: str | None = None
+    RIGIDHITCH_FAISS_PATH: str = "backend/models/faiss_rigidhitch"
+    # The sentinel category its single flat index is filed under. RigidHitch
+    # has no Brain 1 classifier - 50.9% of its products sit in more than one
+    # top-level category, so there is no single correct route for a query -
+    # and every search goes to this one index instead.
+    RIGIDHITCH_CATEGORY: str = "rigidhitch"
+    # Prepended to each product's stored relative image path to make a URL a
+    # browser can load. Point it at the client's own CDN in production; the
+    # local static mount is only for demos.
+    RIGIDHITCH_IMAGE_BASE_URL: str = "http://localhost:8000/rigidhitch-images"
+    # Served from disk at RIGIDHITCH_IMAGE_BASE_URL when set. Unset in
+    # production, where the client's CDN serves them instead.
+    RIGIDHITCH_IMAGE_DIR: str | None = None
     DB_ECHO: bool = False
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 10

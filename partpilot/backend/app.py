@@ -6,10 +6,12 @@ router registration, middleware, exception handlers, and lifespan wiring.
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.api.router import api_router
 from backend.config.settings import get_settings
@@ -110,6 +112,30 @@ def create_app() -> FastAPI:
     _register_exception_handlers(app)
 
     app.include_router(api_router, prefix=settings.API_PREFIX)
+
+    # RigidHitch product photographs, served from disk when a directory is
+    # configured. Only for demos and local development - in production the
+    # client's own CDN serves them and RIGIDHITCH_IMAGE_BASE_URL points there
+    # instead, with this left unset.
+    #
+    # Without some URL the images are invisible rather than broken: the
+    # frontend keeps only http(s) URLs and silently substitutes a placeholder
+    # for anything else, so relative paths produce a page of grey boxes with
+    # nothing in the logs to explain it.
+    if settings.RIGIDHITCH_IMAGE_DIR:
+        image_dir = Path(settings.RIGIDHITCH_IMAGE_DIR)
+        if image_dir.is_dir():
+            app.mount(
+                "/rigidhitch-images",
+                StaticFiles(directory=str(image_dir)),
+                name="rigidhitch-images",
+            )
+            logger.info("Serving RigidHitch images from %s", image_dir)
+        else:
+            logger.warning(
+                "RIGIDHITCH_IMAGE_DIR is set to %s but that directory does not "
+                "exist - RigidHitch product images will not load.", image_dir
+            )
 
     return app
 

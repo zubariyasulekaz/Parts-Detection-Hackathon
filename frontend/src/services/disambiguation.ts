@@ -364,6 +364,35 @@ const RATINGS = new Set([
 ])
 
 /**
+ * The load rating a product carries, if any.
+ *
+ * 2,198 RigidHitch products (one in five) are load-rated, concentrated in
+ * receiver hitches, ball mounts and axles. A 7,500 lb ball mount and a
+ * 20,000 lb one are the same black steel in a photograph - the rating is
+ * stamped on the part and appears nowhere a camera can reach.
+ *
+ * That makes these the one class of product where a confident visual match is
+ * actively dangerous, and the danger runs opposite to our accuracy: receiver
+ * hitches are among the categories we identify best. Being wrong about a sewer
+ * fitting costs a return; being wrong about a hitch class can drop a trailer on
+ * the road. The UI must never present a rating as established by a photograph.
+ */
+export function loadRating(
+  candidate: IdentificationCandidate,
+): { key: string; value: string } | null {
+  for (const key of Object.keys(candidate.attributes ?? {})) {
+    const value = candidate.attributes?.[key]
+    if (RATINGS.has(key) && value) return { key, value }
+  }
+  return null
+}
+
+/** "tongue_weight" -> "tongue weight", for use mid-sentence. */
+export function ratingLabel(key: string): string {
+  return key.replace(/_/g, ' ')
+}
+
+/**
  * How reliably a customer can answer, lowest asked first.
  *
  * Dimensions come first because they are always recoverable: a 2 inch drop can

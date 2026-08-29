@@ -1,6 +1,6 @@
 import { CircleCheck, TriangleAlert } from 'lucide-react'
 import { StatusBadge } from '@/components/common/StatusBadge'
-import type { VisualMismatch } from '@/services/disambiguation'
+import { loadRating, ratingLabel, type VisualMismatch } from '@/services/disambiguation'
 import { formatPercent } from '@/utils/format'
 import type { IdentificationCandidate } from '@/types/identification'
 import type { VehicleCompatibility } from '@/types/product'
@@ -64,8 +64,22 @@ function matchReason(
       text: 'Visual mismatch flagged above - resolve it there before confirming.',
     }
   }
+  const rating = loadRating(candidate)
+
   if (confirmedByAnswers) {
     const answers = `${answeredQuestions} answer${answeredQuestions === 1 ? '' : 's'}`
+    // A load-rated part is never "confirmed" by a photograph, however decisive
+    // the match or however many questions were answered. The rating is stamped
+    // on the steel and invisible to a camera, and two mounts a decade apart in
+    // capacity are the same picture. The warning below carries the detail; this
+    // only makes sure the headline never overstates it.
+    if (rating) {
+      return {
+        tone: 'caution',
+        text: `Narrowed to this one by your ${answers}. Check the rating stamped on the part `
+          + `before ordering - see below.`,
+      }
+    }
     // An answer narrows the shortlist; it does not check that the shortlist
     // contained the right part. When the photo match is weak, claiming
     // "confirmed" turns a guess into a certainty - seen on a wiring connector
@@ -86,6 +100,16 @@ function matchReason(
     }
   }
   if (isDecisiveMatch) {
+    // Even a decisive match only establishes the shape. On a rated part the
+    // shape is the half that does not matter.
+    if (rating) {
+      return {
+        tone: 'caution',
+        text: `${formatPercent(candidate.similarity)} visual similarity to your photo, clearly ahead of `
+          + `every other candidate - but the shape is all a photograph shows. Check the rating `
+          + `stamped on the part before ordering.`,
+      }
+    }
     return {
       tone: 'positive',
       text: `${formatPercent(candidate.similarity)} visual similarity to your photo, clearly ahead of every other candidate - no clarifying questions were needed.`,
@@ -119,6 +143,7 @@ export function IdentificationSummary({
     ? matchReason(selectedCandidate, isDecisiveMatch, answeredQuestions, confirmedByAnswers, mismatch)
     : null
   const fitment = selectedCandidate ? fitmentSummary(selectedCandidate.compatibleVehicles) : null
+  const ratingWarning = selectedCandidate ? loadRating(selectedCandidate) : null
 
   return (
     <div className="shadow-card flex flex-col gap-5 rounded-xl border border-border bg-surface p-6">
@@ -184,6 +209,23 @@ export function IdentificationSummary({
                 <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
                 <span>No fitment on record for this SKU - verify it suits your vehicle before ordering.</span>
               </p>
+            )}
+
+            {/* Load-rated parts get their own band rather than a line of body
+                text. One in five products carries a rating, they are the ones
+                that fail structurally rather than merely disappoint, and the
+                rating is the one property a photograph provably cannot show. */}
+            {ratingWarning && (
+              <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-warning/40 bg-warning-muted/25 p-3">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+                <p className="text-sm text-foreground">
+                  <span className="font-semibold">This part is load-rated.</span>{' '}
+                  Listed {ratingLabel(ratingWarning.key)}{' '}
+                  <span className="font-mono font-semibold">{ratingWarning.value}</span>. A photograph
+                  cannot show a rating - two parts of the same shape can differ by thousands of pounds.
+                  Check the figure stamped on the part before ordering.
+                </p>
+              </div>
             )}
           </div>
         </div>

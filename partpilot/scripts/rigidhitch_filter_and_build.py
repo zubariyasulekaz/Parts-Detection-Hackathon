@@ -271,7 +271,14 @@ def main() -> None:
     # disagrees with the runtime's EMBEDDING_TTA the vectors mismatch silently,
     # so the full build configuration is written alongside it.
     (args.index_dir / f"{INDEX_NAME}.build.json").write_text(json.dumps({
-        "backend": meta["backend"],
+        # The model a query must be embedded with - the same value written into
+        # the index itself, so the two sidecars cannot disagree. They did: this
+        # recorded the family ("dinov2") while the index recorded the fine-tuned
+        # path, and rigidhitch_search.py trusts this one, so it silently queried
+        # a fine-tuned index with stock weights.
+        "backend": query_backend,
+        # What produced the vectors, kept for provenance only.
+        "embed_backend": meta["backend"],
         "tta": meta["tta"],
         "dim": meta["dim"],
         "remove_bg": True,

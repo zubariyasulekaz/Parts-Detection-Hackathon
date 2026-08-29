@@ -38,3 +38,9 @@ Thumbs.db
 # Rebuild in ~2 min from the cached vectors:
 #   python scripts/rigidhitch_filter_and_build.py --embeddings embeddings_base.npy
 partpilot/backend/models/faiss_rigidhitch/
+
+# --- Fine-tuned RigidHitch embedding model (build artifact) ---
+# 331 MB of weights. Reproduce with scripts/rigidhitch_finetune.py on a GPU
+# (about 40 min), or copy the folder from whoever ran it. The index records
+# this path as its query backend, so it must sit here to be found.
+partpilot/backend/models/rigidhitch-dinov2/

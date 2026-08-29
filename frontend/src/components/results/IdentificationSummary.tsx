@@ -65,9 +65,24 @@ function matchReason(
     }
   }
   if (confirmedByAnswers) {
+    const answers = `${answeredQuestions} answer${answeredQuestions === 1 ? '' : 's'}`
+    // An answer narrows the shortlist; it does not check that the shortlist
+    // contained the right part. When the photo match is weak, claiming
+    // "confirmed" turns a guess into a certainty - seen on a wiring connector
+    // matched at 31% with a one-point lead, presented as confirmed. If the
+    // right product was never in the candidates, the answer only picked the
+    // wrong one more confidently.
+    if (!isDecisiveMatch) {
+      return {
+        tone: 'caution',
+        text: `Narrowed to this one by your ${answers} - but the photo itself is a weak match `
+          + `(${formatPercent(candidate.similarity)}, close to the others). Check the picture `
+          + `carefully, or say none of these is your part.`,
+      }
+    }
     return {
       tone: 'positive',
-      text: `Confirmed by ${answeredQuestions} answer${answeredQuestions === 1 ? '' : 's'} you gave above, matching this exact product.`,
+      text: `Confirmed by ${answers} you gave above, and the photo's own clear best match.`,
     }
   }
   if (isDecisiveMatch) {

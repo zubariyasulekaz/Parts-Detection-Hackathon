@@ -491,11 +491,30 @@ export function applyAnswers(
 }
 
 /**
+ * Below this best-candidate similarity, the guided questions do not run.
+ *
+ * A question implies the right answer is probably in the shortlist - that is
+ * the premise of narrowing. When even the best candidate scores this low, the
+ * search found nothing and the candidates are typically unrelated parts (a
+ * scissor jack, a coupler and a tire carrier at 15-17% on one query). Asking
+ * "what finish does it have?" over that list lends it credibility it has not
+ * earned, and an honest answer can eliminate products over catalogue spelling
+ * ("Black" ruling out "Black Painted") before crowning a 15% match as "one
+ * match". The shortlist plus the weak-match warning and "none of these" is the
+ * honest response.
+ *
+ * Set well below the ~0.31-0.99 that correct matches score with the fine-tuned
+ * model on real photos, so genuine but scruffy matches still get questions.
+ */
+export const QUESTION_FLOOR = 0.25
+
+/**
  * True when questions could help at all. Used to decide whether the guided
  * flow runs before images are revealed, or there is nothing to ask and the
  * results page can reveal them immediately.
  */
 export function canDisambiguate(candidates: IdentificationCandidate[]): boolean {
+  if (!candidates.some((c) => c.similarity >= QUESTION_FLOOR)) return false
   return nextQuestion(candidates) !== null
 }
 

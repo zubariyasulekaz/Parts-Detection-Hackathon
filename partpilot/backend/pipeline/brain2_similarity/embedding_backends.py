@@ -26,6 +26,7 @@ Selected via ``EMBEDDING_BACKEND`` in settings. Changing it invalidates existing
 FAISS indexes: vectors from different models are not comparable, so rebuild.
 """
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -210,6 +211,30 @@ _HF_MODELS = {
 }
 
 
+def _family_of(name: str, key: str) -> str:
+    """Which backend family a model id or local directory belongs to.
+
+    Read from the model's own config rather than guessed from its name. The name
+    is not reliable evidence: a fine-tuned DINOv2 saved to ``out/run-3`` contains
+    no "dino", and would be recorded as siglip. Encoding would still be correct -
+    the encoder branches on the model, not this label - but the wrong backend
+    name is written into the index metadata, and that is what the runtime checks
+    a query against.
+
+    Falls back to the name heuristic when the config cannot be read (offline, or
+    a private id), which is no worse than what it replaces.
+    """
+    try:
+        from transformers import AutoConfig  # noqa: PLC0415
+
+        model_type = (getattr(AutoConfig.from_pretrained(name), "model_type", "") or "").lower()
+        if model_type:
+            return "dinov2" if "dino" in model_type else "siglip"
+    except Exception:  # noqa: BLE001 - any failure just means fall back
+        logger.debug("Could not read config for %s; guessing family from the name.", name)
+    return "dinov2" if "dino" in key else "siglip"
+
+
 def _build_one(name: str) -> EmbeddingBackend:
     key = name.strip().lower()
     if key in {"openclip", "clip"}:
@@ -223,9 +248,8 @@ def _build_one(name: str) -> EmbeddingBackend:
     if key in _HF_MODELS:
         family = "dinov2" if key.startswith("dinov2") else "siglip"
         return HuggingFaceVisionBackend(key, _HF_MODELS[key])
-    if "/" in name:  # any HuggingFace model id
-        family = "dinov2" if "dino" in key else "siglip"
-        return HuggingFaceVisionBackend(family, name)
+    if "/" in name or Path(name).is_dir():  # a HuggingFace model id, or a local directory
+        return HuggingFaceVisionBackend(_family_of(name, key), name)
     raise EmbeddingError(
         f"Unknown embedding backend '{name}'. "
         f"Expected one of: openclip, {', '.join(sorted(_HF_MODELS))}, "

@@ -128,13 +128,26 @@ def apply_filters(rows, vectors, args) -> dict[str, list[int]]:
     return filtered
 
 
-def evaluate(vectors: np.ndarray, by_sku: dict[str, list[int]], min_photos: int) -> dict:
+def evaluate(
+    vectors: np.ndarray,
+    by_sku: dict[str, list[int]],
+    min_photos: int,
+    only_skus: set[str] | None = None,
+) -> dict:
     """Leave-one-out top-1 / top-3 / top-5 / MRR over the full SKU pool.
 
     Queries come only from SKUs with at least ``min_photos`` images - a SKU with
     one photo has nothing left to match against once that photo is removed. The
     *pool* is always every SKU, so single-photo products still compete as
     distractors.
+
+    ``only_skus`` restricts which SKUs may be *queried*, never which may be
+    ranked. This exists for measuring a fine-tuned model: it trains on the
+    tuning split, so scoring it on those same SKUs measures memorisation rather
+    than retrieval, and would report a large gain that does not survive contact
+    with a new product. Restricting queries to the held-out half is the only
+    honest before/after comparison. The pool stays complete either way, because
+    a real query is ranked against the whole catalogue.
     """
     skus = sorted(by_sku)
     sku_index = {sku: i for i, sku in enumerate(skus)}
@@ -150,7 +163,7 @@ def evaluate(vectors: np.ndarray, by_sku: dict[str, list[int]], min_photos: int)
 
     queries: list[tuple[int, int]] = []  # (row index, sku index)
     for sku, indices in by_sku.items():
-        if len(indices) >= min_photos:
+        if len(indices) >= min_photos and (only_skus is None or sku in only_skus):
             queries.extend((i, sku_index[sku]) for i in indices)
 
     if not queries:
@@ -396,6 +409,10 @@ def main() -> None:
     parser.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR)
     parser.add_argument("--embeddings", default="embeddings.npy")
     parser.add_argument("--max-skus-per-hash", type=int, default=1)
+    parser.add_argument("--query-split", choices=("all", "test", "tuning"), default="all",
+                        help="Which SKUs may be queried. Use 'test' to score a fine-tuned "
+                             "model on products it never trained on - 'all' would measure "
+                             "memorisation. The ranking pool is always every SKU.")
     parser.add_argument("--kit-threshold", type=float, default=0.40)
     parser.add_argument("--kit-min-siblings", type=int, default=3)
     parser.add_argument("--no-kit-filter", action="store_true")
@@ -419,6 +436,15 @@ def main() -> None:
         raise SystemExit(f"row/vector mismatch: {len(rows):,} vs {vectors.shape[0]:,}")
 
     by_sku = apply_filters(rows, vectors, args)
+
+    # Which SKUs may be queried. Loaded from the frozen split written at de-dup
+    # time, so "held out" means the same thing across runs and machines.
+    only_skus = None
+    if args.query_split != "all":
+        split = json.loads((args.build_dir / "split.json").read_text())
+        only_skus = set(split[f"{args.query_split}_skus"])
+        print(f"queries restricted to the {args.query_split} split "
+              f"({len(only_skus & set(by_sku)):,} of {len(by_sku):,} indexed SKUs)")
     total_vectors = sum(len(v) for v in by_sku.values())
 
     print(f"indexed: {total_vectors:,} vectors across {len(by_sku):,} SKUs")
@@ -440,7 +466,7 @@ def main() -> None:
 
     def report(label: str, matrix: np.ndarray) -> None:
         for slice_label, minimum in (("2+ photos", 2), ("3+ photos", 3)):
-            result = evaluate(matrix, by_sku, minimum)
+            result = evaluate(matrix, by_sku, minimum, only_skus)
             if not result.get("queries"):
                 continue
             print(f"{label:<20}{slice_label:<12}{result['queries']:>8,}{result['skus']:>7,}"
@@ -483,7 +509,7 @@ def main() -> None:
 
     print()
     print(f"### Everything below describes: {scored_label}, 3+ photo slice ###")
-    detail = evaluate(scored, by_sku, 3)
+    detail = evaluate(scored, by_sku, 3, only_skus)
     if detail.get("queries"):
         catalog_path = args.catalog or (args.build_dir.parent / "catalog.clean.csv")
         if catalog_path.is_file():

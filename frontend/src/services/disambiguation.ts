@@ -252,12 +252,29 @@ function brandOptions(candidates: IdentificationCandidate[]): DisambiguationOpti
  * not "different", and answering would silently rule out a product whose data
  * is merely incomplete. That is the same trap the fitment check avoids.
  */
+/**
+ * Attribute keys worth asking about: recorded on at least two candidates, and
+ * not the same value on all of them.
+ *
+ * Requiring *every* candidate to carry the key was too strict, and it blocked
+ * the question that mattered most. Five inflatable truck toppers differing only
+ * by bed length - 4½ ft, 5 ft, 6 ft, 6 ft 4 in - all record `bed_length` except
+ * one, whose catalogue entry simply omits it. That single gap silenced the one
+ * question a customer could actually answer, about a dimension no photograph
+ * can show. `answerFor` handles the gap instead, by never ruling out a product
+ * whose data is merely missing.
+ */
 function attributeKeys(candidates: IdentificationCandidate[]): string[] {
   if (candidates.length < 2) return []
-  const [first, ...rest] = candidates
-  return Object.keys(first.attributes ?? {})
+  const keys = new Set(candidates.flatMap((c) => Object.keys(c.attributes ?? {})))
+  return [...keys]
     .filter((key) => !ATTRIBUTE_BLOCKLIST.has(key))
-    .filter((key) => rest.every((candidate) => Boolean(candidate.attributes?.[key])))
+    .filter((key) => {
+      const values = candidates
+        .map((c) => c.attributes?.[key])
+        .filter((v): v is string => Boolean(v))
+      return values.length >= 2 && new Set(values).size >= 2
+    })
     .sort()
 }
 
@@ -265,11 +282,19 @@ function attributeOptions(
   candidates: IdentificationCandidate[],
   key: string,
 ): DisambiguationOption[] {
-  return uniqueSorted(candidates.map((candidate) => candidate.attributes[key])).map((label) => ({
+  // A product that does not record this attribute survives every answer. Its
+  // data being absent is not evidence against it, and dropping it would let a
+  // hole in the catalogue quietly delete the right product from the shortlist.
+  const unknown = candidates.filter((c) => !c.attributes?.[key]).map((c) => c.sku)
+  const values = uniqueSorted(
+    candidates.map((c) => c.attributes?.[key]).filter((v): v is string => Boolean(v)),
+  )
+  return values.map((label) => ({
     label,
-    skus: uniqueSorted(
-      candidates.filter((candidate) => candidate.attributes[key] === label).map((c) => c.sku),
-    ),
+    skus: uniqueSorted([
+      ...candidates.filter((c) => c.attributes?.[key] === label).map((c) => c.sku),
+      ...unknown,
+    ]),
   }))
 }
 

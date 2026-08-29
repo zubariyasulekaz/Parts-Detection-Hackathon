@@ -117,6 +117,13 @@ def main() -> None:
     parser.add_argument("--no-whiten", action="store_true",
                         help="Build without PCA whitening. Measured at -17.9 points "
                              "top-5, so only useful for comparison.")
+    parser.add_argument("--query-backend", default=None,
+                        help="What the runtime should embed QUERIES with, recorded into the "
+                             "index. Required after fine-tuning: the embed step records only "
+                             "the family ('dinov2'), so a fine-tuned index would be queried "
+                             "with stock facebook/dinov2-base - same name, same 768 dims, no "
+                             "error, silently wrong. Pass the local path the model will live "
+                             "at, e.g. backend/models/rigidhitch-dinov2.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Report what would be filtered; write nothing.")
     args = parser.parse_args()
@@ -247,7 +254,13 @@ def main() -> None:
     # and the catalog vectors live on white. rembg on an already-white image is
     # near-idempotent, so the ~20% that were actually processed and the ~80% that
     # were already clean sit in the same distribution.
-    index.save(backend=meta["backend"], remove_bg=True)
+    # The recorded backend is what search() rebuilds to embed a query, so it has
+    # to identify the *model*, not just its family. meta["backend"] is only the
+    # family name, which is why --query-backend exists.
+    query_backend = args.query_backend or meta["backend"]
+    if args.query_backend:
+        print(f"queries will be embedded with: {query_backend}")
+    index.save(backend=query_backend, remove_bg=True)
 
     if whiten_meta is not None:
         # The query side is useless without these two arrays - saved as one .npz

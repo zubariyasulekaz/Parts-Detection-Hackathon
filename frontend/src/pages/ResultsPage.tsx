@@ -15,6 +15,8 @@ import { IdentificationSummary } from '@/components/results/IdentificationSummar
 import { ServerChatPanel } from '@/components/results/ServerChatPanel'
 import { NoCatalogMatchPanel } from '@/components/results/NoCatalogMatchPanel'
 import { useIdentification } from '@/context/IdentificationContext'
+import { RefineSelection } from '@/components/results/RefineSelection'
+import { cropImageFile, type CropRegion } from '@/utils/cropImage'
 import {
   canDisambiguate,
   detectVisualMismatch,
@@ -61,7 +63,14 @@ function answersToRecord(answers: DisambiguationAnswer[]): Record<string, string
 
 export function ResultsPage() {
   const navigate = useNavigate()
-  const { result, uploadedImageUrl, selectedSku, selectCandidate, reset } = useIdentification()
+  const { result, uploadedImageUrl, selectedSku, selectCandidate, reset, pendingFile,
+    setPendingUpload, runIdentification } = useIdentification()
+  // Set while the customer is boxing the part in their photo, after a result
+  // they say is wrong. Never entered automatically: cropping a photo that was
+  // already fine measurably loses the right answer.
+  const [refining, setRefining] = useState(false)
+  const [refineError, setRefineError] = useState<string | null>(null)
+  const [refineBusy, setRefineBusy] = useState(false)
   // SKUs the guided questions have not ruled out. Null until the first answer,
   // meaning "everything is still in play".
   const [remainingSkus, setRemainingSkus] = useState<string[] | null>(null)
@@ -177,6 +186,33 @@ export function ResultsPage() {
   // top-ranked candidate. Nothing to compare while the guided questions are
   // still running - that comparison IS the reveal the questions lead up to.
   const comparisonCandidate = !revealed || noCatalogMatch ? null : (selectedCandidate ?? candidates[0] ?? null)
+
+  /** Search only the boxed region, by cropping the original and re-running. */
+  async function handleSearchRegion(region: CropRegion) {
+    if (!pendingFile) {
+      // The original file is gone - a restored session, or a refresh. Cropping
+      // the displayed image would work but silently re-encodes a copy, so say
+      // so rather than search something subtly different from the upload.
+      setRefineError('The original photo is no longer available. Please upload it again.')
+      return
+    }
+    setRefineBusy(true)
+    setRefineError(null)
+    try {
+      const cropped = await cropImageFile(pendingFile, region)
+      // Reuses the normal upload path, so the crop is treated as any other
+      // photo - same preprocessing, same audit trail, no special case.
+      setPendingUpload(cropped)
+      setRefining(false)
+      setAnswers([])
+      setRemainingSkus(null)
+      await runIdentification()
+    } catch {
+      setRefineError('Could not search that area. Try selecting it again.')
+    } finally {
+      setRefineBusy(false)
+    }
+  }
 
   function handleNewSearch() {
     reset()
@@ -417,13 +453,40 @@ export function ResultsPage() {
               the same shape - so the customer, who can see the brand on the
               part, is the one able to say. Without this the page would assert
               its closest guess and be confidently wrong. */}
-          <button
-            type="button"
-            onClick={() => setRemainingSkus([])}
-            className="mt-6 text-sm font-medium text-muted underline underline-offset-4 transition-colors hover:text-foreground"
-          >
-            None of these is my part
-          </button>
+          <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+            {/* Offered before giving up: a wrong answer is often a framing
+                problem, not a recognition one. Boxed to one light, a photo of
+                a whole trailer returned three lights where the full frame
+                returned none. */}
+            <button
+              type="button"
+              onClick={() => { setRefineError(null); setRefining(true) }}
+              className="text-sm font-medium text-accent underline underline-offset-4 transition-colors hover:text-foreground"
+            >
+              Not your part? Point at it in the photo
+            </button>
+            <button
+              type="button"
+              onClick={() => setRemainingSkus([])}
+              className="text-sm font-medium text-muted underline underline-offset-4 transition-colors hover:text-foreground"
+            >
+              None of these is my part
+            </button>
+          </div>
+        </div>
+      )}
+
+      {refining && uploadedImageUrl && (
+        <div className="mt-8">
+          <RefineSelection
+            imageUrl={uploadedImageUrl}
+            busy={refineBusy}
+            onCancel={() => setRefining(false)}
+            onSearchRegion={handleSearchRegion}
+          />
+          {refineError && (
+            <p className="mt-3 text-sm text-warning">{refineError}</p>
+          )}
         </div>
       )}
 

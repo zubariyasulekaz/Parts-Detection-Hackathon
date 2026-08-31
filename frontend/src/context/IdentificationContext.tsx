@@ -122,8 +122,12 @@ function reducer(state: State, action: Action): State {
 interface IdentificationContextValue extends State {
   /** Stash a chosen/sample file for the /identify page to run, resetting any prior result. */
   setPendingUpload: (file: File, isSample?: boolean) => void
-  /** Runs the pipeline against the currently pending file. Throws if none is queued. */
-  runIdentification: () => Promise<IdentificationResult>
+  /**
+   * Runs the pipeline against `file`, or the currently pending one. Throws if
+   * neither is available. Pass the file explicitly when it was queued in the
+   * same handler - the queued value is not readable until the next render.
+   */
+  runIdentification: (file?: File) => Promise<IdentificationResult>
   selectCandidate: (sku: string) => void
   reset: () => void
 }
@@ -141,8 +145,14 @@ export function IdentificationProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_PENDING', file, isSample })
   }, [])
 
-  const runIdentification = useCallback(async () => {
-    const { pendingFile, pendingIsSample } = stateRef.current
+  const runIdentification = useCallback(async (overrideFile?: File) => {
+    // An explicit file beats the queued one, because `stateRef` is only
+    // refreshed on render: a caller that queues a file and runs in the same
+    // handler - cropping a photo to a selected region, say - would otherwise
+    // read the previous file and silently search the wrong image.
+    const stashed = stateRef.current
+    const pendingFile = overrideFile ?? stashed.pendingFile
+    const pendingIsSample = overrideFile ? false : stashed.pendingIsSample
     if (!pendingFile) {
       throw new Error('No image is queued for identification.')
     }

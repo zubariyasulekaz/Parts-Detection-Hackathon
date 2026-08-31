@@ -201,12 +201,14 @@ export function ResultsPage() {
     try {
       const cropped = await cropImageFile(pendingFile, region)
       // Reuses the normal upload path, so the crop is treated as any other
-      // photo - same preprocessing, same audit trail, no special case.
+      // photo - same preprocessing, same audit trail, no special case. The
+      // file is also passed explicitly: the queued value is not readable until
+      // the next render, so relying on it here would re-search the original.
       setPendingUpload(cropped)
       setRefining(false)
       setAnswers([])
       setRemainingSkus(null)
-      await runIdentification()
+      await runIdentification(cropped)
     } catch {
       setRefineError('Could not search that area. Try selecting it again.')
     } finally {

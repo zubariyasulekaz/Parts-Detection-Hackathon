@@ -37,10 +37,13 @@ Thumbs.db
 # own indexes are committed because they are ~50 KB each; this one is 800x larger.
 # Rebuild in ~2 min from the cached vectors:
 #   python scripts/rigidhitch_filter_and_build.py --embeddings embeddings_base.npy
-partpilot/backend/models/faiss_rigidhitch/
+partpilot/backend/models/faiss_rigidhitch*/
 
 # --- Fine-tuned RigidHitch embedding model (build artifact) ---
 # 331 MB of weights. Reproduce with scripts/rigidhitch_finetune.py on a GPU
 # (about 40 min), or copy the folder from whoever ran it. The index records
 # this path as its query backend, so it must sit here to be found.
-partpilot/backend/models/rigidhitch-dinov2/
+# Glob rather than one line per run: each retrain lands in a new folder
+# (-e24, -e36) and a rule naming only the first would quietly let the next
+# 331 MB of weights into a commit.
+partpilot/backend/models/rigidhitch-dinov2*/

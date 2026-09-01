@@ -39,6 +39,14 @@ rembg==2.0.60
 # installed" error.
 onnxruntime==1.20.1
 
+# --- part-number OCR (optional at runtime) ---------------------------------------------------------------
+# Reads a printed part number off a photograph when the visual match has
+# already failed - see pipeline/brain2_similarity/part_number_ocr.py. Runs on
+# the onnxruntime above. If this package is missing the search still works:
+# the OCR step logs a warning once and is skipped, so it can be dropped from a
+# deployment that does not want it.
+rapidocr-onnxruntime==1.4.4
+
 # --- testing ---------------------------------------------------------------
 pytest==8.3.4
 httpx==0.28.1

@@ -27,6 +27,7 @@ from backend.config.settings import Settings
 from backend.core.database import get_rigidhitch_db
 from backend.core.exceptions import InvalidImage, ProductNotFound
 from backend.core.logging import get_logger
+from backend.pipeline.brain2_similarity.part_number_ocr import read_candidate_tokens
 from backend.pipeline.brain2_similarity.search import SimilaritySearchService
 from backend.pipeline.brain3_catalog.rigidhitch_catalog import RigidHitchCatalog
 from backend.schemas.response import StandardResponse
@@ -139,27 +140,68 @@ async def predict_rigidhitch_part(
     elapsed_ms = (time.perf_counter() - started) * 1000
 
     catalog = RigidHitchCatalog(session)
-    details = await catalog.get_many([m.sku for m in outcome.matches])
 
     results = [
         {"sku": m.sku, "similarity_score": m.similarity_score} for m in outcome.matches
     ]
-    top = details.get(outcome.matches[0].sku) if outcome.matches else None
 
-    best = outcome.matches[0].similarity_score if outcome.matches else 0.0
+    # Only when the picture has already failed. A part still in its packaging
+    # is visually a cardboard box, but the label facing the camera carries the
+    # answer - and a customer holding a part they were sent in error is holding
+    # the box it came in. Above the threshold the visual match is trusted and
+    # none of this runs, so the ordinary request is unchanged.
+    ocr_sku: str | None = None
+    visual_best = outcome.matches[0].similarity_score if outcome.matches else 0.0
+    if settings.OCR_PART_NUMBER_ENABLED and visual_best < settings.OCR_MAX_SCORE:
+        try:
+            tokens = read_candidate_tokens(raw_image)
+            ocr_sku = await catalog.find_by_part_number(tokens)
+        except Exception as exc:  # noqa: BLE001
+            # An improvement on an answer we already have. It must never be
+            # able to turn a working search into a failed request.
+            logger.warning("Part-number OCR step failed, keeping the visual match: %s", exc)
+            ocr_sku = None
+
+    if ocr_sku:
+        logger.info("Part number %s read from the photograph, promoted over %s (%.3f)",
+                    ocr_sku, results[0]["sku"] if results else "-", visual_best)
+        # Promoted, not substituted: the visual candidates stay on the
+        # shortlist beneath it, in order, so a misread label is still one click
+        # from the right answer.
+        others = [r for r in results if r["sku"] != ocr_sku]
+        matched = next((r for r in results if r["sku"] == ocr_sku), None)
+        results = [{
+            "sku": ocr_sku,
+            # A printed part number is not a similarity, and inventing one
+            # would put a number on this that the shortlist would then be
+            # ranked against. 1.0 states what it is: certain, by a different
+            # route. The UI reads the same field either way.
+            "similarity_score": 1.0,
+            "matched_by": "part_number",
+        }] + others[:max(0, top_k - 1)]
+        if matched is None:
+            logger.info("OCR promoted %s, which the visual search had not returned at all", ocr_sku)
+
+    details = await catalog.get_many([r["sku"] for r in results])
+    top = details.get(results[0]["sku"]) if results else None
+
+    best = results[0]["similarity_score"] if results else 0.0
     margin = (
-        outcome.matches[0].similarity_score - outcome.matches[1].similarity_score
-        if len(outcome.matches) >= 2 else 1.0
+        results[0]["similarity_score"] - results[1]["similarity_score"]
+        if len(results) >= 2 else 1.0
     )
-    ambiguous = margin < AMBIGUOUS_MARGIN
-    not_a_part = not outcome.matches or best < NOT_A_PART_SCORE
+    # A read part number is not ambiguous and is not "not a part", whatever the
+    # picture scored: the label named a product in the catalogue.
+    ambiguous = not ocr_sku and margin < AMBIGUOUS_MARGIN
+    not_a_part = not ocr_sku and (not results or best < NOT_A_PART_SCORE)
 
     logger.info(
-        "RigidHitch: %d matches, top=%s (%.3f), margin %.4f%s%s",
+        "RigidHitch: %d matches, top=%s (%.3f), margin %.4f%s%s%s",
         len(results),
-        outcome.matches[0].sku if outcome.matches else "-",
+        results[0]["sku"] if results else "-",
         best,
         margin,
+        " OCR" if ocr_sku else "",
         " AMBIGUOUS" if ambiguous else "",
         " NOT-A-PART" if not_a_part else "",
     )
@@ -185,6 +227,10 @@ async def predict_rigidhitch_part(
         "product": None if not_a_part else (_as_product(top) if top else None),
         "recommendation": None,
         "explanation": (
+            f"Part number {ocr_sku} was read from the label in your photograph, so this is "
+            "the product itself rather than the closest-looking one. The visual matches are "
+            "listed underneath in case the label belongs to something else in the frame."
+            if ocr_sku else
             "This does not look like a trailer part. Try a photograph of the part alone, "
             "filling the frame, against a plain background."
             if not_a_part else

@@ -96,6 +96,21 @@ class Settings(BaseSettings):
     }
     NO_MATCH_THRESHOLD_DEFAULT: float = 0.48
 
+    # --- part-number OCR (fallback only) ---------------------------------------------------------------
+    # Read a printed part number off the photograph when the visual match has
+    # already failed. Measured on 83 hand-taken photographs: 2% carry a real
+    # catalogue part number - useless as a general fix, decisive on those 2%,
+    # where a boxed part matched at 0.29 to the wrong product carries its own
+    # SKU on the label at full OCR confidence.
+    #
+    # Set false to disable entirely; the search behaves exactly as before.
+    OCR_PART_NUMBER_ENABLED: bool = True
+    # Only runs when the top match scores below this. Above it the picture is
+    # trusted and no OCR happens, so the common request pays none of the
+    # 0.7-2.0s this costs. Sits above NO_MATCH_THRESHOLD_DEFAULT so the band
+    # between "weak" and "refused" is covered too.
+    OCR_MAX_SCORE: float = 0.55
+
     # --- startup ---------------------------------------------------------------
     # Load the model and index during startup instead of inside the first
     # request, which otherwise pays a 20-60s cold start. On a server that cost

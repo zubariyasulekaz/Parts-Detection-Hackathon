@@ -11,41 +11,43 @@ interface StackItem {
 
 const STACK_ITEMS: StackItem[] = [
   {
-    name: 'EfficientNet',
-    kind: 'AI Model',
-    description: 'Fine-tuned image classifier used by Brain 1 to predict part category.',
-  },
-  {
-    name: 'DINOv2',
+    name: 'DINOv2, fine-tuned',
     kind: 'AI Model',
     description:
-      'Brain 2’s default embedding model. Self-supervised on images alone, so it matches on “is this the same object” rather than on what the part is called.',
+      'Self-supervised on images alone, so it matches on “is this the same object” rather than on what the part is called - then retrained on RigidHitch’s own catalogue, which is what takes top-5 from 49.9% to 70.2%.',
   },
   {
-    name: 'OpenCLIP',
+    name: 'ArcFace margin loss',
     kind: 'AI Model',
     description:
-      'The alternative Brain 2 backend, kept for the categories that benchmarked better on it than on DINOv2: air filters, wheel hubs, and shock absorbers.',
+      'The training objective. Every product folder is a label the catalogue already provides, so the model learns to separate look-alike SKUs without anyone hand-labelling a thing.',
   },
   {
-    name: 'Qwen (Transformers)',
+    name: 'rembg / U²-Net',
     kind: 'AI Model',
-    description: 'Brain 4’s LLM - generates the explanation and clarifying questions, when requested.',
+    description:
+      'Segments the part out of a customer’s background before it is compared against catalogue photographs taken on white.',
+  },
+  {
+    name: 'PCA whitening',
+    kind: 'Vector Search',
+    description:
+      'Rebalances the embedding so dimensions the catalogue barely varies on stop dominating. Worth +17.9 points of top-5, and it travels with the index rather than living in code.',
   },
   {
     name: 'FAISS',
     kind: 'Vector Search',
-    description: 'Searches category-scoped embedding indexes for the nearest catalog matches.',
+    description: 'Exact cosine search over 13,701 catalogue photographs, scored per product rather than per photo.',
   },
   {
     name: 'PostgreSQL',
     kind: 'Database',
-    description: 'Stores catalog metadata, compatibility, and product relationships for Brain 3.',
+    description: 'Holds the 10,813-product catalogue - names, brands, part numbers, specifications and image paths.',
   },
   {
     name: 'FastAPI',
     kind: 'Backend Framework',
-    description: 'Serves the HTTP API that orchestrates the end-to-end pipeline.',
+    description: 'Serves the API. One endpoint does the identification; the rest read the catalogue.',
   },
 ]
 
@@ -63,11 +65,11 @@ export function ArchitecturePage() {
       <PageContainer className="relative py-14">
       <div className="mx-auto max-w-2xl text-center">
         <span className="text-xs font-bold tracking-[0.2em] text-accent-hover uppercase">AI Architecture</span>
-        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">How PartPilot identifies a part</h1>
+        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">How a photograph finds a part</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          A single uploaded photograph moves through four specialized stages - classification, visual similarity
-          search, catalog intelligence, and an optional LLM explanation - before a ranked set of candidate products
-          reaches the frontend.
+          One photograph, cut from its background, turned into 768 numbers by a model trained on RigidHitch&apos;s
+          own catalogue, and compared against every product photograph in it - returning a shortlist with its
+          confidence stated rather than a single answer asserted.
         </p>
       </div>
 
@@ -104,8 +106,9 @@ export function ArchitecturePage() {
 
       <div className="shadow-card mx-auto mt-14 max-w-3xl rounded-xl border border-border bg-surface p-6 text-center">
         <p className="text-sm leading-relaxed text-muted">
-          The architecture is designed to support customer-specific catalogs with tens of thousands of products
-          while keeping product metadata separate from the visual search index.
+          Product metadata is kept separate from the visual index, so the catalogue can change - new products,
+          new photographs, corrected specifications - without retraining anything. Adding real photographs of a
+          product is the one change that measurably improves it, and it takes minutes.
         </p>
       </div>
       </PageContainer>

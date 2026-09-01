@@ -7,7 +7,6 @@ import {
   PackageSearch,
   Search,
   SlidersHorizontal,
-  Sparkles,
   Tag,
 } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
@@ -25,67 +24,66 @@ interface NodeDefinition {
 const NODES: NodeDefinition[] = [
   {
     icon: Camera,
-    title: 'User Image',
-    description: 'The uploaded part photograph enters the pipeline.',
+    title: 'Customer Photograph',
+    description: 'A phone photo of a part someone is holding, or a screenshot of one they found.',
     kind: 'Input',
   },
   {
     icon: SlidersHorizontal,
-    title: 'Image Preprocessing',
-    description: 'Validates the upload and normalizes the image for the classifier.',
+    title: 'Background Removal',
+    description:
+      'The part is cut from whatever is behind it and placed on white, because that is how the catalogue photographs it. A workbench left in the frame becomes part of the fingerprint.',
     kind: 'Processing',
   },
   {
     icon: Cpu,
-    title: 'Brain 1: Fine-tuned EfficientNet Classifier',
-    description: 'Predicts the part category from the processed image.',
+    title: 'Fine-tuned DINOv2',
+    description:
+      'A vision transformer retrained for 24 epochs on RigidHitch’s own 10,813 products, using an angular-margin loss that pulls photographs of one SKU together and pushes look-alikes apart.',
     kind: 'AI Model',
     emphasis: true,
-  },
-  {
-    icon: Tag,
-    title: 'Predicted Part Category',
-    description: 'e.g. Exhaust Manifold, Brake Pads, Oil Filter.',
-    kind: 'Signal',
   },
   {
     icon: Network,
-    title: 'Brain 2: DINOv2 / OpenCLIP Image Embedding',
+    title: '768-dimension Embedding',
     description:
-      'Generates a visual embedding of the image for similarity search. DINOv2 by default, with OpenCLIP kept for the categories it scores better on.',
-    kind: 'AI Model',
-    emphasis: true,
+      'The photograph as a list of numbers. Averaged with its mirror image, then PCA-whitened so the dimensions the catalogue barely varies on stop dominating the comparison.',
+    kind: 'Signal',
   },
   {
     icon: Search,
-    title: 'FAISS Similarity Search',
-    description: 'Searches the category-scoped vector index for the closest matches.',
+    title: 'FAISS Vector Search',
+    description:
+      '13,701 catalogue photographs across 7,510 products, compared by cosine similarity. One flat index, not one per category - half these products belong to more than one.',
     kind: 'Vector Search',
+    emphasis: true,
   },
   {
     icon: Barcode,
-    title: 'Top-K Catalog SKUs',
-    description: 'Ranked candidate SKUs with similarity scores.',
+    title: 'Ranked Shortlist',
+    description:
+      'The five closest products, each with its score. The gap between first and second is the confidence: wide means one clear answer, bunched means the system is guessing and says so.',
     kind: 'Signal',
   },
   {
     icon: Database,
-    title: 'Brain 3: PostgreSQL Catalog Intelligence',
-    description: 'Resolves each SKU to full catalog metadata and relationships.',
+    title: 'PostgreSQL Catalogue',
+    description: 'Resolves each SKU to its name, brand, part number, specifications and photographs.',
     kind: 'Database',
     emphasis: true,
   },
   {
-    icon: Sparkles,
-    title: 'Brain 4: Qwen LLM Reasoning (optional)',
-    description: 'Generates a short natural-language explanation, and clarifying questions when the match is ambiguous.',
-    kind: 'AI Model',
-    emphasis: true,
+    icon: Tag,
+    title: 'Guided Questions',
+    description:
+      'Asked only about what a photograph genuinely cannot show - drop height, ball diameter, load capacity - and only when the shortlist is too close to separate.',
+    kind: 'Processing',
   },
   {
     icon: PackageSearch,
-    title: 'Product Details, Compatibility, Replacements, Alternatives, Accessories',
-    description: 'The complete response, plus the AI explanation when requested, returned to the frontend.',
+    title: 'Shortlist, with its limits stated',
+    description:
+      'The candidates, their scores, and a warning where one is owed: a load rating no camera can read, a match too weak to trust, or nothing in the catalogue that fits.',
     kind: 'Response',
   },
 ]

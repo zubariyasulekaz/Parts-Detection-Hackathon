@@ -38,6 +38,7 @@ export function AppHeader() {
 
   const links = [
     { to: '/catalog', label: 'Catalog' },
+    { to: '/batch', label: 'Batch Test' },
     { to: '/architecture', label: 'Architecture' },
   ]
 

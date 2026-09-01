@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { IdentificationProvider } from '@/context/IdentificationContext'
 import { ArchitecturePage } from '@/pages/ArchitecturePage'
+import { BatchTestPage } from '@/pages/BatchTestPage'
 import { CatalogPage } from '@/pages/CatalogPage'
 import { IdentifyPage } from '@/pages/IdentifyPage'
 import { LandingPage } from '@/pages/LandingPage'
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/results" element={<ResultsPage />} />
             <Route path="/product/:sku" element={<ProductPage />} />
             <Route path="/architecture" element={<ArchitecturePage />} />
+            <Route path="/batch" element={<BatchTestPage />} />
             <Route path="/catalog" element={<CatalogPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

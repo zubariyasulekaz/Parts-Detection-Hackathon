@@ -47,17 +47,30 @@ IMAGE_TYPES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 AMBIGUOUS_MARGIN = 0.036
 
 
-def expected_sku(name: str, known: set[str]) -> str | None:
-    """The SKU a filename claims, when it names one the index actually holds.
+def expected_sku(path: Path, known: set[str]) -> str | None:
+    """The SKU a photo claims, from its folder name or its filename.
 
-    Only a token matching a real SKU counts. Filenames are written by hand and
-    carry noise - "ebay", "used", "2" - and treating any of that as a part
-    number would score the run against products that do not exist.
+    The folder is checked first and is the more reliable of the two: organising
+    photos into a folder per SKU is the natural way to collect them, and it
+    survives filenames the tokeniser cannot split - "XR-015-U1 (1).png" yields
+    the token "XR-015-U1", which is not a part number.
+
+    Only a value matching a real SKU counts either way. Filenames carry noise -
+    "ebay", "used", "2" - and treating that as a part number would score the run
+    against products that do not exist.
     """
-    for token in re.split(r"[^A-Za-z0-9-]+", Path(name).stem):
+    for candidate in (path.parent.name, path.parent.name.upper()):
+        if candidate in known:
+            return candidate
+    for token in re.split(r"[^A-Za-z0-9-]+", path.stem):
         for candidate in (token, token.upper(), token.replace("_", "-").upper()):
             if candidate in known:
                 return candidate
+        # Trailing suffixes like "-U1" are collection markers, not part of the
+        # number, so retry after trimming them.
+        trimmed = re.sub(r"-(?:U\d+|\d+)$", "", token.upper())
+        if trimmed in known:
+            return trimmed
     return None
 
 
@@ -103,7 +116,7 @@ def main() -> None:
                   if len(outcome.matches) > 1 else 1.0)
         ambiguous = margin < AMBIGUOUS_MARGIN
 
-        want = expected_sku(photo.name, known)
+        want = expected_sku(photo, known)
         if want is None:
             unlabelled.append(photo.name)
             verdict = "not scored"

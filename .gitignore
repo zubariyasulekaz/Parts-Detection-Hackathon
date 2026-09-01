@@ -39,6 +39,11 @@ Thumbs.db
 #   python scripts/rigidhitch_filter_and_build.py --embeddings embeddings_base.npy
 partpilot/backend/models/faiss_rigidhitch*/
 
+# Superseded indexes, kept on disk for rollback and moved out of models/ so
+# nothing can point RIGIDHITCH_FAISS_PATH at one by accident. Same reasoning as
+# above, several times over - 168 MB and growing with each snapshot.
+partpilot/backend/models/_archive_indexes/
+
 # --- Fine-tuned RigidHitch embedding model (build artifact) ---
 # 331 MB of weights. Reproduce with scripts/rigidhitch_finetune.py on a GPU
 # (about 40 min), or copy the folder from whoever ran it. The index records

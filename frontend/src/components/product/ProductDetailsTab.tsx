@@ -6,7 +6,35 @@ interface ProductDetailsTabProps {
   product: Product
 }
 
+/**
+ * Attributes that carry no information for a reader, and are actively wrong to
+ * show under a heading that says "identifying".
+ *
+ * `special_order` is "No" on 10,631 of 10,813 products, so it identifies
+ * nothing; `keyword` holds internal cross-reference codes; and
+ * `installation_instructions` is a `\\fileserver\...` path that must never
+ * reach a customer.
+ */
+const NON_IDENTIFYING = new Set(['special_order', 'keyword', 'installation_instructions'])
+
+/**
+ * Descriptions are shown verbatim, repetition and all.
+ *
+ * The source data concatenates a summary, a feature list and a fitment list
+ * that restate each other, so a paragraph can say "Fits Dexter DX6.6, DX7.5
+ * and DX8.5 ... serial number 17927 and above" three times. Two automated
+ * fixes were tried and both rejected: splitting on sentences removed nothing,
+ * because the repeated runs carry no full stops, and dropping repeated
+ * word-sequences cut 31% but left "Features hitch ball block" - a phrase the
+ * catalogue never contained.
+ *
+ * Inventing text on a client's product page to tidy it is worse than showing
+ * theirs untidily. This belongs in the data, and is worth raising with them
+ * alongside the shared-placeholder images.
+ */
 export function ProductDetailsTab({ product }: ProductDetailsTabProps) {
+  const attributes = Object.entries(product.attributes).filter(([key]) => !NON_IDENTIFYING.has(key))
+
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,360px)_1fr]">
       <ProductImageGallery category={product.category} images={product.images} />
@@ -38,20 +66,25 @@ export function ProductDetailsTab({ product }: ProductDetailsTabProps) {
             <dt className="text-xs tracking-wide text-muted uppercase">Category</dt>
             <dd className="mt-1 text-sm font-semibold text-foreground">{product.category}</dd>
           </div>
-          <div>
-            <dt className="text-xs tracking-wide text-muted uppercase">Vehicles Listed</dt>
-            <dd className="mt-1 text-sm font-semibold text-foreground">{product.compatibleVehicles.length}</dd>
-          </div>
+          {/* Only when there are any. This catalogue records no fitment at all,
+              so the cell read "Vehicles Listed: 0" on all 10,813 products -
+              which looks like missing data rather than a universal part. */}
+          {product.compatibleVehicles.length > 0 && (
+            <div>
+              <dt className="text-xs tracking-wide text-muted uppercase">Vehicles Listed</dt>
+              <dd className="mt-1 text-sm font-semibold text-foreground">{product.compatibleVehicles.length}</dd>
+            </div>
+          )}
         </dl>
 
         {/* The same facts the results page asks about, shown here so a reader
             can check them against the part in front of them. Keys vary by
             category, so this renders whatever the catalog recorded. */}
-        {Object.keys(product.attributes).length > 0 && (
+        {attributes.length > 0 && (
           <div>
             <h2 className="text-sm font-bold tracking-wide text-muted uppercase">Identifying Features</h2>
             <dl className="mt-3 flex flex-wrap gap-2">
-              {Object.entries(product.attributes).map(([key, value]) => (
+              {attributes.map(([key, value]) => (
                 <div
                   key={key}
                   className="rounded-lg border border-border-strong bg-surface-2 px-3 py-2"

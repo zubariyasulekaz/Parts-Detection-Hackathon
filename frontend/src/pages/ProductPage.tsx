@@ -16,13 +16,36 @@ import type { Product, ProductRelationships } from '@/types/product'
 
 type TabKey = 'details' | 'compatibility' | 'replacement' | 'alternatives' | 'accessories'
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'details', label: 'Product Details' },
-  { key: 'compatibility', label: 'Compatibility' },
-  { key: 'replacement', label: 'Replacement' },
-  { key: 'alternatives', label: 'Alternatives' },
-  { key: 'accessories', label: 'Accessories' },
-]
+/**
+ * Only the tabs with something behind them.
+ *
+ * The RigidHitch `products` table has no columns for vehicles, replacements,
+ * alternatives or accessories - not empty ones, absent ones - so four of the
+ * five tabs were permanently empty on all 10,813 products, and the
+ * recommendations endpoint answers with a message saying as much. Four dead
+ * tabs is worse than none: a client clicks each in turn and finds nothing four
+ * times, which reads as a broken product rather than a catalogue that never
+ * held that data.
+ *
+ * Kept data-driven rather than deleted, because the columns are exactly what
+ * we are asking the client for. The day fitment arrives, the tab returns on
+ * its own.
+ */
+function availableTabs(
+  product: Product,
+  relationships: ProductRelationships | null,
+): { key: TabKey; label: string }[] {
+  const tabs: { key: TabKey; label: string }[] = [{ key: 'details', label: 'Product Details' }]
+  if (product.compatibleVehicles.length > 0) tabs.push({ key: 'compatibility', label: 'Compatibility' })
+  if (relationships?.replacement) tabs.push({ key: 'replacement', label: 'Replacement' })
+  if (relationships && relationships.alternatives.length > 0) {
+    tabs.push({ key: 'alternatives', label: 'Alternatives' })
+  }
+  if (relationships && relationships.accessories.length > 0) {
+    tabs.push({ key: 'accessories', label: 'Accessories' })
+  }
+  return tabs
+}
 
 type LoadStatus = 'loading' | 'success' | 'error'
 
@@ -98,32 +121,38 @@ export function ProductPage() {
     )
   }
 
+  const tabs = availableTabs(product, relationships)
+
   return (
     <PageContainer className="py-12">
       <ProductHeader product={product} backLabel={cameFromResults ? 'Back to Results' : 'Back to Catalog'} onBack={handleBack} />
 
-      <div
-        role="tablist"
-        aria-label="Product Intelligence"
-        className="shadow-card mb-8 flex flex-wrap gap-1 rounded-xl border border-border bg-surface p-1"
-      >
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
-              activeTab === tab.key
-                ? 'shadow-glow-accent bg-linear-to-b from-accent-hover to-accent text-white'
-                : 'text-muted hover:text-foreground'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* A single tab is not a choice, so the bar only appears when there is
+          somewhere else to go. */}
+      {tabs.length > 1 && (
+        <div
+          role="tablist"
+          aria-label="Product Intelligence"
+          className="shadow-card mb-8 flex flex-wrap gap-1 rounded-xl border border-border bg-surface p-1"
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+                activeTab === tab.key
+                  ? 'shadow-glow-accent bg-linear-to-b from-accent-hover to-accent text-white'
+                  : 'text-muted hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div role="tabpanel" className="animate-fade-in">
         {activeTab === 'details' && <ProductDetailsTab product={product} />}

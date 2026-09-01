@@ -1,7 +1,12 @@
 # Real photographs
 
-88 photographs of 21 products, taken by hand over three days in August 2026.
+83 photographs of 20 products, taken by hand over three days in August 2026.
 One folder per SKU, files suffixed `-u1-`.
+
+The suffix is the only thing that marks these as hand-taken, and it is worth
+checking rather than globbing for: five catalogue images for `EPUMP-BLU1-21`
+were filed here by mistake because the SKU itself contains the letters `u1`.
+They have been removed. Match on `-u1-`, with the hyphens.
 
 **These are the only irreplaceable files in this repository.** Everything else
 here is code, or is rebuildable from the catalogue: the index takes two minutes,

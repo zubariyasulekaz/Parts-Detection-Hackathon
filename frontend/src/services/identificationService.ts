@@ -1,4 +1,4 @@
-import { confirmPrediction, predictPart } from '@/api/partpilotApi'
+import { predictPart } from '@/api/partpilotApi'
 import { adaptPredictionResult } from '@/adapters/identificationAdapter'
 import { getSampleScenario, pickScenarioForFile, resolveScenarioCandidates } from '@/mocks/identificationResults'
 import { getProduct } from './catalogService'
@@ -41,21 +41,6 @@ export function hasNoCatalogMatch(candidates: IdentificationCandidate[]): boolea
   return !top || top.similarity < NO_CATALOG_MATCH_THRESHOLD
 }
 
-/**
- * Reports the user's final answer to the backend audit trail. Fire-and-forget
- * by design: confirmation failing (backend restarting, row already gone) must
- * never block the user's navigation to the product they just picked.
- */
-export function reportConfirmation(
-  auditId: number | null,
-  sku: string,
-  disambiguation?: Record<string, string>,
-): void {
-  if (auditId === null || API_MODE !== 'live') return
-  confirmPrediction(auditId, sku, disambiguation).catch((error) => {
-    console.warn('Could not record the confirmation:', error)
-  })
-}
 
 export interface ProcessingStageDefinition {
   key: ProcessingStageKey

@@ -12,7 +12,6 @@ import { AIMatchSummary } from '@/components/results/AIMatchSummary'
 import { CandidateCard } from '@/components/results/CandidateCard'
 import { GuidedDisambiguation } from '@/components/results/GuidedDisambiguation'
 import { IdentificationSummary } from '@/components/results/IdentificationSummary'
-import { ServerChatPanel } from '@/components/results/ServerChatPanel'
 import { NoCatalogMatchPanel } from '@/components/results/NoCatalogMatchPanel'
 import { useIdentification } from '@/context/IdentificationContext'
 import { RefineSelection } from '@/components/results/RefineSelection'
@@ -24,21 +23,12 @@ import {
   confidentLeader,
   type DisambiguationAnswer,
 } from '@/services/disambiguation'
-import { HIGH_CONFIDENCE_THRESHOLD, reportConfirmation } from '@/services/identificationService'
+import { HIGH_CONFIDENCE_THRESHOLD } from '@/services/identificationService'
 import { formatPercent, formatSearchTime } from '@/utils/format'
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
-
-/**
- * Whether the guided questions run through the backend chat API instead of
- * the local logic. Server sessions only exist in live mode; mock mode always
- * runs the local flow, which the API mirrors one-for-one.
- */
-const USE_SERVER_CHAT =
-  import.meta.env.VITE_API_MODE === 'live' &&
-  String(import.meta.env.VITE_CHAT_API ?? '').toLowerCase() === 'true'
 
 /**
  * Whether to offer guided questions at all.
@@ -55,12 +45,6 @@ const USE_SERVER_CHAT =
  */
 const QUESTIONS_ENABLED =
   String(import.meta.env.VITE_GUIDED_QUESTIONS ?? 'false').toLowerCase() === 'true'
-
-/** `[{facet: "make", label: "Honda"}]` -> `{make: "Honda"}` for the audit trail. */
-function answersToRecord(answers: DisambiguationAnswer[]): Record<string, string> | undefined {
-  if (!answers.length) return undefined
-  return Object.fromEntries(answers.map((entry) => [entry.facet, entry.label]))
-}
 
 export function ResultsPage() {
   const navigate = useNavigate()
@@ -152,7 +136,6 @@ export function ResultsPage() {
   // Captured after the guard above: the function declarations below are hoisted,
   // so TypeScript cannot carry the non-null narrowing of `result` into them.
   const candidates = result.candidates
-  const auditId = result.auditId
   // Nothing in the catalog scored high enough to be a match - the page becomes a
   // "we don't stock this" answer rather than a ranked recommendation. The
   // verdict is the server's (mock mode derives it locally).
@@ -230,16 +213,12 @@ export function ResultsPage() {
     navigate(`/product/${encodeURIComponent(sku)}`)
   }
 
-  /** Confirm = record the user's final answer on the audit trail, then show the product. */
   function confirmAndView(sku: string) {
-    reportConfirmation(auditId, sku, answersToRecord(answers))
     goToProduct(sku)
   }
 
-  /** The guided questions ended on exactly one SKU - that outcome is worth recording on its own. */
-  function handleResolved(sku: string, answers: DisambiguationAnswer[]) {
+  function handleResolved(sku: string) {
     selectCandidate(sku)
-    reportConfirmation(auditId, sku, answersToRecord(answers))
   }
 
   function handleRemainingChange(skus: string[]) {
@@ -378,27 +357,15 @@ export function ResultsPage() {
           "change this" buttons survive into the revealed page below. */}
       {needsQuestions && (
         <div className="mt-6 animate-fade-slide-up">
-          {USE_SERVER_CHAT ? (
-            <ServerChatPanel
-              candidates={candidates}
-              onRemainingChange={handleRemainingChange}
-              onResolved={handleResolved}
-              onAnswersChange={setAnswers}
-              onFinished={handleFinished}
-              onOverrideSelection={selectCandidate}
-              selectedSku={selectedSku}
-            />
-          ) : (
-            <GuidedDisambiguation
-              candidates={candidates}
-              onRemainingChange={handleRemainingChange}
-              onResolved={handleResolved}
-              onAnswersChange={setAnswers}
-              onFinished={handleFinished}
-              onOverrideSelection={selectCandidate}
-              selectedSku={selectedSku}
-            />
-          )}
+          <GuidedDisambiguation
+            candidates={candidates}
+            onRemainingChange={handleRemainingChange}
+            onResolved={handleResolved}
+            onAnswersChange={setAnswers}
+            onFinished={handleFinished}
+            onOverrideSelection={selectCandidate}
+            selectedSku={selectedSku}
+          />
         </div>
       )}
 

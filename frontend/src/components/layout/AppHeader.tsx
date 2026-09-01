@@ -38,7 +38,6 @@ export function AppHeader() {
 
   const links = [
     { to: '/catalog', label: 'Catalog' },
-    { to: '/history', label: 'History' },
     { to: '/architecture', label: 'Architecture' },
   ]
 

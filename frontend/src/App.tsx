@@ -4,7 +4,6 @@ import { AppHeader } from '@/components/layout/AppHeader'
 import { IdentificationProvider } from '@/context/IdentificationContext'
 import { ArchitecturePage } from '@/pages/ArchitecturePage'
 import { CatalogPage } from '@/pages/CatalogPage'
-import { HistoryPage } from '@/pages/HistoryPage'
 import { IdentifyPage } from '@/pages/IdentifyPage'
 import { LandingPage } from '@/pages/LandingPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
@@ -40,7 +39,6 @@ export default function App() {
             <Route path="/product/:sku" element={<ProductPage />} />
             <Route path="/architecture" element={<ArchitecturePage />} />
             <Route path="/catalog" element={<CatalogPage />} />
-            <Route path="/history" element={<HistoryPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>

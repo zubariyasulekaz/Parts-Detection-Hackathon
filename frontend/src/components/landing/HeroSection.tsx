@@ -1,4 +1,4 @@
-import { Barcode, Car, ScanSearch } from 'lucide-react'
+import { Barcode, ScanSearch, ShieldQuestion } from 'lucide-react'
 import { CapabilityBadge } from './CapabilityBadge'
 
 interface HeroSectionProps {
@@ -24,9 +24,9 @@ export function HeroSection({ onUploadClick, onTrySample, isSampleLoading, sampl
         style={{ animationDelay: '90ms' }}
         className="animate-fade-slide-up text-[2.75rem] leading-[1.04] font-bold tracking-tight text-foreground sm:text-6xl"
       >
-        The <span className="text-gradient-accent whitespace-nowrap">right part</span>,
+        Find the part
         <br />
-        from one photo.
+        <span className="text-gradient-accent whitespace-nowrap">without the name</span>.
       </h1>
 
       {/* Brighter than the usual `text-muted` body colour: this paragraph now
@@ -36,8 +36,8 @@ export function HeroSection({ onUploadClick, onTrySample, isSampleLoading, sampl
         style={{ animationDelay: '180ms' }}
         className="animate-fade-slide-up max-w-md text-base leading-relaxed text-foreground/80"
       >
-        Upload a part photo to identify the closest catalog SKU, validate compatibility, and discover replacements and
-        related products.
+        Photograph a trailer part you cannot name and get the closest products in the catalog,
+        ranked, with how sure it is about each one.
       </p>
 
       {/* The row is the perspective scene; the buttons rotate inside it. A
@@ -68,9 +68,13 @@ export function HeroSection({ onUploadClick, onTrySample, isSampleLoading, sampl
           full width of the (now wider) text column and the third one crosses
           into the lane the hero's 3D object occupies. */}
       <div style={{ animationDelay: '360ms' }} className="animate-fade-slide-up flex max-w-md flex-wrap gap-x-6 gap-y-2">
-        <CapabilityBadge icon={ScanSearch} label="AI Category Detection" />
-        <CapabilityBadge icon={Barcode} label="Catalog SKU Matching" />
-        <CapabilityBadge icon={Car} label="Compatibility Intelligence" />
+        {/* What the system actually does. "Compatibility Intelligence" went
+            with the car-parts catalogue: 48.5% of these products are universal
+            trailer parts with no vehicle on record, so a compatibility promise
+            would be undeliverable on half the range. */}
+        <CapabilityBadge icon={ScanSearch} label="Trained on this catalog" />
+        <CapabilityBadge icon={Barcode} label="7,510 products searchable" />
+        <CapabilityBadge icon={ShieldQuestion} label="Tells you when it's unsure" />
       </div>
     </div>
   )

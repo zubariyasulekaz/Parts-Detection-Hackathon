@@ -10,11 +10,11 @@ interface PipelineStep {
 }
 
 const STEPS: PipelineStep[] = [
-  { icon: Camera, label: 'Image', detail: 'Background removed' },
-  { icon: Cpu, label: 'Classification', detail: 'EfficientNet category' },
-  { icon: Network, label: 'Visual Embedding', detail: 'DINOv2 / OpenCLIP' },
-  { icon: Database, label: 'Catalog Match', detail: 'FAISS similarity' },
-  { icon: PackageSearch, label: 'Product Intelligence', detail: 'Fitment + alternatives' },
+  { icon: Camera, label: 'Your Photo', detail: 'Background removed' },
+  { icon: Cpu, label: 'Fine-tuned DINOv2', detail: 'Trained on this catalog' },
+  { icon: Network, label: 'Visual Fingerprint', detail: '768 numbers, whitened' },
+  { icon: Database, label: 'Catalog Match', detail: '13,701 photos searched' },
+  { icon: PackageSearch, label: 'Ranked Shortlist', detail: 'Five, with confidence' },
 ]
 
 export function PipelineStrip() {
@@ -25,7 +25,7 @@ export function PipelineStrip() {
           How It Works
         </p>
         <h2 className="mt-3 text-2xl font-bold text-foreground sm:text-3xl">
-          Four models. <span className="text-gradient-accent">One answer.</span>
+          One photo. <span className="text-gradient-accent">A ranked shortlist.</span>
         </h2>
       </div>
 
@@ -75,7 +75,8 @@ export function PipelineStrip() {
           duplication into a funnel. */}
       <div className="mt-10 flex flex-col items-center gap-4 border-t border-border pt-8">
         <p className="max-w-md text-center text-sm text-muted">
-          Four models, a vector index and a product database sit behind these five steps.
+          A model trained on this catalog, an index of every product photograph in it, and the
+          product database sit behind these five steps.
         </p>
         <Link
           to="/architecture"

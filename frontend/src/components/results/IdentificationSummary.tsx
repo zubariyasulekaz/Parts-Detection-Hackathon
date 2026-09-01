@@ -75,9 +75,8 @@ function matchReason(
     // only makes sure the headline never overstates it.
     if (rating) {
       return {
-        tone: 'caution',
-        text: `Narrowed to this one by your ${answers}. Check the rating stamped on the part `
-          + `before ordering - see below.`,
+        tone: 'positive',
+        text: `Narrowed to this one by your ${answers} - the shape and your answers agree.`,
       }
     }
     // An answer narrows the shortlist; it does not check that the shortlist
@@ -101,13 +100,19 @@ function matchReason(
   }
   if (isDecisiveMatch) {
     // Even a decisive match only establishes the shape. On a rated part the
-    // shape is the half that does not matter.
+    // shape is the half that does not matter - but the band below says exactly
+    // that, in full, and saying it twice on one card reads as panic rather than
+    // care. This line stops at what the photograph did establish, and is marked
+    // positive because that limited claim is simply true: the shape *is* right.
+    //
+    // The caution lives in one place, on the rating band, where it is the only
+    // warning on the card and therefore actually gets read. Three warning
+    // triangles in a column is how a card teaches someone to ignore triangles.
     if (rating) {
       return {
-        tone: 'caution',
+        tone: 'positive',
         text: `${formatPercent(candidate.similarity)} visual similarity to your photo, clearly ahead of `
-          + `every other candidate - but the shape is all a photograph shows. Check the rating `
-          + `stamped on the part before ordering.`,
+          + `every other candidate - so the shape is right.`,
       }
     }
     return {
@@ -205,9 +210,13 @@ export function IdentificationSummary({
                 </p>
               )
             ) : (
-              <p className="flex items-start gap-2 text-sm text-muted">
-                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
-                <span>No fitment on record for this SKU - verify it suits your vehicle before ordering.</span>
+              // Stated, not warned about. 5,240 products - 48.5% of the
+              // catalogue - are universal trailer parts with no vehicle at
+              // all: couplers, jacks, hubs, locks. A warning triangle on half
+              // the catalogue is crying wolf, and it devalues the triangle on
+              // the load rating below, which is the one that matters.
+              <p className="text-sm text-subtle">
+                No vehicle fitment recorded for this SKU - many trailer parts are universal.
               </p>
             )}
 
@@ -219,11 +228,15 @@ export function IdentificationSummary({
               <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-warning/40 bg-warning-muted/25 p-3">
                 <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
                 <p className="text-sm text-foreground">
-                  <span className="font-semibold">This part is load-rated.</span>{' '}
-                  Listed {ratingLabel(ratingWarning.key)}{' '}
-                  <span className="font-mono font-semibold">{ratingWarning.value}</span>. A photograph
-                  cannot show a rating - two parts of the same shape can differ by thousands of pounds.
-                  Check the figure stamped on the part before ordering.
+                  <span className="font-semibold">Check the rating stamped on the part before ordering.</span>{' '}
+                  This SKU lists {ratingLabel(ratingWarning.key)}{' '}
+                  {/* Catalogue values arrive with their own trailing period on
+                      some rows ("10,000 lbs."), which produced "lbs..". */}
+                  <span className="font-mono font-semibold">
+                    {String(ratingWarning.value).replace(/\.\s*$/, '')}
+                  </span>
+                  . Two parts of the same shape can differ by thousands of pounds, and a photograph
+                  cannot tell them apart.
                 </p>
               </div>
             )}

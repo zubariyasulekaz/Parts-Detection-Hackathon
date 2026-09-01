@@ -102,38 +102,6 @@ class EmbeddingBackend:
         return self._device
 
 
-class OpenClipBackend(EmbeddingBackend):
-    """OpenCLIP image tower (the original Brain 2 backend)."""
-
-    def __init__(self, model_name: str | None = None, pretrained: str | None = None) -> None:
-        super().__init__("openclip")
-        settings = get_settings()
-        self._model_name = model_name or settings.OPENCLIP_MODEL_NAME
-        self._pretrained = pretrained or settings.OPENCLIP_PRETRAINED
-
-    def load(self) -> None:
-        try:
-            import open_clip  # noqa: PLC0415
-        except ImportError as exc:  # pragma: no cover - env-dependent
-            raise ModelNotLoaded("open_clip_torch is not installed.") from exc
-
-        device = self._pick_device()
-        model, _, preprocess = open_clip.create_model_and_transforms(
-            self._model_name, pretrained=self._pretrained
-        )
-        self._model = model.to(device).eval()
-        self._preprocess = preprocess
-        logger.info("Loaded OpenCLIP %s/%s on %s", self._model_name, self._pretrained, device)
-
-    def encode(self, image: Image) -> np.ndarray:
-        torch = _torch()
-        self.ensure_loaded()
-        tensor = self._preprocess(image.convert("RGB")).unsqueeze(0).to(self._device)
-        with torch.no_grad():
-            out = self._model.encode_image(tensor)
-        return _unit(out.squeeze(0).cpu().numpy().astype(np.float32))
-
-
 class HuggingFaceVisionBackend(EmbeddingBackend):
     """SigLIP / DINOv2 via ``transformers``.
 
@@ -237,22 +205,13 @@ def _family_of(name: str, key: str) -> str:
 
 def _build_one(name: str) -> EmbeddingBackend:
     key = name.strip().lower()
-    if key in {"openclip", "clip"}:
-        return OpenClipBackend()
-    if key.startswith("openclip:"):
-        # openclip:ViT-L-14:laion2b_s32b_b82k
-        parts = name.split(":")
-        model = parts[1] if len(parts) > 1 else None
-        pretrained = parts[2] if len(parts) > 2 else None
-        return OpenClipBackend(model, pretrained)
     if key in _HF_MODELS:
-        family = "dinov2" if key.startswith("dinov2") else "siglip"
         return HuggingFaceVisionBackend(key, _HF_MODELS[key])
     if "/" in name or Path(name).is_dir():  # a HuggingFace model id, or a local directory
         return HuggingFaceVisionBackend(_family_of(name, key), name)
     raise EmbeddingError(
         f"Unknown embedding backend '{name}'. "
-        f"Expected one of: openclip, {', '.join(sorted(_HF_MODELS))}, "
+        f"Expected one of: {', '.join(sorted(_HF_MODELS))}, "
         "or a HuggingFace model id."
     )
 
@@ -274,26 +233,21 @@ def build_backend(spec: str | None = None) -> EmbeddingBackend:
 def backend_for_category(category: str) -> str:
     """Which backend spec a category should use.
 
-    No single model wins everywhere - DINOv2 is much stronger on parts that
-    differ structurally (brake pads, manifolds) while OpenCLIP holds up better
-    where every product shares the same texture (air filters, wheel hubs). So
-    ``CATEGORY_BACKENDS`` overrides the default for those categories, matched
-    case-insensitively.
+    RigidHitch files every product under one sentinel category served by one
+    index, so this is the configured default for everything. Kept as a function
+    rather than inlined because the index records the model that built it and
+    `SimilaritySearchService` prefers that over the setting - this is only the
+    fallback for an index that never recorded one.
     """
-    settings = get_settings()
-    wanted = category.strip().lower()
-    for name, spec in settings.CATEGORY_BACKENDS.items():
-        if name.strip().lower() == wanted:
-            return spec
-    return settings.EMBEDDING_BACKEND
+    return get_settings().EMBEDDING_BACKEND
 
 
 def no_match_threshold(backend: str | None) -> float:
     """The similarity below which a top match is not a plausible answer.
 
-    Keyed per backend spec because score distributions differ between
-    models (a DINOv2 cosine and an OpenCLIP cosine are not on the same
-    scale). Falls back to the configured default for unknown/composite
+    Keyed per backend spec because score distributions differ between models -
+    two encoders compress cosine space differently, so one global value cannot
+    serve both. Falls back to the configured default for unknown or composite
     specs and for older indexes that never recorded their backend.
     """
     settings = get_settings()

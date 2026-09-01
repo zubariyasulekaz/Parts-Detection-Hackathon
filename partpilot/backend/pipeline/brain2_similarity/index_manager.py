@@ -32,7 +32,7 @@ class IndexManager:
     """Loads and caches one `FaissIndex` per product category."""
 
     def __init__(self, index_dir: Path | None = None) -> None:
-        self._index_dir = index_dir or Path(get_settings().FAISS_PATH)
+        self._index_dir = index_dir or Path(get_settings().RIGIDHITCH_FAISS_PATH)
         self._indexes: dict[str, FaissIndex] = {}
 
     def get_index(self, category: str) -> FaissIndex:

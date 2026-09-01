@@ -1,39 +1,22 @@
 """FastAPI dependency providers.
 
-Centralizes construction of pipeline services so route handlers depend
-on interfaces (via `Depends(...)`) instead of instantiating concrete
-classes themselves.
+Centralizes construction of pipeline services so route handlers depend on
+interfaces (via `Depends(...)`) instead of instantiating concrete classes
+themselves.
 
-Brain 1/2 providers are cached process-wide singletons (`@lru_cache`):
-construction is cheap today (placeholder objects) but will become
-expensive once real models are loaded, which is exactly why we want a
-single shared instance. Brain 3 and audit-trail providers are deliberately
-NOT cached — they wrap a request-scoped `AsyncSession` (see
-`backend.core.database.get_db`) and must be rebuilt on every request.
+The search service is a process-wide singleton (`@lru_cache`): it holds a
+330 MB fine-tuned model and a FAISS index, so a second instance would double
+the memory for no benefit. The catalogue is deliberately NOT cached - it wraps
+a request-scoped `AsyncSession` (see `backend.core.database.get_rigidhitch_db`)
+and must be rebuilt on every request.
 """
 
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from backend.config.settings import Settings, get_settings
-from backend.core.database import get_db
-from backend.pipeline.audit.repository import PredictionAuditRepository
-from backend.pipeline.audit.service import PredictionAuditService
-from backend.pipeline.brain1_classifier.interfaces import ClassifierInterface
-from backend.pipeline.brain1_classifier.predict import Classifier
 from backend.pipeline.brain2_similarity.index_manager import IndexManager
-from backend.pipeline.brain2_similarity.interfaces import SimilaritySearchInterface
 from backend.pipeline.brain2_similarity.search import SimilaritySearchService
-from backend.pipeline.brain3_catalog.interfaces import RecommendationInterface
-from backend.pipeline.brain3_catalog.product_service import ProductService
-from backend.pipeline.brain3_catalog.recommendation_service import RecommendationService
-from backend.pipeline.brain3_catalog.repository import ProductRepository
-from backend.pipeline.brain4_reasoning.interfaces import ReasoningInterface
-from backend.pipeline.brain4_reasoning.llm_service import LLMService
-from backend.pipeline.orchestrator import PipelineOrchestrator
 
 
 def get_app_settings() -> Settings:
@@ -42,122 +25,15 @@ def get_app_settings() -> Settings:
 
 
 @lru_cache
-def get_classifier() -> ClassifierInterface:
-    """Dependency provider for the Brain 1 classifier."""
-    return Classifier()
-
-
-@lru_cache
-def get_similarity_search() -> SimilaritySearchInterface:
-    """Dependency provider for the Brain 2 similarity search service.
-
-    Both stores hold the same vectors and return the same matches; the choice
-    is where they live. `pgvector` keeps them in the product's own row, so they
-    cannot drift out of step with the catalog, at the cost of a round trip per
-    search. `faiss` reads them from index files on disk.
-    """
-    store = get_settings().VECTOR_STORE.strip().lower()
-    if store == "pgvector":
-        from backend.pipeline.brain2_similarity.pgvector_search import (  # noqa: PLC0415
-            PgVectorSearchService,
-        )
-
-        return PgVectorSearchService()
-    if store != "faiss":
-        raise ValueError(f"Unknown VECTOR_STORE {store!r}; expected 'faiss' or 'pgvector'.")
-    return SimilaritySearchService()
-
-
-def get_product_repository(session: AsyncSession = Depends(get_db)) -> ProductRepository:
-    """Dependency provider for the request-scoped Brain 3 product repository."""
-    return ProductRepository(session)
-
-
-def get_product_service(
-    repository: ProductRepository = Depends(get_product_repository),
-) -> ProductService:
-    """Dependency provider for the Brain 3 product service."""
-    return ProductService(repository)
-
-
-def get_recommendation_service(
-    product_service: ProductService = Depends(get_product_service),
-) -> RecommendationInterface:
-    """Dependency provider for the Brain 3 recommendation service."""
-    return RecommendationService(catalog=product_service)
-
-
-def get_prediction_audit_repository(
-    session: AsyncSession = Depends(get_db),
-) -> PredictionAuditRepository:
-    """Dependency provider for the request-scoped prediction audit repository."""
-    return PredictionAuditRepository(session)
-
-
-def get_prediction_audit_service(
-    repository: PredictionAuditRepository = Depends(get_prediction_audit_repository),
-) -> PredictionAuditService:
-    """Dependency provider for the prediction audit service.
-
-    On `/predict` this resolves to the same `AsyncSession` Brain 3 already
-    holds — FastAPI caches `get_db` per request — which is why the service
-    rolls back a failed audit INSERT instead of leaving it for `get_db` to
-    trip over at commit time.
-    """
-    return PredictionAuditService(repository)
-
-
-@lru_cache
-def get_reasoning_service() -> ReasoningInterface:
-    """Dependency provider for the Brain 4 reasoning service.
-
-    Both backends run the same instruction-tuned model against the same
-    prompt; only the runtime differs. `llamacpp` reads a quantised GGUF and
-    is several times faster on a CPU box, at the cost of an extra
-    dependency; `transformers` needs nothing beyond `requirements.txt`.
-    """
-    backend = get_settings().LLM_BACKEND.strip().lower()
-    if backend == "llamacpp":
-        from backend.pipeline.brain4_reasoning.llamacpp_service import (  # noqa: PLC0415
-            LlamaCppService,
-        )
-
-        return LlamaCppService()
-    if backend != "transformers":
-        raise ValueError(
-            f"Unknown LLM_BACKEND {backend!r}; expected 'llamacpp' or 'transformers'."
-        )
-    return LLMService()
-
-
-def get_orchestrator(
-    classifier: ClassifierInterface = Depends(get_classifier),
-    similarity_search: SimilaritySearchInterface = Depends(get_similarity_search),
-    catalog: ProductService = Depends(get_product_service),
-    recommendation_service: RecommendationInterface = Depends(get_recommendation_service),
-    reasoning: ReasoningInterface = Depends(get_reasoning_service),
-) -> PipelineOrchestrator:
-    """Dependency provider for the full pipeline orchestrator."""
-    return PipelineOrchestrator(
-        classifier=classifier,
-        similarity_search=similarity_search,
-        catalog=catalog,
-        recommendation_service=recommendation_service,
-        reasoning=reasoning,
-    )
-
-
-@lru_cache
 def get_rigidhitch_search() -> SimilaritySearchService:
-    """Brain 2 for the RigidHitch catalogue, reading its own index directory.
+    """Similarity search for the RigidHitch catalogue.
 
-    A second instance rather than a reconfigured one: PartPilot's cached
-    service keeps its own index directory and per-category model routing, and
-    must not be disturbed by a second catalogue existing. `IndexManager`
-    already accepts an index directory, so no shared code changes.
+    `IndexManager` takes the index directory rather than reading the default,
+    because RigidHitch's index lives in its own folder alongside the whitening
+    transform and the sidecar recording which model built it.
 
     The whitening transform travels with the index file, so nothing here needs
-    to know that RigidHitch's vectors are whitened and PartPilot's are not.
+    to know that RigidHitch's vectors are whitened.
     """
     settings = get_settings()
     return SimilaritySearchService(

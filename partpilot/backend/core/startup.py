@@ -1,8 +1,8 @@
 """Application startup and shutdown lifecycle hooks.
 
-Wired into the FastAPI app via a `lifespan` context manager in
-`backend.app`. Keeping this logic here (instead of inline in `app.py`)
-makes it independently testable and keeps `app.py` focused on wiring.
+Wired into the FastAPI app via a `lifespan` context manager in `backend.app`.
+Keeping this logic here (instead of inline in `app.py`) makes it independently
+testable and keeps `app.py` focused on wiring.
 """
 
 from time import perf_counter
@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from backend.config.paths import ensure_runtime_directories
 from backend.config.settings import get_settings
-from backend.core.database import close_db_engine, engine
+from backend.core.database import close_rigidhitch_engine, get_rigidhitch_session_factory
 from backend.core.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)
@@ -20,92 +20,81 @@ logger = get_logger(__name__)
 def on_startup() -> None:
     """Run all startup routines.
 
-    Brain 3 (product catalog) needs no warm-up beyond the connectivity
-    check below: it is backed by PostgreSQL via a request-scoped
-    `AsyncSession` (see `backend.core.database.get_db`), not an
-    in-memory cache.
+    The catalogue needs no warm-up beyond the connectivity check below: it is
+    read from PostgreSQL through a request-scoped `AsyncSession`, not held in
+    memory.
     """
     configure_logging()
     ensure_runtime_directories()
-    logger.info("PartPilot backend starting up")
+    logger.info("RigidHitch part finder starting up")
     if get_settings().WARM_MODELS_ON_STARTUP:
         warm_models()
 
 
 async def check_database() -> None:
-    """Fail loudly at boot, not silently on the judge's first upload.
+    """Fail loudly at boot, not silently on the client's first upload.
 
-    A DB outage otherwise surfaces only when a user submits a photo -
-    Brain 1/2 run for several seconds first, then the request dies on
-    catalog lookup. Checking here puts the failure (and the fix) in the
-    startup log where whoever is running the demo will actually see it
-    before an audience does.
-
-    `db.<project>.supabase.co` (Supabase's direct connection) resolves
-    over IPv6 only; a network without IPv6 routing fails with a
-    low-level connect error that gives no hint what to do. The session
-    pooler (`aws-0-<region>.pooler.supabase.com`) is IPv4-reachable and
-    is what `docs/RUNNING.md` recommends for exactly this reason.
+    A database outage otherwise surfaces only once someone submits a photo -
+    the search runs for a couple of seconds first, then the request dies on the
+    catalogue lookup. Checking here puts the failure, and the fix, in the
+    startup log where whoever is running the demo will see it before an
+    audience does.
     """
     try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
+        factory = get_rigidhitch_session_factory()
+        async with factory() as session:
+            await session.execute(text("SELECT 1"))
     except Exception as exc:  # noqa: BLE001
-        hint = (
-            " This looks like the IPv6-only Supabase direct-connection host - "
-            "switch DATABASE_URL to the session pooler "
-            "(aws-0-<region>.pooler.supabase.com:5432, username "
-            "postgres.<project-ref>). See docs/RUNNING.md."
-            if "10060" in str(exc) or "10061" in str(exc) or "Connect call failed" in str(exc)
-            else " Check DATABASE_URL in .env - see docs/RUNNING.md for troubleshooting."
-        )
         logger.error(
-            "Cannot reach the database - Brain 3 catalog lookups will fail on every "
-            "upload until this is fixed: %s.%s",
+            "Cannot reach the RigidHitch database - every search will return "
+            "matches with no product details until this is fixed: %s. Check "
+            "RIGIDHITCH_DATABASE_URL in .env.",
             exc,
-            hint,
         )
     else:
-        logger.info("Database reachable")
+        logger.info("RigidHitch database reachable")
 
 
 def warm_models() -> None:
-    """Load Brain 1/2 weights and indexes before the first request.
+    """Load the model and index before the first request.
 
-    Without this, the first upload pays rembg + TensorFlow + a vision
-    transformer all loading inside the request — a 30-60s stall on a cold
-    process. Every step is best-effort: a model that cannot load logs a
-    warning here and fails (or degrades) exactly as it would have inside
-    the request, just earlier and without a user waiting on it.
+    Without this the first upload pays rembg and a 330 MB fine-tuned vision
+    transformer loading inside the request - twenty seconds or more on a cold
+    process, with a spinner and no explanation. On a laptop this went unnoticed
+    because a script had usually loaded the model already; on a server it lands
+    on whoever opens the link first.
 
-    Warming goes through `backend.api.dependencies` so it touches the very
-    singletons requests will use — warming private copies would heat
-    nothing.
+    Warming goes through `backend.api.dependencies` so it heats the very
+    singleton requests will use - warming a private copy would heat nothing.
 
-    Brain 4 is warmed only when `WARM_BRAIN4_ON_STARTUP` is set. It used to
-    be left cold unconditionally because the `transformers` path loads
-    several GB; the quantised GGUF the llama.cpp path reads is a fraction of
-    that and loads in seconds, which is worth paying at boot rather than
-    making whoever uploads first wait it out.
+    Every step is best-effort: a model that cannot load logs a warning here and
+    fails exactly as it would have inside the request, just earlier and without
+    someone waiting on it.
     """
     from PIL import Image  # noqa: PLC0415
 
-    from backend.api.dependencies import (  # noqa: PLC0415
-        get_classifier,
-        get_reasoning_service,
-        get_similarity_search,
-    )
+    from backend.api.dependencies import get_app_settings, get_rigidhitch_search  # noqa: PLC0415
     from backend.utils.image_utils import remove_background  # noqa: PLC0415
 
     dummy = Image.new("RGB", (224, 224), (128, 128, 128))
 
+    def warm_search() -> None:
+        # A real search rather than `warm()`: the generic warm-up walks the
+        # index directory's own categories, and RigidHitch's index is a single
+        # sentinel category in a directory of its own, so it would be skipped.
+        # One search loads the index, the whitening transform and the model,
+        # which is exactly what the first request needs.
+        get_rigidhitch_search().search(
+            category=get_app_settings().RIGIDHITCH_CATEGORY,
+            image=dummy,
+            top_k=1,
+            raw_image=dummy,
+        )
+
     steps = [
         ("rembg", lambda: remove_background(dummy)),
-        ("Brain 1 classifier", lambda: get_classifier().predict(dummy)),
-        ("Brain 2 indexes + embedding models", lambda: _warm_similarity(get_similarity_search())),
+        ("RigidHitch index + embedding model", warm_search),
     ]
-    if get_settings().WARM_BRAIN4_ON_STARTUP:
-        steps.append(("Brain 4 reasoning model", lambda: _warm_reasoning(get_reasoning_service())))
     for name, step in steps:
         started = perf_counter()
         try:
@@ -116,34 +105,7 @@ def warm_models() -> None:
             logger.info("Warmed %s in %.1fs", name, perf_counter() - started)
 
 
-def _warm_similarity(service: object) -> None:
-    """Warm a similarity-search service if it supports warming.
-
-    The interface deliberately does not require `warm()` — a remote or
-    test implementation has nothing to load.
-    """
-    warm = getattr(service, "warm", None)
-    if callable(warm):
-        warm()
-
-
-def _warm_reasoning(service: object) -> None:
-    """Warm a reasoning service if it supports warming.
-
-    Same optional contract as `_warm_similarity`: `ReasoningInterface` only
-    requires `explain`, so a backend with nothing to preload (or a test
-    double) is simply skipped.
-    """
-    warm = getattr(service, "warm", None)
-    if callable(warm):
-        warm()
-
-
 async def on_shutdown() -> None:
-    """Run all shutdown routines.
-
-    TODO: Release model/GPU resources, close FAISS index handles, flush
-    any buffered metrics, etc.
-    """
-    await close_db_engine()
-    logger.info("PartPilot backend shutting down")
+    """Run all shutdown routines."""
+    await close_rigidhitch_engine()
+    logger.info("RigidHitch part finder shutting down")

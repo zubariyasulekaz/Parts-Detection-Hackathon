@@ -9,12 +9,7 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from backend.config.paths import (
-    CATALOG_CSV_PATH,
-    CLASSIFIER_MODEL_DIR,
-    FAISS_MODEL_DIR,
-    UPLOADS_DIR,
-)
+from backend.config.paths import UPLOADS_DIR
 
 
 class Settings(BaseSettings):
@@ -32,7 +27,7 @@ class Settings(BaseSettings):
     )
 
     # --- application ---------------------------------------------------------------
-    APP_NAME: str = "PartPilot"
+    APP_NAME: str = "RigidHitch Part Finder"
     APP_VERSION: str = "0.1.0"
     ENV: str = "development"
     DEBUG: bool = True
@@ -47,37 +42,25 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # --- filesystem paths (overridable via env) ---------------------------------------------------------------
-    MODEL_PATH: str = str(CLASSIFIER_MODEL_DIR)
-    CLIP_MODEL_PATH: str = ""
-    FAISS_PATH: str = str(FAISS_MODEL_DIR)
-    CATALOG_PATH: str = str(CATALOG_CSV_PATH)
     UPLOAD_PATH: str = str(UPLOADS_DIR)
 
-    # --- database (Brain 3 product catalog) ---------------------------------------------------------------
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/partpilot"
-    # Supabase's session-pooler connection string (IPv4-compatible). The
-    # direct DATABASE_URL host above resolves over IPv6 only; on a network
-    # with no IPv6 route, connecting to it hangs rather than failing fast.
-    # When this is set, backend.core.database checks IPv6 reachability once
-    # at startup and swaps to this URL automatically if the direct host
-    # can't be reached - no manual .env edit needed per machine. Leave unset
-    # to always use DATABASE_URL as-is.
-    DATABASE_URL_POOLER: str | None = None
-    # How long to wait for the IPv6 reachability probe before assuming no
-    # route exists and falling back to DATABASE_URL_POOLER.
-    DB_IPV6_CHECK_TIMEOUT_SECONDS: float = 2.0
-
-    # --- RigidHitch (second client catalogue) ---------------------------------------------------------------
-    # A separate database with its own products schema, served alongside
-    # PartPilot rather than replacing it. Unset means the RigidHitch routes
-    # are simply unavailable; nothing else changes.
+    # --- catalogue database ---------------------------------------------------------------
+    # Unset means the catalogue routes fail with a clear message rather than
+    # silently serving matches with no product details attached.
     RIGIDHITCH_DATABASE_URL: str | None = None
+    DB_ECHO: bool = False
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+
+    # --- search index ---------------------------------------------------------------
     RIGIDHITCH_FAISS_PATH: str = "backend/models/faiss_rigidhitch"
-    # The sentinel category its single flat index is filed under. RigidHitch
-    # has no Brain 1 classifier - 50.9% of its products sit in more than one
-    # top-level category, so there is no single correct route for a query -
-    # and every search goes to this one index instead.
+    # The sentinel category the single flat index is filed under. There is no
+    # classifier - 50.9% of products sit in more than one top-level category,
+    # so there is no single correct route for a query - and every search goes
+    # to this one index instead.
     RIGIDHITCH_CATEGORY: str = "rigidhitch"
+
+    # --- product images ---------------------------------------------------------------
     # Prepended to each product's stored relative image path to make a URL a
     # browser can load. Point it at the client's own CDN in production; the
     # local static mount is only for demos.
@@ -85,123 +68,39 @@ class Settings(BaseSettings):
     # Served from disk at RIGIDHITCH_IMAGE_BASE_URL when set. Unset in
     # production, where the client's CDN serves them instead.
     RIGIDHITCH_IMAGE_DIR: str | None = None
-    DB_ECHO: bool = False
-    DB_POOL_SIZE: int = 5
-    DB_MAX_OVERFLOW: int = 10
 
-    # --- Brain 1: classifier ---------------------------------------------------------------
-    CLASSIFIER_INPUT_SIZE: int = 224
-    # Below this softmax confidence the orchestrator also searches the
-    # runner-up category instead of trusting a single hard gate.
-    CLASSIFIER_CONFIDENCE_THRESHOLD: float = 0.5
-    # Below this confidence, a no-match result states no category at all.
-    # When neither model stood behind the image, the winning class is just
-    # the least-wrong of ten options, and naming it reads as "we think your
-    # living room is a suspension bushing". Mirrors CATEGORY_TRUST_THRESHOLD
-    # in frontend/src/components/results/NoCatalogMatchPanel.tsx: the panel
-    # and Brain 4 must withhold the same claim, or the page contradicts
-    # itself in two places at once.
-    CATEGORY_TRUST_THRESHOLD: float = 0.75
-    # Pad to a square (white, matching the rembg fill) before resizing,
-    # instead of distorting the aspect ratio. Must match how the deployed
-    # checkpoint was trained: the current Colab-trained weights saw
-    # squashed images, so this stays off until a checkpoint trained with
-    # padding replaces them.
-    CLASSIFIER_PAD_TO_SQUARE: bool = False
-
-    # --- Brain 2: similarity search ---------------------------------------------------------------
-    # Which model turns an image into a vector. One of: openclip, siglip,
-    # siglip-large, siglip-so400m, dinov2, dinov2-large, a HuggingFace model id,
-    # or several joined with "+" to average their scores (e.g. "dinov2+siglip").
-    # Changing this invalidates the FAISS indexes - rebuild after switching.
-    # Where the catalog vectors live: "faiss" reads index files from disk,
-    # "pgvector" queries the products table. Same vectors and same matches
-    # either way - pgvector just keeps them in the product's own row, so they
-    # cannot drift out of step with the catalog.
-    VECTOR_STORE: str = "faiss"
+    # --- embedding model ---------------------------------------------------------------
+    # Which model turns an image into a vector: one of the shorthand names in
+    # `embedding_backends._HF_MODELS`, a HuggingFace model id, or a local
+    # directory. The shipped index was built by a fine-tuned checkpoint and
+    # records its own path, which takes precedence over this - so this is only
+    # the fallback for an index that never recorded one. Changing it invalidates
+    # the index; rebuild after switching.
     EMBEDDING_BACKEND: str = "dinov2"
-    # Categories that score better on a different model than the default.
-    # Measured with scripts/evaluate_brain2.py: DINOv2 wins overall but loses
-    # badly on these, so they keep OpenCLIP. Keyed by catalog category.
-    CATEGORY_BACKENDS: dict[str, str] = {
-        "Air Filter": "openclip",           # 95.2% vs 66.7% on dinov2
-        "Wheel Hub Assembly": "openclip",   # 33.3% vs 16.7%
-        "Shock Absorber": "openclip",       # 100% vs 95.8%
-    }
-    OPENCLIP_MODEL_NAME: str = "ViT-B-32"
-    OPENCLIP_PRETRAINED: str = "openai"
     FAISS_TOP_K: int = 10
     # Average the embedding of the image and its mirror at query/build time.
     # Cheap test-time augmentation; both sides must use the same setting, so
-    # rebuild indexes after changing it.
+    # rebuild the index after changing it.
     EMBEDDING_TTA: bool = True
-    # Below this top similarity the pipeline reports "no catalog match" and
-    # skips catalog resolution, instead of confidently naming the nearest
-    # wrong part. Scores are cosine against a per-SKU centroid (see
-    # FaissIndex.search), keyed per embedding backend because the two models
-    # compress cosine space very differently — an out-of-catalog image tops
-    # out around 0.83 on dinov2 but 0.92 on openclip, so one global value
-    # cannot serve both.
+    # Below this top similarity the search reports "no catalog match" and skips
+    # catalogue resolution, instead of confidently naming the nearest wrong
+    # part. Scores are cosine against a per-SKU centroid (see
+    # FaissIndex.search), keyed per embedding backend because two models
+    # compress cosine space differently and one global value cannot serve both.
     #
-    # Calibrated with scripts/analyze_index_vectors.py over the stored
-    # index vectors (rembg + TTA, leave-one-out). Policy: refusing is
-    # better than guessing, so these sit at ~1.5% correct-match rejection
-    # rather than 0% — the honest trade measured on this catalog:
-    #
-    #   dinov2   0.45 -> 0.0% rejected / 90.0% impostors caught
-    #            0.48 -> 1.3% rejected / 93.1% caught   <- chosen
-    #   openclip 0.84 -> 0.0% rejected / 43.9% caught
-    #            0.86 -> 1.5% rejected / 62.1% caught   <- chosen
-    #
-    # (openclip's correct/impostor distributions genuinely overlap more —
-    # a known cost of keeping it for the three categories where it ranks
-    # far better than dinov2.)
+    # Calibrated with scripts/analyze_index_vectors.py over the stored index
+    # vectors (rembg + TTA, leave-one-out). Policy: refusing is better than
+    # guessing, so this sits at ~1.5% correct-match rejection rather than 0%.
     NO_MATCH_THRESHOLDS: dict[str, float] = {
-        "openclip": 0.86,
         "dinov2": 0.48,
     }
     NO_MATCH_THRESHOLD_DEFAULT: float = 0.48
-    # Added to the threshold when Brain 1 was itself unsure of the category
-    # (confidence below CLASSIFIER_CONFIDENCE_THRESHOLD). Two weak signals
-    # — "not sure what kind of part this is" and "nothing especially close
-    # in that category" — should not add up to a confident answer.
-    NO_MATCH_UNCERTAIN_MARGIN: float = 0.04
 
     # --- startup ---------------------------------------------------------------
-    # Load Brain 1/2 weights and FAISS indexes during startup instead of
-    # inside the first request (which otherwise pays a 30-60s cold start).
+    # Load the model and index during startup instead of inside the first
+    # request, which otherwise pays a 20-60s cold start. On a server that cost
+    # lands on whoever opens the link first.
     WARM_MODELS_ON_STARTUP: bool = True
-
-    # Also preload Brain 4 at boot. Only meaningful with WARM_MODELS_ON_STARTUP.
-    # The llama.cpp GGUF loads in seconds, so paying that at startup beats
-    # making the first upload wait it out; the transformers path is far
-    # heavier, so turn this off if you switch LLM_BACKEND back to it.
-    WARM_BRAIN4_ON_STARTUP: bool = True
-
-    # --- Brain 4: reasoning ---------------------------------------------------------------
-    HF_TOKEN: str | None = None
-    LLM_MODEL_NAME: str = "Qwen/Qwen2.5-1.5B-Instruct"
-    LLM_MAX_NEW_TOKENS: int = 256
-
-    # Which Brain 4 implementation to use.
-    #
-    # "llamacpp" runs a quantised GGUF through llama.cpp; "transformers"
-    # runs the full-precision weights through Hugging Face `transformers`.
-    # Measured on this catalog's CPU box, transformers took ~23s per
-    # explanation, which is unusable in front of a user - llama.cpp runs the
-    # same size model several times faster from a smaller file. Both are
-    # optional: a failure in either returns the Brain 1-3 answer unchanged.
-    LLM_BACKEND: str = "llamacpp"
-
-    # GGUF repo/file for the llama.cpp backend. Q4_K_M is ~1.1 GB - smaller
-    # on disk than the 0.5B safetensors while being the stronger model.
-    LLM_GGUF_REPO: str = "Qwen/Qwen2.5-1.5B-Instruct-GGUF"
-    LLM_GGUF_FILE: str = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
-    #: Context window. The prompt is a short structured summary, so this is
-    #: sized for the prompt plus the capped response, not for long chats.
-    LLM_CONTEXT_TOKENS: int = 2048
-    #: 0 lets llama.cpp pick based on the machine's core count.
-    LLM_THREADS: int = 0
 
     # --- uploads ---------------------------------------------------------------
     MAX_UPLOAD_SIZE_MB: int = 10

@@ -16,17 +16,11 @@ from fastapi.staticfiles import StaticFiles
 from backend.api.router import api_router
 from backend.config.settings import get_settings
 from backend.core.exceptions import (
-    AuditEntryNotFound,
     CatalogError,
-    CategoryNotFound,
-    ChatSessionNotFound,
-    ChatStateError,
     EmbeddingError,
     InvalidImage,
     ModelNotLoaded,
     PartPilotError,
-    PredictionError,
-    ProductAlreadyExists,
     ProductNotFound,
     SearchError,
 )
@@ -39,17 +33,11 @@ logger = get_logger(__name__)
 # Maps domain exceptions to HTTP status codes for the exception handler below.
 _EXCEPTION_STATUS_MAP: dict[type[PartPilotError], int] = {
     InvalidImage: status.HTTP_400_BAD_REQUEST,
-    CategoryNotFound: status.HTTP_404_NOT_FOUND,
     CatalogError: status.HTTP_404_NOT_FOUND,
     ProductNotFound: status.HTTP_404_NOT_FOUND,
-    AuditEntryNotFound: status.HTTP_404_NOT_FOUND,
-    ChatSessionNotFound: status.HTTP_404_NOT_FOUND,
-    ChatStateError: status.HTTP_400_BAD_REQUEST,
-    ProductAlreadyExists: status.HTTP_409_CONFLICT,
     ModelNotLoaded: status.HTTP_503_SERVICE_UNAVAILABLE,
     EmbeddingError: status.HTTP_502_BAD_GATEWAY,
     SearchError: status.HTTP_502_BAD_GATEWAY,
-    PredictionError: status.HTTP_500_INTERNAL_SERVER_ERROR,
 }
 
 

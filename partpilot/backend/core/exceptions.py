@@ -1,4 +1,4 @@
-"""Custom exception hierarchy for PartPilot.
+"""Custom exception hierarchy for the backend.
 
 All application-specific exceptions derive from `PartPilotError` so that a
 single `except PartPilotError` (or a FastAPI exception handler registered
@@ -7,7 +7,7 @@ on that base class) can catch anything the pipeline raises.
 
 
 class PartPilotError(Exception):
-    """Base class for all PartPilot application errors."""
+    """Base class for all application errors."""
 
     #: Machine-readable error code returned in `ErrorResponse.error_code`.
     error_code: str = "PARTPILOT_ERROR"
@@ -29,12 +29,6 @@ class InvalidImage(PartPilotError):
     error_code = "INVALID_IMAGE"
 
 
-class CategoryNotFound(PartPilotError):
-    """Raised when a predicted or requested category does not exist."""
-
-    error_code = "CATEGORY_NOT_FOUND"
-
-
 class CatalogError(PartPilotError):
     """Raised when catalog metadata cannot be read or is inconsistent."""
 
@@ -47,18 +41,6 @@ class ProductNotFound(CatalogError):
     error_code = "PRODUCT_NOT_FOUND"
 
 
-class ProductAlreadyExists(CatalogError):
-    """Raised when creating a product whose SKU is already in use."""
-
-    error_code = "PRODUCT_ALREADY_EXISTS"
-
-
-class AuditEntryNotFound(PartPilotError):
-    """Raised when a requested prediction-history entry does not exist."""
-
-    error_code = "AUDIT_ENTRY_NOT_FOUND"
-
-
 class EmbeddingError(PartPilotError):
     """Raised when embedding generation fails."""
 
@@ -69,28 +51,3 @@ class SearchError(PartPilotError):
     """Raised when a similarity search against a FAISS index fails."""
 
     error_code = "SEARCH_ERROR"
-
-
-class PredictionError(PartPilotError):
-    """Raised when the end-to-end prediction pipeline fails."""
-
-    error_code = "PREDICTION_ERROR"
-
-
-class ReasoningError(PartPilotError):
-    """Raised when the Brain 4 LLM cannot be loaded or generation fails."""
-
-    error_code = "REASONING_ERROR"
-
-
-class ChatSessionNotFound(PartPilotError):
-    """Raised when a chat session id is unknown or has expired."""
-
-    error_code = "CHAT_SESSION_NOT_FOUND"
-
-
-class ChatStateError(PartPilotError):
-    """Raised when a chat request does not fit the session's current state
-    (e.g. answering when no question is open, or an out-of-range option)."""
-
-    error_code = "CHAT_STATE_ERROR"

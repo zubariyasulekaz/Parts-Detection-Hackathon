@@ -1,1 +1,1 @@
-"""AI pipeline package: Brain 1-4 stages plus the orchestrator that chains them."""
+"""AI pipeline package: image similarity search over the product catalogue."""

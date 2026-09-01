@@ -21,14 +21,15 @@ INDEXES_DIR: Path = DATA_DIR / "indexes"
 UPLOADS_DIR: Path = DATA_DIR / "uploads"
 
 # --- models ---------------------------------------------------------------
+# The fine-tuned checkpoint and the FAISS index both live under here, in
+# folders named by the index's own sidecar. They are build artifacts, not
+# created at startup, so they are deliberately absent from ALL_RUNTIME_DIRS:
+# creating an empty models/faiss_rigidhitch/ would turn "the index was never
+# copied to this server" from a loud failure into a silent empty one.
 MODELS_DIR: Path = BACKEND_DIR / "models"
-CLASSIFIER_MODEL_DIR: Path = MODELS_DIR / "classifier"
-CLIP_MODEL_DIR: Path = MODELS_DIR / "clip"
-FAISS_MODEL_DIR: Path = MODELS_DIR / "faiss"
 
 # --- other top level dirs ---------------------------------------------------------------
 DATASETS_DIR: Path = ROOT_DIR / "datasets"
-CATALOG_CSV_PATH: Path = DATASETS_DIR / "catalog.csv"
 NOTEBOOKS_DIR: Path = ROOT_DIR / "notebooks"
 SCRIPTS_DIR: Path = ROOT_DIR / "scripts"
 DOCS_DIR: Path = ROOT_DIR / "docs"
@@ -38,9 +39,6 @@ ALL_RUNTIME_DIRS: tuple[Path, ...] = (
     EMBEDDINGS_DIR,
     INDEXES_DIR,
     UPLOADS_DIR,
-    CLASSIFIER_MODEL_DIR,
-    CLIP_MODEL_DIR,
-    FAISS_MODEL_DIR,
 )
 
 

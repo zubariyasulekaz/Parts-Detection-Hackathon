@@ -1,9 +1,9 @@
 """Generic image I/O helpers.
 
-Only basic decode/encode plumbing lives here. Model-specific
-pre-processing (resizing, normalization, background removal) belongs in
-`backend.pipeline.brain1_classifier.preprocess` / the Brain 2 embedding
-pipeline instead, since that logic is model-dependent.
+Only basic decode/encode plumbing lives here, plus `remove_background`, which
+every query goes through because the index was built on white. Model-specific
+pre-processing - resizing, normalization - belongs in the embedding pipeline
+instead, since that logic depends on which model is loaded.
 """
 
 import base64

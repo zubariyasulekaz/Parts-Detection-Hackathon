@@ -1,23 +1,19 @@
 """Part identification for the RigidHitch catalogue.
 
-A separate route rather than a `catalog=` switch on `/predict`, because the two
-catalogues need genuinely different pipelines and pretending otherwise would
-mean threading conditionals through the orchestrator:
+The whole of the application's search surface. Three things it deliberately
+does not do, each because the data does not support it:
 
-* **No Brain 1.** RigidHitch has no category classifier - 50.9% of its products
-  sit in more than one top-level category, so there is no single correct route
-  for a query. Every search goes against one flat index instead.
-* **No recommendations.** Its source data has no replacement, alternative or
+* **No category classifier.** 50.9% of products sit in more than one top-level
+  category, so there is no single correct route for a query. Every search goes
+  against one flat index instead, and the category reported is read off the top
+  match rather than predicted.
+* **No recommendations.** The source data has no replacement, alternative or
   accessory links at all, so the response omits them rather than returning
   empty lists that read like "none apply".
-* **No similarity threshold.** The refusal cutoffs in settings were calibrated
-  on PartPilot's unwhitened vectors and mean nothing against whitened ones.
-  Measured on RigidHitch, a cosine cutoff is close to useless anyway: rejecting
-  9% of correct matches catches only 57% of wrong ones. Ambiguity is reported
-  through the top-2 margin instead, which does carry signal.
-
-Leaving `/predict` untouched also means PartPilot cannot break as a side effect
-of work on this catalogue.
+* **No similarity threshold.** Measured on this catalogue, a cosine cutoff is
+  close to useless: rejecting 9% of correct matches catches only 57% of wrong
+  ones. Ambiguity is reported through the top-2 margin instead, which does
+  carry signal.
 """
 
 import time

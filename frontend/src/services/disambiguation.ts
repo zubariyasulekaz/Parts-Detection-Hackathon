@@ -556,6 +556,27 @@ export function isDecisiveVisualMatch(candidates: IdentificationCandidate[], sku
   return decisiveVisualLeader(candidates)?.sku === sku
 }
 
+/**
+ * The candidate entitled to be labelled "Best Match", or null when none is.
+ *
+ * "Rank 1" is a fact and always true of the first result; "best match" is a
+ * claim about the catalogue, and the search makes one whether or not the part
+ * is in it. Both halves of the claim have to hold:
+ *
+ *  - a decisive lead over rank 2, so it isn't the 31%/30%/30% field where the
+ *    top three are one point apart and the leader is arbitrary; and
+ *  - `QUESTION_FLOOR` in absolute terms, so a clear leader among five poor
+ *    matches isn't promoted to an answer.
+ *
+ * Where neither holds the card still shows "RANK #1", which overstates
+ * nothing. This is the same bar `isDecisiveVisualMatch` sets for the summary,
+ * so the badge on the card and the wording under "Your Match" cannot disagree.
+ */
+export function confidentLeader(candidates: IdentificationCandidate[]): IdentificationCandidate | null {
+  const leader = decisiveVisualLeader(candidates)
+  return leader && leader.similarity >= QUESTION_FLOOR ? leader : null
+}
+
 export interface VisualMismatch {
   /** The candidate the photo alone would pick - rank 1, when its lead over rank 2 is decisive. */
   visualLeader: IdentificationCandidate

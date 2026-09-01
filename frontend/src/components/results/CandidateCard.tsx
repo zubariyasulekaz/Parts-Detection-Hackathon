@@ -9,6 +9,12 @@ interface CandidateCardProps {
   candidate: IdentificationCandidate
   isSelected: boolean
   isPrimaryAction: boolean
+  /**
+   * Entitled to the "Best Match" badge - a clear leader, not merely rank 1.
+   * Decided by `confidentLeader`, so the badge and the summary's wording
+   * cannot contradict each other.
+   */
+  isBestMatch?: boolean
   /** Eliminated by an answer in the guided flow. Still selectable - the user may know better. */
   isRuledOut?: boolean
   onSelect: () => void
@@ -24,6 +30,7 @@ export function CandidateCard({
   candidate,
   isSelected,
   isPrimaryAction,
+  isBestMatch = false,
   isRuledOut = false,
   onSelect,
 }: CandidateCardProps) {
@@ -60,7 +67,10 @@ export function CandidateCard({
           className="h-full w-full"
         />
         <div className="absolute top-2.5 left-2.5 flex gap-1.5">
-          {candidate.rank === 1 && (
+          {/* Not `rank === 1`: that fires on every search, including the ones
+              where the top three are a point apart and the leader is a coin
+              toss. A parts counter reads the badge, not the percentage. */}
+          {isBestMatch && (
             <span className="shadow-glow-accent rounded-full bg-accent px-2 py-0.5 text-xs font-bold tracking-wide text-white uppercase">
               Best Match
             </span>

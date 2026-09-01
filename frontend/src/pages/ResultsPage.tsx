@@ -21,6 +21,7 @@ import {
   canDisambiguate,
   detectVisualMismatch,
   isDecisiveVisualMatch,
+  confidentLeader,
   type DisambiguationAnswer,
 } from '@/services/disambiguation'
 import { HIGH_CONFIDENCE_THRESHOLD, reportConfirmation } from '@/services/identificationService'
@@ -171,6 +172,10 @@ export function ResultsPage() {
   // Brain 1's category confidence, so a 98% visual match doesn't read as
   // "unconfirmed" just because the classifier itself was unsure.
   const isDecisiveMatch = Boolean(selectedCandidate && isDecisiveVisualMatch(candidates, selectedCandidate.sku))
+  // Which card, if any, may wear the "Best Match" badge. Often none: the badge
+  // is a claim about the catalogue, and a bunched or weak field does not
+  // support one. Those cards keep "RANK #1", which is only ever a fact.
+  const bestMatchSku = confidentLeader(candidates)?.sku ?? null
   // Whether the *current* pick is actually what the answer trail narrowed
   // down to - not just "some answers were given". The candidate grid keeps
   // ruled-out cards pickable, so a manual click after answering can select
@@ -442,6 +447,7 @@ export function ResultsPage() {
                   candidate={candidate}
                   isSelected={candidate.sku === selectedSku}
                   isPrimaryAction={!selectedSku}
+                  isBestMatch={candidate.sku === bestMatchSku}
                   isRuledOut={remainingSkus !== null && !remainingSkus.includes(candidate.sku)}
                   onSelect={() => selectCandidate(candidate.sku)}
                 />

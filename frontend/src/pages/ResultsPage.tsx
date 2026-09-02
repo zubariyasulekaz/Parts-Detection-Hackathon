@@ -23,6 +23,7 @@ import {
   confidentLeader,
   type DisambiguationAnswer,
 } from '@/services/disambiguation'
+import { cameFromBatch, markCameFromBatch } from '@/services/batchSession'
 import { HIGH_CONFIDENCE_THRESHOLD } from '@/services/identificationService'
 import { formatPercent, formatSearchTime } from '@/utils/format'
 
@@ -64,6 +65,9 @@ export function ResultsPage() {
   // ("confirmed by 2 answers" / visual-mismatch warning) once revealed.
   const [answers, setAnswers] = useState<DisambiguationAnswer[]>([])
   const headingRef = useRef<HTMLHeadingElement>(null)
+  // Read once on mount: the flag is cleared by starting a new search, and this
+  // page must not change its own back button out from under the reader.
+  const [fromBatch] = useState(cameFromBatch)
 
   // Whether there is anything worth asking about the top candidates before
   // showing their photos. False (nothing to ask) starts the page already
@@ -205,6 +209,9 @@ export function ResultsPage() {
   }
 
   function handleNewSearch() {
+    // A fresh search has nothing to do with the parked batch run, so the back
+    // link must not offer to return to it from the next result.
+    markCameFromBatch(false)
     reset()
     navigate('/')
   }
@@ -244,13 +251,16 @@ export function ResultsPage() {
         Identification results
       </h1>
       <div className="mb-6 flex items-center justify-between">
+        {/* Arriving from the batch list means there is somewhere specific to go
+            back to, and it took over a minute to produce. "New Search" would
+            discard it. */}
         <button
           type="button"
-          onClick={handleNewSearch}
+          onClick={fromBatch ? () => navigate('/batch') : handleNewSearch}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          New Search
+          {fromBatch ? 'Back to Batch Results' : 'New Search'}
         </button>
         <StatusBadge variant={noCatalogMatch ? 'warning' : 'success'}>
           {noCatalogMatch ? 'No Catalog Match' : 'Analysis Complete'}

@@ -6,6 +6,7 @@ import { ImageUploadZone } from '@/components/landing/ImageUploadZone'
 import { PipelineStrip } from '@/components/landing/PipelineStrip'
 import { Tilt3D } from '@/components/common/Tilt3D'
 import { AmbientBackground } from '@/components/layout/AmbientBackground'
+import { markCameFromBatch } from '@/services/batchSession'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { useIdentification } from '@/context/IdentificationContext'
 import { useRotatingIndex } from '@/hooks/useRotatingIndex'
@@ -76,6 +77,9 @@ export function LandingPage() {
   }
 
   function goIdentify(target: File, isSample: boolean) {
+    // Any search started here is unrelated to a parked batch run, so the
+    // results page must offer "New Search" rather than a way back into it.
+    markCameFromBatch(false)
     setPendingUpload(target, isSample)
     navigate('/identify')
   }

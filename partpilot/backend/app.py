@@ -56,7 +56,13 @@ def _register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(PartPilotError)
     async def handle_partpilot_error(request: Request, exc: PartPilotError) -> JSONResponse:
         status_code = _EXCEPTION_STATUS_MAP.get(type(exc), status.HTTP_500_INTERNAL_SERVER_ERROR)
-        logger.error("%s: %s", exc.error_code, exc.message)
+        # A 4xx is the caller being told something, not the server failing. The
+        # batch test page asks "is TK-2018-U1-3 a product?" and expects to be
+        # told no - fifteen photographs produce about thirty of those, and at
+        # ERROR they fill the log with red on a run where nothing went wrong.
+        # Anyone watching a server would read it as an outage.
+        log = logger.error if status_code >= 500 else logger.info
+        log("%s: %s", exc.error_code, exc.message)
         body = ErrorResponse(error_code=exc.error_code, message=exc.message)
         return JSONResponse(status_code=status_code, content=body.model_dump())
 

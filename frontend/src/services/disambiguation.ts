@@ -586,21 +586,34 @@ export interface VisualMismatch {
 
 /**
  * True when the answer trail has ruled out the candidate the photo most
- * strongly favored - the guided flow should not silently let a user's
- * answers overrule what the image itself suggested.
+ * strongly favored, and what it left is materially less plausible - the guided
+ * flow should not silently let a user's answers overrule the image.
  *
- * Only fires when the photo had a decisive opinion in the first place.
- * Without that gate, this would fire on almost every ordinary
- * disambiguation session, since close scores are exactly why the flow
- * exists - the warning would drown itself out.
+ * Gated on **how much visual plausibility the answers cost**, not on whether
+ * the photo had a decisive favourite. It was gated the other way, and the two
+ * conditions turn out to be mutually exclusive: `decisiveVisualLeader` needs a
+ * clear top-two gap, and the questions only run when there isn't one. So the
+ * warning was switched off in exactly the case it exists for.
+ *
+ * Seen live on a marker light: MCL11RKB at 0.394 and 011-5550 at 0.384 - a
+ * one-point gap, so no decisive leader and no warning - while answering the
+ * `depth` question (five candidates, five different values, one survivor)
+ * crowned WL22RCT at 0.213. A rectangular work light, presented in green as
+ * "1 match" beside a photograph of a small round lamp.
+ *
+ * `STRONG_SEPARATION_GAP` is the bar: below it the answers merely chose
+ * between candidates the photo could not separate anyway, which is ordinary
+ * narrowing and must not raise a warning that would then drown itself out.
  */
 export function detectVisualMismatch(
   candidates: IdentificationCandidate[],
   answers: DisambiguationAnswer[],
 ): VisualMismatch | null {
-  const leader = decisiveVisualLeader(candidates)
+  const leader = candidates[0]
   if (!leader) return null
   const survivors = applyAnswers(candidates, answers)
   if (survivors.length === 0 || survivors.some((c) => c.sku === leader.sku)) return null
-  return { visualLeader: leader, bestSurvivor: survivors[0] }
+  const bestSurvivor = survivors[0]
+  if (leader.similarity - bestSurvivor.similarity < STRONG_SEPARATION_GAP) return null
+  return { visualLeader: leader, bestSurvivor }
 }

@@ -6,7 +6,16 @@ import { PageContainer } from '@/components/layout/PageContainer'
 import { BatchMatchRow, type BatchRowState } from '@/components/batch/BatchMatchRow'
 import { useIdentification } from '@/context/IdentificationContext'
 import { identify } from '@/services/identificationService'
-import { IMAGE_EXTENSIONS, isImageFile, resolveExpectedSku, tally, verdictFor } from '@/services/batchTest'
+import { loadBatchSession, markCameFromBatch, saveBatchSession } from '@/services/batchSession'
+import {
+  IMAGE_EXTENSIONS,
+  imagesFromZip,
+  isImageFile,
+  isZipFile,
+  resolveExpectedSku,
+  tally,
+  verdictFor,
+} from '@/services/batchTest'
 
 /**
  * Runs a folder of photographs through the search, one after another.
@@ -29,6 +38,7 @@ export function BatchTestPage() {
   const [running, setRunning] = useState(false)
   /** The row whose full result is being opened - one at a time. */
   const [openingId, setOpeningId] = useState<string | null>(null)
+  const [unzipping, setUnzipping] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const filesInputRef = useRef<HTMLInputElement>(null)
   const filesRef = useRef<Map<string, File>>(new Map())
@@ -50,13 +60,27 @@ export function BatchTestPage() {
     setCanPickFolder('webkitdirectory' in node)
   }, [])
 
-  // Object URLs outlive the render that made them, so they have to be released
-  // by hand - fifteen full-size photographs held open is real memory.
+  // Object URLs outlive the render that made them, but they must stay alive
+  // while the run is parked in the session store - releasing them on unmount
+  // would leave every restored row showing a broken image. They are released
+  // when a new folder replaces the run, and by the tab closing.
   const urlsRef = useRef<string[]>([])
+
+  // Restore the previous run, if the user opened a result and came back.
   useEffect(() => {
-    const urls = urlsRef.current
-    return () => urls.forEach((url) => URL.revokeObjectURL(url))
+    const saved = loadBatchSession()
+    if (saved.rows.length) {
+      setRows(saved.rows)
+      filesRef.current = saved.files
+      urlsRef.current = saved.rows.map((row) => row.previewUrl)
+    }
   }, [])
+
+  // Park whatever is on screen so navigating away and back does not throw away
+  // seventy seconds of searching.
+  useEffect(() => {
+    if (rows.length) saveBatchSession(rows, filesRef.current)
+  }, [rows])
 
   const totals = tally(rows.filter((row) => row.status === 'done').map((row) => row.verdict))
   const finished = rows.filter((row) => row.status === 'done' || row.status === 'failed').length
@@ -67,9 +91,32 @@ export function BatchTestPage() {
 
   async function handleFolder(fileList: FileList | null) {
     if (!fileList) return
-    const files = Array.from(fileList).filter(isImageFile)
+    const chosen = Array.from(fileList)
+
+    // A single .zip is unpacked in the browser and treated exactly like the
+    // folder it was made from - paths inside the archive are kept, so per-SKU
+    // folders still resolve.
+    let files: File[]
+    const zips = chosen.filter(isZipFile)
+    if (zips.length) {
+      setUnzipping(true)
+      try {
+        const unpacked = await Promise.all(zips.map(imagesFromZip))
+        files = [...unpacked.flat(), ...chosen.filter(isImageFile)]
+      } catch (error) {
+        setUnzipping(false)
+        window.alert(
+          `That zip could not be opened: ${error instanceof Error ? error.message : 'unknown error'}`,
+        )
+        return
+      }
+      setUnzipping(false)
+    } else {
+      files = chosen.filter(isImageFile)
+    }
+
     if (!files.length) {
-      window.alert('That folder has no images in it. Pick one containing .jpg or .png files.')
+      window.alert('No images found. Pick a folder, some image files, or a .zip containing them.')
       return
     }
 
@@ -149,6 +196,7 @@ export function BatchTestPage() {
     setPendingUpload(file)
     try {
       await runIdentification(file)
+      markCameFromBatch(true)
       navigate('/results')
     } catch {
       setOpeningId(null)
@@ -162,15 +210,6 @@ export function BatchTestPage() {
         <div className="mx-auto max-w-2xl text-center">
           <span className="text-xs font-bold tracking-[0.2em] text-accent-hover uppercase">Batch test</span>
           <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">Run a folder of photos</h1>
-          <p className="mt-3 text-sm leading-relaxed text-muted">
-            Pick a folder and every photograph in it is searched in turn. Mix easy shots with worn parts,
-            phone snaps and awkward angles - one photograph proves nothing, and the spread is the honest
-            picture.
-          </p>
-          <p className="mt-2 text-xs text-subtle">
-            Name a file after its part number, or put it in a folder named after one, and it is marked right
-            or wrong automatically. Files that name no product are still searched, just not counted.
-          </p>
         </div>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -192,7 +231,7 @@ export function BatchTestPage() {
             ref={filesInputRef}
             type="file"
             multiple
-            accept={IMAGE_EXTENSIONS.join(',')}
+            accept={[...IMAGE_EXTENSIONS, '.zip'].join(',')}
             className="hidden"
             onChange={(event) => {
               void handleFolder(event.target.files)
@@ -213,10 +252,10 @@ export function BatchTestPage() {
           {/* Folder pickers are Chrome and Edge only, and a folder is awkward
               when the photographs are scattered. Selecting files directly works
               everywhere and scores identically - only the per-SKU folder name
-              is lost, which matters solely for part numbers ending in a digit. */}
+              is lost, which matters solely for SKUs ending in a digit. */}
           <button
             type="button"
-            disabled={running}
+            disabled={running || unzipping}
             onClick={() => filesInputRef.current?.click()}
             className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
               canPickFolder
@@ -224,8 +263,12 @@ export function BatchTestPage() {
                 : 'bg-accent text-white hover:bg-accent-hover'
             }`}
           >
-            <Images className="h-4 w-4" aria-hidden="true" />
-            {canPickFolder ? 'Or pick images' : 'Choose images'}
+            {unzipping ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Images className="h-4 w-4" aria-hidden="true" />
+            )}
+            {unzipping ? 'Opening zip…' : canPickFolder ? 'Or images / .zip' : 'Choose images or .zip'}
           </button>
           {running && (
             <button
@@ -273,13 +316,6 @@ export function BatchTestPage() {
                 </div>
               )}
             </div>
-            {totals.scored > 0 && !running && (
-              <p className="mt-3 border-t border-border pt-3 text-xs leading-relaxed text-subtle">
-                Scored against the part number in each filename or folder. A small folder is indicative, not a
-                measurement - the catalogue-wide figures on the Architecture page come from thousands of
-                held-out queries.
-              </p>
-            )}
           </div>
         )}
 

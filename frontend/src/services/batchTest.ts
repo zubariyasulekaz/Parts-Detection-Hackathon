@@ -1,3 +1,4 @@
+import { unzip } from 'fflate'
 import { getProduct } from './catalogService'
 
 /**
@@ -18,6 +19,66 @@ export const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.bmp']
 export function isImageFile(file: File): boolean {
   const name = file.name.toLowerCase()
   return IMAGE_EXTENSIONS.some((extension) => name.endsWith(extension))
+}
+
+export function isZipFile(file: File): boolean {
+  return file.name.toLowerCase().endsWith('.zip')
+}
+
+const MIME_BY_EXTENSION: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+}
+
+/**
+ * The images inside a zip, as Files carrying their path inside the archive.
+ *
+ * A zip travels: it can be emailed, dropped in Teams, or handed to someone on a
+ * machine whose browser has no folder picker at all. Folder selection is a
+ * Chrome and Edge feature; this works everywhere.
+ *
+ * `webkitRelativePath` is read-only on File, so the archive path is attached as
+ * an own property instead. `candidateSkus` reads it through the same accessor
+ * either way, which is what keeps a zip of per-SKU folders scoring exactly like
+ * the folder it was made from.
+ */
+export async function imagesFromZip(file: File): Promise<File[]> {
+  const buffer = new Uint8Array(await file.arrayBuffer())
+  const entries = await new Promise<Record<string, Uint8Array>>((resolve, reject) => {
+    unzip(buffer, (error, data) => (error ? reject(error) : resolve(data)))
+  })
+
+  const files: File[] = []
+  for (const [rawPath, bytes] of Object.entries(entries)) {
+    // The zip spec says forward slashes, and most tools comply. PowerShell's
+    // Compress-Archive does not - it writes "1-strong\photo.png" - and a path
+    // split on "/" alone then yields no folder at all, so a zip of per-SKU
+    // folders would score differently from the folder it was made from.
+    const path = rawPath.replace(/\\/g, '/')
+    const name = path.split('/').pop() ?? ''
+    // Directory entries, macOS resource forks, and the dotfiles Windows and
+    // macOS both scatter through an archive.
+    if (!name || path.endsWith('/') || path.startsWith('__MACOSX/') || name.startsWith('.')) {
+      continue
+    }
+    const extension = IMAGE_EXTENSIONS.find((ext) => name.toLowerCase().endsWith(ext))
+    if (!extension) continue
+
+    const blob = new File([bytes as BlobPart], name, { type: MIME_BY_EXTENSION[extension] })
+    Object.defineProperty(blob, 'webkitRelativePath', { value: path, writable: false })
+    files.push(blob)
+  }
+  // Archive order is whatever the zip tool chose; the folder picker gives
+  // alphabetical, and a demo folder named 1-strong/2-medium/3-hard depends on
+  // that order to tell its story.
+  return files.sort((a, b) => {
+    const pa = (a as File & { webkitRelativePath?: string }).webkitRelativePath ?? a.name
+    const pb = (b as File & { webkitRelativePath?: string }).webkitRelativePath ?? b.name
+    return pa.localeCompare(pb)
+  })
 }
 
 /**

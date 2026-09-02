@@ -178,7 +178,7 @@ export function BatchMatchRow({ row, index, opening = false, onOpen }: BatchMatc
               className="inline-flex items-center gap-1.5 rounded-md border border-border-strong px-2.5 py-0.5 text-xs font-semibold text-muted transition-colors hover:border-accent/50 hover:text-foreground disabled:opacity-60"
             >
               {opening && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
-              {opening ? 'Opening…' : 'Open full result'}
+              {opening ? 'Opening…' : 'View info'}
             </button>
           </div>
         </>

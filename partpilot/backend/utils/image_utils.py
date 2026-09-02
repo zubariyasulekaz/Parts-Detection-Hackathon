@@ -8,6 +8,8 @@ instead, since that logic depends on which model is loaded.
 
 import base64
 import io
+from threading import Lock
+from typing import Any
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -22,6 +24,45 @@ logger = get_logger(__name__)
 #: nothing) and the original image is used instead — an image that is nearly
 #: all background fill would match nothing.
 _MIN_FOREGROUND_FRACTION = 0.02
+
+#: The segmentation model that cuts the part out. Must not change without
+#: rebuilding the index: the stored vectors were embedded from cutouts this
+#: model produced, and a different one segments slightly differently, which
+#: puts queries in a different distribution from the catalogue.
+_REMBG_MODEL = "u2net"
+
+_session: Any | None = None
+_session_lock = Lock()
+
+
+def _rembg_session() -> Any | None:
+    """The rembg session, built once and reused.
+
+    ``remove(image)`` with no session builds a fresh one per call, and that
+    means loading a 176 MB ONNX model on **every request**. Measured: 2.87s per
+    photograph without a cached session, 1.25s with one - 57% of the background
+    removal time, spent reloading a model that never changes.
+
+    That it is a constant cost is the tell: a 140x134 photograph took exactly
+    as long as a 610x335 one, which is not how inference behaves.
+
+    Returns None when rembg is unavailable, which the caller treats as "skip
+    background removal" rather than as a failure.
+    """
+    global _session
+    if _session is not None:
+        return _session
+    with _session_lock:
+        if _session is not None:
+            return _session
+        try:
+            from rembg import new_session  # noqa: PLC0415
+
+            _session = new_session(_REMBG_MODEL)
+            logger.info("rembg session created (%s), reused for every request", _REMBG_MODEL)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Could not create a rembg session: %s", exc)
+    return _session
 
 
 def remove_background(
@@ -55,8 +96,12 @@ def remove_background(
         logger.warning("rembg is not installed; skipping background removal.")
         return image
 
+    session = _rembg_session()
+    if session is None:
+        return image
+
     try:
-        cutout = remove(image)  # RGBA PIL image
+        cutout = remove(image, session=session)  # RGBA PIL image
         if cutout.mode != "RGBA":
             return cutout.convert("RGB")
 

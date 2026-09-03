@@ -117,7 +117,18 @@ export function ResultsPage() {
   useEffect(() => {
     if (!result || result.noMatch || selectedSku || !revealed) return
     const pool = remainingSkus ?? result.candidates.map((candidate) => candidate.sku)
-    const closest = result.candidates.find((candidate) => pool.includes(candidate.sku))
+    // Falls back to the top candidate when the answers have ruled everything
+    // out. Without it nothing is ever selected, "View Product" stays disabled
+    // with no explanation, and the summary sits on "Awaiting confirmation
+    // above" forever - a dead end the user cannot leave except by starting
+    // over. The ruled-out cards stay clickable by design and the mismatch
+    // warning explains the conflict, so a selection here is recoverable; a
+    // disabled button is not.
+    //
+    // Made more likely by the 0.25 shortlist floor: a two-candidate shortlist
+    // can be emptied by a single answer, where a five-candidate one rarely was.
+    const closest =
+      result.candidates.find((candidate) => pool.includes(candidate.sku)) ?? result.candidates[0]
     if (closest) selectCandidate(closest.sku)
   }, [result, selectedSku, revealed, remainingSkus, selectCandidate])
 

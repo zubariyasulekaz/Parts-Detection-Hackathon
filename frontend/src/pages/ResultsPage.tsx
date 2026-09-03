@@ -1,6 +1,6 @@
 import { ArrowLeft } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ConfidenceGauge } from '@/components/common/ConfidenceGauge'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ProductThumbnail } from '@/components/common/ProductThumbnail'
@@ -23,7 +23,6 @@ import {
   confidentLeader,
   type DisambiguationAnswer,
 } from '@/services/disambiguation'
-import { cameFromBatch, markCameFromBatch } from '@/services/batchSession'
 import { HIGH_CONFIDENCE_THRESHOLD } from '@/services/identificationService'
 import { formatPercent, formatSearchTime } from '@/utils/format'
 
@@ -65,9 +64,14 @@ export function ResultsPage() {
   // ("confirmed by 2 answers" / visual-mismatch warning) once revealed.
   const [answers, setAnswers] = useState<DisambiguationAnswer[]>([])
   const headingRef = useRef<HTMLHeadingElement>(null)
-  // Read once on mount: the flag is cleared by starting a new search, and this
-  // page must not change its own back button out from under the reader.
-  const [fromBatch] = useState(cameFromBatch)
+  // Set by the batch page when it opens one row's full result, and carried on
+  // the history entry rather than in a module variable - Vite resets module
+  // state on every hot reload, which silently reverted this link to "New
+  // Search" mid-session. Router state lives in the browser's history and
+  // survives that, and a reload. A search started anywhere else arrives without
+  // it, so the link cannot linger on an unrelated result.
+  const location = useLocation()
+  const fromBatch = Boolean((location.state as { fromBatch?: boolean } | null)?.fromBatch)
 
   // Whether there is anything worth asking about the top candidates before
   // showing their photos. False (nothing to ask) starts the page already
@@ -209,9 +213,6 @@ export function ResultsPage() {
   }
 
   function handleNewSearch() {
-    // A fresh search has nothing to do with the parked batch run, so the back
-    // link must not offer to return to it from the next result.
-    markCameFromBatch(false)
     reset()
     navigate('/')
   }

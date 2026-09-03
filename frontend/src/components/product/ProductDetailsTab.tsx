@@ -1,4 +1,4 @@
-import { formatAttributeLabel, formatAttributeValue } from '@/utils/attributes'
+import { formatAttributeLabel, formatAttributeValue, identifyingAttributes } from '@/utils/attributes'
 import type { Product } from '@/types/product'
 import { ProductImageGallery } from './ProductImageGallery'
 
@@ -6,16 +6,6 @@ interface ProductDetailsTabProps {
   product: Product
 }
 
-/**
- * Attributes that carry no information for a reader, and are actively wrong to
- * show under a heading that says "identifying".
- *
- * `special_order` is "No" on 10,631 of 10,813 products, so it identifies
- * nothing; `keyword` holds internal cross-reference codes; and
- * `installation_instructions` is a `\\fileserver\...` path that must never
- * reach a customer.
- */
-const NON_IDENTIFYING = new Set(['special_order', 'keyword', 'installation_instructions'])
 
 /**
  * Descriptions are shown verbatim, repetition and all.
@@ -33,7 +23,7 @@ const NON_IDENTIFYING = new Set(['special_order', 'keyword', 'installation_instr
  * alongside the shared-placeholder images.
  */
 export function ProductDetailsTab({ product }: ProductDetailsTabProps) {
-  const attributes = Object.entries(product.attributes).filter(([key]) => !NON_IDENTIFYING.has(key))
+  const attributes = identifyingAttributes(product.attributes)
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,360px)_1fr]">

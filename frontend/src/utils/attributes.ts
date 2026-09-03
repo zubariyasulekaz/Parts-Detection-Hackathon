@@ -38,6 +38,31 @@ const KEY_LABELS: Record<string, string> = {
   mpn: 'Part number',
 }
 
+/**
+ * Attributes that identify nothing, and must never be shown as though they do.
+ *
+ * `special_order` reads "No" on 10,631 of 10,813 products, so it distinguishes
+ * nothing while occupying a chip. `keyword` holds internal cross-reference
+ * strings - one product's is "aqua kem, aqua-kem dri, aqua kem dry, aqua kem
+ * powder, aqua-kem powder, aqua-kem dry, aqua kem dri", which rendered raw into
+ * a candidate card. And `installation_instructions` is a `\fileserver\...`
+ * path that must never reach a customer.
+ *
+ * Lives here because both the product page and the candidate cards render this
+ * bag. It was filtered on one and not the other, and the unfiltered side showed
+ * a bare "No" chip under every product.
+ */
+const NON_IDENTIFYING = new Set(['special_order', 'keyword', 'installation_instructions'])
+
+/** The attribute pairs worth showing, in catalogue order. */
+export function identifyingAttributes(
+  attributes: Record<string, string> | null | undefined,
+): [string, string][] {
+  return Object.entries(attributes ?? {}).filter(
+    ([key, value]) => Boolean(value) && !NON_IDENTIFYING.has(key),
+  )
+}
+
 /** `filter_style` -> "Filter style". */
 export function formatAttributeLabel(key: string): string {
   if (KEY_LABELS[key]) return KEY_LABELS[key]

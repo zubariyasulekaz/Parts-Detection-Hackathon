@@ -2,6 +2,7 @@ import { CircleCheck } from 'lucide-react'
 import { ConfidenceGauge } from '@/components/common/ConfidenceGauge'
 import { ProductThumbnail } from '@/components/common/ProductThumbnail'
 import { Tilt3D } from '@/components/common/Tilt3D'
+import { formatAttributeLabel, identifyingAttributes } from '@/utils/attributes'
 import { formatPercent } from '@/utils/format'
 import type { IdentificationCandidate } from '@/types/identification'
 
@@ -20,12 +21,6 @@ interface CandidateCardProps {
   onSelect: () => void
 }
 
-/** `"friction_material"` -> `"Friction material"`. */
-function attributeLabel(key: string): string {
-  const spaced = key.replace(/[_-]+/g, ' ')
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
-}
-
 export function CandidateCard({
   candidate,
   isSelected,
@@ -37,7 +32,7 @@ export function CandidateCard({
   // The facts that tell look-alike candidates apart - the same data the
   // guided questions ask about. Shown on the card so "what's actually
   // different?" has a visible answer instead of a hidden one.
-  const attributeChips = Object.entries(candidate.attributes ?? {}).slice(0, 3)
+  const attributeChips = identifyingAttributes(candidate.attributes).slice(0, 3)
 
   return (
     // The inner button is the single interactive control (keyboard +
@@ -109,7 +104,7 @@ export function CandidateCard({
               <li
                 key={key}
                 className="rounded-md border border-border-strong bg-surface-2 px-1.5 py-0.5 text-xs text-muted"
-                title={attributeLabel(key)}
+                title={formatAttributeLabel(key)}
               >
                 {value}
               </li>

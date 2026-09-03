@@ -6,7 +6,7 @@ import { PageContainer } from '@/components/layout/PageContainer'
 import { BatchMatchRow, type BatchRowState } from '@/components/batch/BatchMatchRow'
 import { useIdentification } from '@/context/IdentificationContext'
 import { identify } from '@/services/identificationService'
-import { loadBatchSession, markCameFromBatch, saveBatchSession } from '@/services/batchSession'
+import { loadBatchSession, saveBatchSession } from '@/services/batchSession'
 import {
   IMAGE_EXTENSIONS,
   imagesFromZip,
@@ -196,8 +196,9 @@ export function BatchTestPage() {
     setPendingUpload(file)
     try {
       await runIdentification(file)
-      markCameFromBatch(true)
-      navigate('/results')
+      // On the history entry, not in a module variable: Vite resets module
+      // state on hot reload, which made this link vanish mid-session.
+      navigate('/results', { state: { fromBatch: true } })
     } catch {
       setOpeningId(null)
     }

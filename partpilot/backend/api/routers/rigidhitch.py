@@ -60,6 +60,26 @@ AMBIGUOUS_MARGIN = 0.036
 # The second case is handled by asking the brand instead - see /brands.
 NOT_A_PART_SCORE = 0.15
 
+# Candidates below this are not shown at all. A search always returns `top_k`
+# results however poor they are, so the fifth entry is not "a possible match" -
+# it is "the fifth-closest of 7,510 products", which is a different claim.
+#
+# Seen live: a photograph of a small round marker lamp listed a rectangular work
+# light at 0.213 in third place. A client reads the picture, not the number, and
+# reads that as broken. Worse, the guided questions then treat it as a real
+# candidate - answering "what's the depth?" crowned it, because every candidate
+# happened to record a different depth.
+#
+# Measured over the 83 hand-taken photographs, this floor drops **no** correct
+# answer and takes the shortlist from 5 to about 2.8 entries. 0.30 starts
+# costing correct answers (1), 0.40 costs 7. Matches the frontend's
+# QUESTION_FLOOR so one number means one thing on both sides.
+#
+# Caveat for whoever revisits this: those photographs are all of products that
+# have real photographs in the index, so they score higher than the catalogue
+# average. Expect this to cut more than two entries in general use.
+SHORTLIST_FLOOR = 0.25
+
 
 def _as_product(product: dict) -> dict:
     """Shape a RigidHitch product like PartPilot's `ProductResponse`.
@@ -144,6 +164,16 @@ async def predict_rigidhitch_part(
     results = [
         {"sku": m.sku, "similarity_score": m.similarity_score} for m in outcome.matches
     ]
+
+    # Drop the filler. The top candidate is always kept, however weak: below
+    # NOT_A_PART_SCORE the response is a refusal and carries its own panel, and
+    # between the two thresholds a blank page would say less than a weak answer
+    # shown with its warnings.
+    plausible = [r for r in results if r["similarity_score"] >= SHORTLIST_FLOOR]
+    if len(plausible) < len(results):
+        logger.info("Shortlist trimmed from %d to %d at the %.2f floor",
+                    len(results), max(len(plausible), 1), SHORTLIST_FLOOR)
+    results = plausible or results[:1]
 
     # Only when the picture has already failed. A part still in its packaging
     # is visually a cardboard box, but the label facing the camera carries the

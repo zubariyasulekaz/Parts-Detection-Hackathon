@@ -173,6 +173,27 @@ export interface BatchTotals {
   unscored: number
 }
 
+/** One row of the export: a photograph and what the search made of it. */
+export interface ExportRow {
+  fileName: string
+  /** The SKU the filename claimed, blank when it named no product. */
+  expectedSku: string
+  foundSku: string
+  productName: string
+  brand: string
+  score: number
+  matchedBy: string
+  verdict: BatchVerdict
+}
+
+/** Plain wording for a verdict, shared by every export format. */
+export const VERDICT_TEXT: Record<BatchVerdict, string> = {
+  top1: 'exact',
+  top5: 'in top five',
+  miss: 'not found',
+  unscored: 'not counted',
+}
+
 export function tally(verdicts: BatchVerdict[]): BatchTotals {
   const totals: BatchTotals = { scored: 0, top1: 0, top5: 0, unscored: 0 }
   for (const verdict of verdicts) {

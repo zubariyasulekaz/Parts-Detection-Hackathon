@@ -4,9 +4,17 @@ import { useNavigate } from 'react-router-dom'
 import { AmbientBackground } from '@/components/layout/AmbientBackground'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { BatchMatchRow, type BatchRowState } from '@/components/batch/BatchMatchRow'
+import { ExportMenu } from '@/components/batch/ExportMenu'
 import { useIdentification } from '@/context/IdentificationContext'
 import { identify } from '@/services/identificationService'
 import { loadBatchSession, saveBatchSession } from '@/services/batchSession'
+import {
+  buildResultsWorkbook,
+  downloadBlob,
+  resultsCsv,
+  resultsJson,
+  type ExportFormat,
+} from '@/services/batchExport'
 import {
   IMAGE_EXTENSIONS,
   imagesFromZip,
@@ -15,6 +23,7 @@ import {
   resolveExpectedSku,
   tally,
   verdictFor,
+  type ExportRow,
 } from '@/services/batchTest'
 
 /**
@@ -39,6 +48,7 @@ export function BatchTestPage() {
   /** The row whose full result is being opened - one at a time. */
   const [openingId, setOpeningId] = useState<string | null>(null)
   const [unzipping, setUnzipping] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const filesInputRef = useRef<HTMLInputElement>(null)
   const filesRef = useRef<Map<string, File>>(new Map())
@@ -83,6 +93,48 @@ export function BatchTestPage() {
   }, [rows])
 
   const totals = tally(rows.filter((row) => row.status === 'done').map((row) => row.verdict))
+
+  /** Every finished photograph, right and wrong - the misses are the to-do list. */
+  const exportRows: ExportRow[] = rows
+    .filter((row) => row.status === 'done' && row.result?.candidates.length)
+    .map((row) => {
+      const top = row.result!.candidates[0]
+      return {
+        fileName: row.fileName,
+        expectedSku: row.expectedSku ?? '',
+        foundSku: top.sku,
+        productName: top.productName,
+        brand: top.brand,
+        score: top.similarity,
+        // 1.000 from a label read is a different kind of certainty from a
+        // visual score, and a spreadsheet that mixed them silently would
+        // overstate the picture's accuracy.
+        matchedBy: top.similarity >= 1 ? 'part number' : 'image',
+        verdict: row.verdict,
+      }
+    })
+
+  async function handleExport(format: ExportFormat) {
+    setExporting(true)
+    try {
+      const stamp = new Date().toISOString().slice(0, 10)
+      const name = `rigidhitch-batch-${stamp}.${format === 'excel' ? 'xlsx' : format}`
+      const blob =
+        format === 'excel'
+          ? await buildResultsWorkbook(exportRows, totals)
+          : format === 'csv'
+            ? resultsCsv(exportRows)
+            : resultsJson(exportRows, totals)
+      downloadBlob(name, blob)
+    } catch (error) {
+      window.alert(
+        `Could not build the export: ${error instanceof Error ? error.message : 'unknown error'}`,
+      )
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const finished = rows.filter((row) => row.status === 'done' || row.status === 'failed').length
 
   const updateRow = useCallback((id: string, patch: Partial<BatchRowState>) => {
@@ -313,6 +365,9 @@ export function BatchTestPage() {
                       <span className="block font-mono text-lg font-bold text-subtle">{totals.unscored}</span>
                       not counted
                     </span>
+                  )}
+                  {exportRows.length > 0 && !running && (
+                    <ExportMenu busy={exporting} onExport={(format) => void handleExport(format)} />
                   )}
                 </div>
               )}

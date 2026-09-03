@@ -193,13 +193,22 @@ async def predict_rigidhitch_part(
             ocr_sku = None
 
     if ocr_sku:
-        logger.info("Part number %s read from the photograph, promoted over %s (%.3f)",
+        logger.info("Part number %s read from the photograph, replacing %s (%.3f)",
                     ocr_sku, results[0]["sku"] if results else "-", visual_best)
-        # Promoted, not substituted: the visual candidates stay on the
-        # shortlist beneath it, in order, so a misread label is still one click
-        # from the right answer.
-        others = [r for r in results if r["sku"] != ocr_sku]
-        matched = next((r for r in results if r["sku"] == ocr_sku), None)
+        # Replaces the shortlist rather than heading it.
+        #
+        # Keeping the visual candidates underneath was the first instinct - a
+        # misread label would then be one click from the right answer. It does
+        # not survive contact with the screen: a photograph of a boxed plough
+        # edge showed a certain 100% answer sitting above a toilet-tank
+        # treatment at 29%, and a client reads that as broken however the
+        # second row is labelled.
+        #
+        # It is also the wrong fallback. OCR only runs *because* the visual
+        # match came in under OCR_MAX_SCORE, so those candidates are precisely
+        # the ones the search had already declined to trust. Offering the
+        # least-trusted guesses beside a known part number is worse than
+        # offering nothing; "none of these" remains the way out.
         results = [{
             "sku": ocr_sku,
             # A printed part number is not a similarity, and inventing one
@@ -208,9 +217,7 @@ async def predict_rigidhitch_part(
             # route. The UI reads the same field either way.
             "similarity_score": 1.0,
             "matched_by": "part_number",
-        }] + others[:max(0, top_k - 1)]
-        if matched is None:
-            logger.info("OCR promoted %s, which the visual search had not returned at all", ocr_sku)
+        }]
 
     details = await catalog.get_many([r["sku"] for r in results])
     top = details.get(results[0]["sku"]) if results else None
@@ -257,9 +264,9 @@ async def predict_rigidhitch_part(
         "product": None if not_a_part else (_as_product(top) if top else None),
         "recommendation": None,
         "explanation": (
-            f"Part number {ocr_sku} was read from the label in your photograph, so this is "
-            "the product itself rather than the closest-looking one. The visual matches are "
-            "listed underneath in case the label belongs to something else in the frame."
+            f"Part number {ocr_sku} was read from the label in your photograph, so this is the "
+            "product itself rather than the closest-looking one. If the label belongs to "
+            "something else in the frame, say none of these and photograph the part alone."
             if ocr_sku else
             "This does not look like a trailer part. Try a photograph of the part alone, "
             "filling the frame, against a plain background."
